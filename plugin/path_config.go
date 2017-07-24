@@ -1,0 +1,151 @@
+package gcpauth
+
+import (
+	"errors"
+	"fmt"
+	"github.com/fatih/structs"
+	"github.com/hashicorp/vault-plugin-auth-gcp/util"
+	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/logical/framework"
+	"time"
+)
+
+const warningACLReadAccess string = "Read access to this endpoint should be controlled via ACLs as it will return the configuration information as-is, including any passwords."
+
+func pathConfig(b *GcpAuthBackend) *framework.Path {
+	return &framework.Path{
+		Pattern: "config",
+		Fields: map[string]*framework.FieldSchema{
+			"credentials": {
+				Type: framework.TypeString,
+				Description: `
+Google credentials JSON that Vault will use to verify users against GCP APIs. If not specified, will use application default credentials`,
+			},
+			"disable_tidy": {
+				Type:    framework.TypeBool,
+				Default: false,
+				Description: `
+If set to 'true', disables periodic tidying of the 'whitelist/<entity_type>/<id>' identity entries.`,
+			},
+			"tidy_buffer": {
+				Type:    framework.TypeDurationSecond,
+				Default: 259200, //72h
+				Description: `
+The amount of extra time that must have passed beyond the identity's expiration, before it is removed from the backend storage.`,
+			},
+		},
+		Callbacks: map[logical.Operation]framework.OperationFunc{
+			logical.ReadOperation:   b.pathConfigRead,
+			logical.UpdateOperation: b.pathConfigWrite,
+		},
+
+		HelpSynopsis:    confHelpSyn,
+		HelpDescription: confHelpDesc,
+	}
+}
+
+func (b *GcpAuthBackend) pathConfigWrite(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	config, err := b.config(req.Storage)
+
+	if err != nil {
+		return nil, err
+	}
+	if config == nil {
+		config = &gcpConfig{}
+	}
+
+	if err := config.Update(data); err != nil {
+		return logical.ErrorResponse(fmt.Sprintf("could not update config: %s", err)), nil
+	}
+
+	entry, err := logical.StorageEntryJSON("config", config)
+	if err != nil {
+		return nil, err
+	}
+
+	b.configMutex.Lock()
+	defer b.configMutex.Unlock()
+
+	if err := req.Storage.Put(entry); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (b *GcpAuthBackend) pathConfigRead(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	config, err := b.config(req.Storage)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil {
+		return nil, nil
+	}
+
+	resp := &logical.Response{
+		Data: structs.New(config).Map(),
+	}
+
+	resp.AddWarning(warningACLReadAccess)
+	return resp, nil
+}
+
+const confHelpSyn = `Configure credentials used to query the GCP IAM API to verify authenticating service accounts`
+const confHelpDesc = `
+The GCP IAM auth backend makes queries to the GCP IAM auth backend to verify a service account
+attempting login. It verifies the service account exists and retrieves a public key to verify
+signed JWT requests passed in on login. The credentials should have the following permissions:
+
+iam AUTH:
+* iam.serviceAccountKeys.get
+`
+
+type gcpConfig struct {
+	Credentials *util.GcpCredentials `json:"credentials" structs:"credentials" mapstructure:"credentials"`
+	TidyBuffer  time.Duration        `json:"tidy_buffer" structs:"tidy_buffer" mapstructure:"tidy_buffer"`
+	DisableTidy bool                 `json:"disable_tidy" structs:"disable_tidy" mapstructure:"disable_tidy"`
+}
+
+// Update sets gcpConfig values parsed from the FieldData.
+func (config *gcpConfig) Update(data *framework.FieldData) error {
+	credentialsJson, ok := data.GetOk("credentials")
+	if ok {
+		creds, err := util.Credentials(credentialsJson.(string))
+		if err != nil {
+			return fmt.Errorf("error reading google credentials from given JSON: %s", err)
+		}
+		if creds == nil {
+			return errors.New("google credentials not found from given JSON")
+		}
+		config.Credentials = creds
+	}
+
+	tidyBuffer, ok := data.GetOk("tidy_buffer")
+	if ok {
+		config.TidyBuffer = time.Duration(tidyBuffer.(int)) * time.Second
+	}
+
+	disableTidy, ok := data.GetOk("disable_tidy")
+	if ok {
+		config.DisableTidy = disableTidy.(bool)
+	}
+
+	return nil
+}
+
+// config reads the backend's gcpConfig from storage. This assumes the caller has already obtained the config lock.
+func (b *GcpAuthBackend) config(s logical.Storage) (*gcpConfig, error) {
+	config := &gcpConfig{}
+	entry, err := s.Get("config")
+
+	if err != nil {
+		return nil, err
+	}
+	if entry == nil {
+		return nil, nil
+	}
+
+	if err := entry.DecodeJSON(config); err != nil {
+		return nil, err
+	}
+	return config, nil
+}
