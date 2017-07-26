@@ -78,7 +78,6 @@ func Backend() *GcpAuthBackend {
 				pathTidyIdentityWhitelist(b),
 			},
 			pathsRole(b),
-			pathsRoleEditIam(b),
 			pathsIdentityWhitelist(b),
 		),
 	}

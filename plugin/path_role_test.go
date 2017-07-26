@@ -60,9 +60,59 @@ func TestRoleIam(t *testing.T) {
 		Backend:        b,
 		Steps: []logicaltest.TestStep{
 			testRoleCreate(t, roleName, dataCreate),
-			testRoleRead(t, roleName, expectedCreate),
+			testIamRoleRead(t, roleName, expectedCreate),
 			testRoleUpdate(t, roleName, dataUpdate),
-			testRoleRead(t, roleName, expectedUpdate),
+			testIamRoleRead(t, roleName, expectedUpdate),
+		},
+	})
+}
+
+func TestRoleIam_ServiceAccounts(t *testing.T) {
+	b := getTestBackend(t)
+
+	creds, err := getTestCredentials()
+	if err != nil {
+		t.Fatal(t)
+	}
+
+	stableAccounts := []string{"id1234", "test1@google.com"}
+	toRemove := []string{"toremove12345", "toremove@google.com"}
+	toAdd := []string{"toAdd34567", "toAdd@google.com"}
+
+	roleName := "testrole"
+	createAccounts := append(stableAccounts, toRemove...)
+	dataCreate := map[string]interface{}{
+		"name":             roleName,
+		"type":             "iam",
+		"project_id":       creds.ProjectId,
+		"service_accounts": strings.Join(createAccounts, ","),
+	}
+	expectedCreate := map[string]interface{}{
+		"name":             roleName,
+		"role_type":        "iam",
+		"project_name":     os.Getenv("GOOGLE_PROJECT"),
+		"service_accounts": createAccounts,
+	}
+
+	dataUpdate := map[string]interface{}{
+		"add":    strings.Join(toAdd, ","),
+		"remove": strings.Join(toRemove, ","),
+	}
+	expectedRead := map[string]interface{}{
+		"name":             roleName,
+		"role_type":        "iam",
+		"project_name":     os.Getenv("GOOGLE_PROJECT"),
+		"service_accounts": append(stableAccounts, toAdd...),
+	}
+	logicaltest.Test(t, logicaltest.TestCase{
+		AcceptanceTest: true,
+		PreCheck:       func() { testAccPreCheck(t) },
+		Backend:        b,
+		Steps: []logicaltest.TestStep{
+			testRoleCreate(t, roleName, dataCreate),
+			testIamRoleRead(t, roleName, expectedCreate),
+			testRoleUpdateServiceAccounts(t, roleName, dataUpdate),
+			testIamRoleRead(t, roleName, expectedRead),
 		},
 	})
 }
@@ -83,7 +133,15 @@ func testRoleUpdate(t *testing.T, roleName string, d map[string]interface{}) log
 	}
 }
 
-func testRoleRead(t *testing.T, roleName string, expected map[string]interface{}) logicaltest.TestStep {
+func testRoleUpdateServiceAccounts(t *testing.T, roleName string, d map[string]interface{}) logicaltest.TestStep {
+	return logicaltest.TestStep{
+		Operation: logical.UpdateOperation,
+		Path:      fmt.Sprintf("role/%s/service-accounts", roleName),
+		Data:      d,
+	}
+}
+
+func testIamRoleRead(t *testing.T, roleName string, expected map[string]interface{}) logicaltest.TestStep {
 	return logicaltest.TestStep{
 		Operation: logical.ReadOperation,
 		Path:      fmt.Sprintf("role/%s", roleName),
@@ -99,7 +157,6 @@ func testRoleRead(t *testing.T, roleName string, expected map[string]interface{}
 			if !strutil.EquivalentSlices(resp.Data["service_accounts"].([]string), expected["service_accounts"].([]string)) {
 				return fmt.Errorf("service_accounts mismatch, expected %v but got %v", expected["service_accounts"], resp.Data["service_accounts"])
 			}
-
 			return nil
 		},
 	}

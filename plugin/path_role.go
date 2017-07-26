@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/fatih/structs"
 	"github.com/hashicorp/vault/helper/policyutil"
+	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"strings"
@@ -100,14 +101,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 			HelpSynopsis:    pathListRolesHelpSyn,
 			HelpDescription: pathListRolesHelpDesc,
 		},
-	}
-}
-
-// pathsRole creates general paths for specifically editing service accounts on existing IAM roles.
-func pathsRoleEditIam(b *GcpAuthBackend) []*framework.Path {
-	return []*framework.Path{
-		b.pathEditServiceAccount("add-accounts", addServiceAccounts),
-		b.pathEditServiceAccount("remove-accounts", removeServiceAccounts),
+		b.pathEditServiceAccount(),
 	}
 }
 
@@ -214,6 +208,98 @@ the authorization token for the instance can access.
 
 const pathListRolesHelpSyn = `Lists all the roles that are registered with Vault.`
 const pathListRolesHelpDesc = `Lists all roles under the GCP backends by name.`
+
+// pathsRoleServiceAccount creates a path for adding or removing service accounts to/from an existing IAM role.
+func (b *GcpAuthBackend) pathEditServiceAccount() *framework.Path {
+	return &framework.Path{
+		Pattern: fmt.Sprintf("role/%s/service-accounts$", framework.GenericNameRegex("name")),
+		Fields: map[string]*framework.FieldSchema{
+			"name": {
+				Type:        framework.TypeString,
+				Description: "Name of the role.",
+			},
+			"add": {
+				Type:        framework.TypeCommaStringSlice,
+				Description: `A comma-seperated list of service accounts`,
+			},
+			"remove": {
+				Type:        framework.TypeCommaStringSlice,
+				Description: `A comma-seperated list of service accounts to remove`,
+			},
+		},
+		Callbacks: map[logical.Operation]framework.OperationFunc{
+			logical.UpdateOperation: b.pathEditServiceAccountsOperator,
+		},
+		HelpSynopsis:    pathServiceAccountHelpSyn,
+		HelpDescription: pathServiceAccountHelpDesc,
+	}
+}
+
+// pathsRoleServiceAccount returns the OperationFunc for updating a service accounts given an update function.
+func (b *GcpAuthBackend) pathEditServiceAccountsOperator(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	name := data.Get("name").(string)
+	if name == "" {
+		return logical.ErrorResponse(errEmptyRoleName), nil
+	}
+
+	role, err := b.role(req.Storage, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if role.RoleType != iamRoleType {
+		return logical.ErrorResponse(fmt.Sprintf("cannot update %s-specific attribute service accounts for role type %s", iamRoleType, role.RoleType)), nil
+	}
+
+	toAdd := data.Get("add").([]string)
+	toRemove := data.Get("remove").([]string)
+	if len(toAdd) == 0 && len(toRemove) == 0 {
+		return logical.ErrorResponse("must provide at least one service account to add or remove"), nil
+	}
+
+	addServiceAccounts(role, toAdd)
+	removeServiceAccounts(role, toRemove)
+
+	if len(role.ServiceAccounts) == 0 {
+		return logical.ErrorResponse(errEmptyIamServiceAccounts), nil
+	}
+
+	if err := b.storeRole(req.Storage, name, role); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+// updateServiceAccountsFunc is an update function for the service accounts of a role.
+type updateServiceAccountsFunc func(*gcpRole, []string)
+
+func addServiceAccounts(role *gcpRole, accounts []string) {
+	serviceAccounts := append(role.ServiceAccounts, accounts...)
+	role.ServiceAccounts = strutil.RemoveDuplicates(serviceAccounts, false)
+}
+
+func removeServiceAccounts(role *gcpRole, accounts []string) {
+	accountMap := map[string]bool{}
+	for _, name := range role.ServiceAccounts {
+		accountMap[name] = true
+	}
+
+	for _, name := range accounts {
+		delete(accountMap, name)
+	}
+
+	updatedAccounts := []string{}
+	for name := range accountMap {
+		updatedAccounts = append(updatedAccounts, name)
+	}
+
+	role.ServiceAccounts = updatedAccounts
+}
+
+const pathServiceAccountHelpSyn = `Edit service accounts associated with an existing GCP IAM role`
+const pathServiceAccountHelpDesc = `
+This special path allows a user to add, remove, or set the service accounts allowed to login for an existing
+GCP IAM role.`
 
 type gcpRole struct {
 	RoleType                string   `json:"role_type" structs:"role_type" mapstructure:"role_type"`
