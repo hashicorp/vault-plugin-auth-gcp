@@ -5,7 +5,6 @@ import (
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/logical"
-	logicaltest "github.com/hashicorp/vault/logical/testing"
 	"os"
 	"strings"
 	"testing"
@@ -13,7 +12,9 @@ import (
 )
 
 func TestRoleIam(t *testing.T) {
-	b := getTestBackend(t)
+	testAccPreCheck(t)
+
+	b, reqStorage := getTestBackend(t)
 
 	creds, err := getTestCredentials()
 	if err != nil {
@@ -22,28 +23,29 @@ func TestRoleIam(t *testing.T) {
 
 	serviceAccounts := []string{creds.ClientEmail}
 	roleName := "testrole"
-	dataCreate := map[string]interface{}{
+	testRoleCreate(t, b, reqStorage, map[string]interface{}{
 		"name":             roleName,
 		"type":             "iam",
 		"project_id":       creds.ProjectId,
 		"service_accounts": strings.Join(serviceAccounts, ","),
-	}
-	expectedCreate := map[string]interface{}{
+	})
+	testIamRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"name":             roleName,
 		"role_type":        "iam",
 		"project_name":     os.Getenv("GOOGLE_PROJECT"),
 		"service_accounts": serviceAccounts,
-	}
+	})
 
 	serviceAccounts = []string{creds.ClientEmail, "testaccount@google.com"}
-	dataUpdate := map[string]interface{}{
+	testRoleUpdate(t, b, reqStorage, map[string]interface{}{
+		"name":             roleName,
 		"policies":         "dev",
 		"ttl":              1000,
 		"max_ttl":          2000,
 		"period":           30,
 		"service_accounts": strings.Join(serviceAccounts, ","),
-	}
-	expectedUpdate := map[string]interface{}{
+	})
+	testIamRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"role_type":                "iam",
 		"project_name":             os.Getenv("GOOGLE_PROJECT"),
 		"policies":                 []string{"dev", "default"},
@@ -52,23 +54,13 @@ func TestRoleIam(t *testing.T) {
 		"max_ttl":          time.Duration(2000),
 		"period":           time.Duration(30),
 		"service_accounts": serviceAccounts,
-	}
-
-	logicaltest.Test(t, logicaltest.TestCase{
-		AcceptanceTest: true,
-		PreCheck:       func() { testAccPreCheck(t) },
-		Backend:        b,
-		Steps: []logicaltest.TestStep{
-			testRoleCreate(t, roleName, dataCreate),
-			testIamRoleRead(t, roleName, expectedCreate),
-			testRoleUpdate(t, roleName, dataUpdate),
-			testIamRoleRead(t, roleName, expectedUpdate),
-		},
 	})
 }
 
 func TestRoleIam_ServiceAccounts(t *testing.T) {
-	b := getTestBackend(t)
+	testAccPreCheck(t)
+
+	b, reqStorage := getTestBackend(t)
 
 	creds, err := getTestCredentials()
 	if err != nil {
@@ -95,6 +87,7 @@ func TestRoleIam_ServiceAccounts(t *testing.T) {
 	}
 
 	dataUpdate := map[string]interface{}{
+		"name":   roleName,
 		"add":    strings.Join(toAdd, ","),
 		"remove": strings.Join(toRemove, ","),
 	}
@@ -104,74 +97,93 @@ func TestRoleIam_ServiceAccounts(t *testing.T) {
 		"project_name":     os.Getenv("GOOGLE_PROJECT"),
 		"service_accounts": append(stableAccounts, toAdd...),
 	}
-	logicaltest.Test(t, logicaltest.TestCase{
-		AcceptanceTest: true,
-		PreCheck:       func() { testAccPreCheck(t) },
-		Backend:        b,
-		Steps: []logicaltest.TestStep{
-			testRoleCreate(t, roleName, dataCreate),
-			testIamRoleRead(t, roleName, expectedCreate),
-			testRoleUpdateServiceAccounts(t, roleName, dataUpdate),
-			testIamRoleRead(t, roleName, expectedRead),
-		},
-	})
+
+	testRoleCreate(t, b, reqStorage, dataCreate)
+	testIamRoleRead(t, b, reqStorage, roleName, expectedCreate)
+	testRoleUpdateServiceAccounts(t, b, reqStorage, dataUpdate)
+	testIamRoleRead(t, b, reqStorage, roleName, expectedRead)
+
 }
 
-func testRoleCreate(t *testing.T, roleName string, d map[string]interface{}) logicaltest.TestStep {
-	return logicaltest.TestStep{
+func testRoleCreate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.CreateOperation,
-		Path:      fmt.Sprintf("role/%s", roleName),
+		Path:      fmt.Sprintf("role/%s", d["name"]),
 		Data:      d,
+		Storage:   s,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.IsError() {
+		t.Fatal(resp.Error())
 	}
 }
 
-func testRoleUpdate(t *testing.T, roleName string, d map[string]interface{}) logicaltest.TestStep {
-	return logicaltest.TestStep{
+func testRoleUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.UpdateOperation,
-		Path:      fmt.Sprintf("role/%s", roleName),
+		Path:      fmt.Sprintf("role/%s", d["name"]),
 		Data:      d,
+		Storage:   s,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.IsError() {
+		t.Fatal(resp.Error())
 	}
 }
 
-func testRoleUpdateServiceAccounts(t *testing.T, roleName string, d map[string]interface{}) logicaltest.TestStep {
-	return logicaltest.TestStep{
+func testRoleUpdateServiceAccounts(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.UpdateOperation,
-		Path:      fmt.Sprintf("role/%s/service-accounts", roleName),
+		Path:      fmt.Sprintf("role/%s/service-accounts", d["name"]),
 		Data:      d,
+		Storage:   s,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.IsError() {
+		t.Fatal(resp.Error())
 	}
 }
 
-func testIamRoleRead(t *testing.T, roleName string, expected map[string]interface{}) logicaltest.TestStep {
-	return logicaltest.TestStep{
+func testIamRoleRead(t *testing.T, b logical.Backend, s logical.Storage, roleName string, expected map[string]interface{}) {
+	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.ReadOperation,
 		Path:      fmt.Sprintf("role/%s", roleName),
-		Check: func(resp *logical.Response) error {
-			if resp.IsError() {
-				return resp.Error()
-			}
+		Storage:   s,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.IsError() {
+		t.Fatal(resp.Error())
+	}
 
-			if err := testBaseRoleRead(resp, expected); err != nil {
-				return err
-			}
+	if err := testBaseRoleRead(resp, expected); err != nil {
+		t.Fatal(err)
+	}
 
-			if !strutil.EquivalentSlices(resp.Data["service_accounts"].([]string), expected["service_accounts"].([]string)) {
-				return fmt.Errorf("service_accounts mismatch, expected %v but got %v", expected["service_accounts"], resp.Data["service_accounts"])
-			}
-			return nil
-		},
+	if !strutil.EquivalentSlices(resp.Data["service_accounts"].([]string), expected["service_accounts"].([]string)) {
+		t.Fatalf("service_accounts mismatch, expected %v but got %v", expected["service_accounts"], resp.Data["service_accounts"])
 	}
 }
 
 func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) error {
-	if resp.Data["role_type"] != expected["role_type"] {
-		return fmt.Errorf("role_type mismatch, expected %s but got %s", expected["role_type"], resp.Data["role_type"])
+	expectedVal, ok := expected["role_type"]
+	if ok && resp.Data["role_type"].(string) != expectedVal.(string) {
+		return fmt.Errorf("role_type mismatch, expected %s but got %s", expectedVal, resp.Data["role_type"])
 	}
 
-	if resp.Data["project_id"] != expected["project_id"] {
-		fmt.Errorf("project_id mismatch, expected %s but got %s", expected["disable_tidy"], resp.Data["disable_tidy"])
+	expectedVal, ok = expected["project_id"]
+	if ok && resp.Data["project_id"].(string) != expectedVal.(string) {
+		return fmt.Errorf("project_id mismatch, expected %s but got %s", expectedVal, resp.Data["project_id"])
 	}
 
-	expectedVal, ok := expected["policies"]
+	expectedVal, ok = expected["policies"]
 	if !ok {
 		expectedVal = []string{"default"}
 	}
