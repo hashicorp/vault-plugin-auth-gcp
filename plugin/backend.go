@@ -62,7 +62,7 @@ func Backend() *GcpAuthBackend {
 	}
 
 	b.Backend = &framework.Backend{
-		//BackendType:  logical.TypeCredential,
+		BackendType:  logical.TypeCredential,
 		PeriodicFunc: b.periodicFunc,
 		AuthRenew:    b.pathLoginRenew,
 		Help:         backendHelp,
