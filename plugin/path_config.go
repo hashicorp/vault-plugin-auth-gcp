@@ -100,9 +100,9 @@ iam AUTH:
 `
 
 type gcpConfig struct {
-	Credentials *util.GcpCredentials `json:"credentials" structs:"credentials" mapstructure:"credentials"`
-	TidyBuffer  time.Duration        `json:"tidy_buffer" structs:"tidy_buffer" mapstructure:"tidy_buffer"`
-	DisableTidy bool                 `json:"disable_tidy" structs:"disable_tidy" mapstructure:"disable_tidy"`
+	util.GcpCredentials
+	TidyBuffer  time.Duration `json:"tidy_buffer" structs:"tidy_buffer" mapstructure:"tidy_buffer"`
+	DisableTidy bool          `json:"disable_tidy" structs:"disable_tidy" mapstructure:"disable_tidy"`
 }
 
 // Update sets gcpConfig values parsed from the FieldData.
@@ -113,10 +113,10 @@ func (config *gcpConfig) Update(data *framework.FieldData) error {
 		if err != nil {
 			return fmt.Errorf("error reading google credentials from given JSON: %s", err)
 		}
-		if creds == nil {
+		if len(creds.PrivateKeyId) == 0 {
 			return errors.New("google credentials not found from given JSON")
 		}
-		config.Credentials = creds
+		config.GcpCredentials = creds
 	}
 
 	tidyBuffer, ok := data.GetOk("tidy_buffer")

@@ -100,14 +100,14 @@ func (b *GcpAuthBackend) initClientsFromConfig(config *gcpConfig) error {
 	var httpClient *http.Client
 	var err error
 
-	if config == nil || config.Credentials == nil {
+	if config == nil || len(config.PrivateKey) == 0 {
 		// Use Application Default Credentials
 		httpClient, err = google.DefaultClient(oauth2.NoContext, b.oauthScopes...)
 		if err != nil {
 			return fmt.Errorf("Credentials were not configured and fallback to application default credentials failed: %s", err)
 		}
 	} else {
-		httpClient, err = util.GetHttpClient(config.Credentials, b.oauthScopes...)
+		httpClient, err = util.GetHttpClient(config.GcpCredentials, b.oauthScopes...)
 		if err != nil {
 			return err
 		}

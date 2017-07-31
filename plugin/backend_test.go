@@ -86,7 +86,7 @@ func TestBackend_LoginIam(t *testing.T) {
 	testLoginError(t, b, reqStorage, loginData)
 }
 
-func testLoginIam(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, loggedInUser *util.GcpCredentials, role *gcpRole) {
+func testLoginIam(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, loggedInUser util.GcpCredentials, role *gcpRole) {
 	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "login",
@@ -171,15 +171,15 @@ func testAccPreCheck(t *testing.T) {
 	}
 }
 
-func getTestCredentials() (*util.GcpCredentials, error) {
+func getTestCredentials() (util.GcpCredentials, error) {
 	credentialsJSON := os.Getenv(googleCredentialsEnv)
 	if credentialsJSON == "" {
-		return nil, fmt.Errorf("%s must be set to JSON string of valid Google credentials file", googleCredentialsEnv)
+		return util.GcpCredentials{}, fmt.Errorf("%s must be set to JSON string of valid Google credentials file", googleCredentialsEnv)
 	}
 
 	credentials, err := util.Credentials(credentialsJSON)
 	if err != nil {
-		return nil, fmt.Errorf("Valid Google credentials JSON could not be read from %s env variable: %s", googleCredentialsEnv, err)
+		return util.GcpCredentials{}, fmt.Errorf("Valid Google credentials JSON could not be read from %s env variable: %s", googleCredentialsEnv, err)
 	}
 	return credentials, nil
 }

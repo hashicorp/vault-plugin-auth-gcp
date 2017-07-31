@@ -1,8 +1,8 @@
 package gcpauth
 
 import (
-	"github.com/fatih/structs"
 	"github.com/hashicorp/vault/logical"
+	"github.com/mitchellh/mapstructure"
 	"os"
 	"testing"
 	"time"
@@ -17,27 +17,27 @@ func TestConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	credsMap := structs.New(creds).Map()
 
 	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
 		"credentials":  credentialsJSON,
 		"disable_tidy": true,
 	})
 
-	testConfigRead(t, b, reqStorage, map[string]interface{}{
-		"credentials":  credsMap,
-		"disable_tidy": true,
-	})
+	expected := &gcpConfig{
+		GcpCredentials: creds,
+		DisableTidy:    true,
+	}
+
+	testConfigRead(t, b, reqStorage, expected)
 
 	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
-		"tidy_buffer": 100000,
+		"disable_tidy": false,
+		"tidy_buffer":  100000,
 	})
 
-	testConfigRead(t, b, reqStorage, map[string]interface{}{
-		"credentials":  credsMap,
-		"disable_tidy": true,
-		"tidy_buffer":  time.Duration(100000) * time.Second,
-	})
+	expected.DisableTidy = false
+	expected.TidyBuffer = time.Duration(100000) * time.Second
+	testConfigRead(t, b, reqStorage, expected)
 }
 
 func testConfigUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
@@ -55,7 +55,7 @@ func testConfigUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[
 	}
 }
 
-func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected map[string]interface{}) {
+func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected *gcpConfig) {
 	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.ReadOperation,
 		Path:      "config",
@@ -68,29 +68,21 @@ func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected
 		t.Fatal(resp.Error())
 	}
 
-	for k, expectedV := range expected["credentials"].(map[string]interface{}) {
-		actualV, ok := (resp.Data["credentials"]).(map[string]interface{})[k]
-		if !ok {
-			t.Fatalf("expected credentials field '%s' not found in actual result", k)
-		} else if actualV != expectedV {
-			t.Fatalf("credentials '%s' mismatch, expected %s but got %s", k, expectedV, actualV)
-		}
+	actual := &gcpConfig{}
+	if err := mapstructure.WeakDecode(resp.Data, actual); err != nil {
+		t.Fatalf("could not decode resp into gcpConfig: %s", err)
 	}
 
-	expectedVal, ok := expected["disable_tidy"]
-	if !ok {
-		expectedVal = false
-	}
-	if resp.Data["disable_tidy"] != expectedVal.(bool) {
-		t.Fatalf("disable_tidy mismatch, expected %s but got %s", expected["disable_tidy"], resp.Data["disable_tidy"])
+	if actual.GcpCredentials != expected.GcpCredentials {
+		t.Fatalf("credentials mismatch, expected:\n%v\naActual:\n%v\n", expected.GcpCredentials, actual.GcpCredentials)
 	}
 
-	expectedVal, ok = expected["tidy_buffer"]
-	if !ok {
-		expectedVal = time.Duration(0)
+	if actual.TidyBuffer != expected.TidyBuffer {
+		t.Fatalf("tidy buffer mismatch, expected:\n%v\naActual:\n%v\n", expected.TidyBuffer, actual.TidyBuffer)
 	}
-	if resp.Data["tidy_buffer"].(time.Duration) != expectedVal.(time.Duration) {
-		t.Fatalf("tidy_buffer mismatch, expected %s but got %s", expectedVal, resp.Data["tidy_buffer"])
+
+	if actual.DisableTidy != expected.DisableTidy {
+		t.Fatalf("tidy buffer mismatch, expected:\n%v\naActual:\n%v\n", expected.DisableTidy, actual.DisableTidy)
 	}
 
 	if len(resp.Warnings) != 1 || resp.Warnings[0] != warningACLReadAccess {
