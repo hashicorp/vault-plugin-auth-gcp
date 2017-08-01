@@ -191,14 +191,6 @@ func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) e
 		return fmt.Errorf("policies mismatch, expected %v but got %v", expectedVal, resp.Data["policies"])
 	}
 
-	expectedVal, ok = expected["disable_reauthentication"]
-	if !ok {
-		expectedVal = false
-	}
-	if resp.Data["disable_reauthentication"] != expectedVal {
-		return fmt.Errorf("disable_reauthentication mismatch, expected %s but got %s", expected["disable_reauthentication"], resp.Data["disable_reauthentication"])
-	}
-
 	expectedVal, ok = expected["ttl"]
 	if !ok {
 		expectedVal = time.Duration(0)

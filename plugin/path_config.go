@@ -7,7 +7,6 @@ import (
 	"github.com/hashicorp/vault-plugin-auth-gcp/util"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
-	"time"
 )
 
 const warningACLReadAccess string = "Read access to this endpoint should be controlled via ACLs as it will return the configuration information as-is, including any passwords."
@@ -20,18 +19,6 @@ func pathConfig(b *GcpAuthBackend) *framework.Path {
 				Type: framework.TypeString,
 				Description: `
 Google credentials JSON that Vault will use to verify users against GCP APIs. If not specified, will use application default credentials`,
-			},
-			"disable_tidy": {
-				Type:    framework.TypeBool,
-				Default: false,
-				Description: `
-If set to 'true', disables periodic tidying of the 'whitelist/<entity_type>/<id>' identity entries.`,
-			},
-			"tidy_buffer": {
-				Type:    framework.TypeDurationSecond,
-				Default: 259200, //72h
-				Description: `
-The amount of extra time that must have passed beyond the identity's expiration, before it is removed from the backend storage.`,
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -99,10 +86,11 @@ iam AUTH:
 * iam.serviceAccountKeys.get
 `
 
+// gcpConfig contains all config required for the GCP backend.
+// Currently it only holds credentials, but we are leaving it as a seperate
+// struct in case we add more fields in the future.
 type gcpConfig struct {
 	util.GcpCredentials
-	TidyBuffer  time.Duration `json:"tidy_buffer" structs:"tidy_buffer" mapstructure:"tidy_buffer"`
-	DisableTidy bool          `json:"disable_tidy" structs:"disable_tidy" mapstructure:"disable_tidy"`
 }
 
 // Update sets gcpConfig values parsed from the FieldData.
@@ -119,20 +107,11 @@ func (config *gcpConfig) Update(data *framework.FieldData) error {
 		config.GcpCredentials = creds
 	}
 
-	tidyBuffer, ok := data.GetOk("tidy_buffer")
-	if ok {
-		config.TidyBuffer = time.Duration(tidyBuffer.(int)) * time.Second
-	}
-
-	disableTidy, ok := data.GetOk("disable_tidy")
-	if ok {
-		config.DisableTidy = disableTidy.(bool)
-	}
-
 	return nil
 }
 
-// config reads the backend's gcpConfig from storage. This assumes the caller has already obtained the config lock.
+// config reads the backend's gcpConfig from storage.
+// This assumes the caller has already obtained the backend's config lock.
 func (b *GcpAuthBackend) config(s logical.Storage) (*gcpConfig, error) {
 	config := &gcpConfig{}
 	entry, err := s.Get("config")

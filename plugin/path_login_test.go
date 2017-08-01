@@ -1,12 +1,9 @@
 package gcpauth
 
 import (
-	"fmt"
 	"github.com/hashicorp/vault-plugin-auth-gcp/util"
-	"github.com/hashicorp/vault/helper/logformat"
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/logical"
-	"github.com/mgutz/logxi/v1"
 	"google.golang.org/api/iam/v1"
 	"os"
 	"testing"
@@ -20,7 +17,7 @@ const (
 	defaultRoleNameNoLogin = "logindeniedrole"
 )
 
-func TestBackend_LoginIam(t *testing.T) {
+func TestLoginIam(t *testing.T) {
 	testAccPreCheck(t)
 	b, reqStorage := getTestBackend(t)
 
@@ -64,10 +61,9 @@ func TestBackend_LoginIam(t *testing.T) {
 	}
 	testRoleCreate(t, b, reqStorage, roleData)
 	expectedRole := &gcpRole{
-		RoleType:                "iam",
-		ProjectId:               creds.ProjectId,
-		Policies:                []string{"default", "dev", "prod"},
-		DisableReauthentication: false,
+		RoleType:        "iam",
+		ProjectId:       creds.ProjectId,
+		Policies:        []string{"default", "dev", "prod"},
 		TTL:             time.Duration(1800) * time.Second,
 		MaxTTL:          time.Duration(1800) * time.Second,
 		Period:          time.Duration(0),
@@ -83,6 +79,8 @@ func TestBackend_LoginIam(t *testing.T) {
 		"service_accounts": "notarealserviceaccount",
 	}
 	testRoleCreate(t, b, reqStorage, roleDataNoLogin)
+
+	loginData["role"] = defaultRoleNameNoLogin
 	testLoginError(t, b, reqStorage, loginData)
 }
 
@@ -142,44 +140,4 @@ func testLoginError(t *testing.T, b logical.Backend, s logical.Storage, d map[st
 	if !resp.IsError() {
 		t.Fatal("expected error response")
 	}
-}
-
-func getTestBackend(t *testing.T) (logical.Backend, logical.Storage) {
-	defaultLeaseTTLVal := time.Hour * 12
-	maxLeaseTTLVal := time.Hour * 24
-	b := Backend()
-
-	config := &logical.BackendConfig{
-		Logger: logformat.NewVaultLogger(log.LevelTrace),
-		System: &logical.StaticSystemView{
-			DefaultLeaseTTLVal: defaultLeaseTTLVal,
-			MaxLeaseTTLVal:     maxLeaseTTLVal,
-		},
-		StorageView: &logical.InmemStorage{},
-	}
-	err := b.Setup(config)
-	if err != nil {
-		t.Fatalf("Unable to create backend: %s", err)
-	}
-
-	return b, config.StorageView
-}
-
-func testAccPreCheck(t *testing.T) {
-	if _, err := getTestCredentials(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func getTestCredentials() (util.GcpCredentials, error) {
-	credentialsJSON := os.Getenv(googleCredentialsEnv)
-	if credentialsJSON == "" {
-		return util.GcpCredentials{}, fmt.Errorf("%s must be set to JSON string of valid Google credentials file", googleCredentialsEnv)
-	}
-
-	credentials, err := util.Credentials(credentialsJSON)
-	if err != nil {
-		return util.GcpCredentials{}, fmt.Errorf("Valid Google credentials JSON could not be read from %s env variable: %s", googleCredentialsEnv, err)
-	}
-	return credentials, nil
 }

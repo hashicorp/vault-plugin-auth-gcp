@@ -6,7 +6,6 @@ import (
 	"github.com/SermoDigital/jose/crypto"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
-	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault-plugin-auth-gcp/util"
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/helper/strutil"
@@ -77,28 +76,12 @@ func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.Fi
 		return logical.ErrorResponse("Unable to initialize GCP backend: " + err.Error()), nil
 	}
 
-	entityTypeRaw, ok := req.Auth.InternalData["entity_type"]
+	// Check role exists and allowed policies are still the same.
+	roleName, ok := req.Auth.Metadata["role"]
 	if !ok {
-		return logical.ErrorResponse("entity type not associated with auth token, invalid"), nil
+		return logical.ErrorResponse("role name metadata not associated with auth token, invalid"), nil
 	}
-	entityIdRaw, ok := req.Auth.InternalData["entity_id"]
-	if !ok {
-		return logical.ErrorResponse("entity id not associated with auth token, invalid"), nil
-	}
-
-	entityType := entityTypeRaw.(string)
-	entityId := entityIdRaw.(string)
-
-	// Whitelist identity entry should exist for renewal.
-	identity, err := b.whitelistedIdentity(req.Storage, entityType, entityId)
-	if err != nil {
-		return nil, err
-	} else if identity == nil {
-		return logical.ErrorResponse("unable to verify whitelisted identity to renew"), nil
-	}
-
-	// Get role from identity and check user can renew for role type.
-	role, err := b.role(req.Storage, identity.Role)
+	role, err := b.role(req.Storage, roleName)
 	if err != nil {
 		return nil, err
 	} else if role == nil {
@@ -106,25 +89,14 @@ func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.Fi
 	} else if !policyutil.EquivalentPolicies(role.Policies, req.Auth.Policies) {
 		return logical.ErrorResponse("policies on role '%s' have changed, cannot renew"), nil
 	}
+
 	switch role.RoleType {
 	case iamRoleType:
-		if err := b.pathIamRenew(req, identity.EntityId, role); err != nil {
+		if err := b.pathIamRenew(req, role); err != nil {
 			return logical.ErrorResponse(err.Error()), nil
 		}
 	default:
 		return nil, fmt.Errorf("unexpected role type '%s' for login renewal", role.RoleType)
-	}
-
-	// Update and save identity.
-	currentTime := time.Now()
-	maxTTL := b.System().MaxLeaseTTL()
-	if role.MaxTTL > b.System().MaxLeaseTTL() {
-		maxTTL = role.MaxTTL
-	}
-	identity.UpdatedAt = currentTime
-	identity.ExpiresAt = currentTime.Add(maxTTL)
-	if err = b.upsertIdentity(req.Storage, identity); err != nil {
-		return nil, err
 	}
 
 	// If 'Period' is set on the Role, the token should never expire.
@@ -155,7 +127,7 @@ Renewal is rejected if the role, service account, or original signing key no lon
 
 // ---- IAM login domain ----
 
-// iamLoginInfo represents the data given to Vault for logging in using the IAM method.
+// iamLoginInfo represents the data given to Vault for logging in using the IAM method.1
 type iamLoginInfo struct {
 	// ID or email of the service account.
 	serviceAccountId string
@@ -190,43 +162,13 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, data *framework.Fiel
 
 	// Validate service account can login against role.
 	if err := b.validateAgainstIAMRole(serviceAccount, role); err != nil {
-		return nil, err
-	}
-
-	identityEntry, err := b.whitelistedIdentity(req.Storage, iamEntityType, serviceAccount.UniqueId)
-
-	if identityEntry == nil {
-		identityEntry, err = b.newServiceAccountIdentity(
-			serviceAccount.UniqueId, roleName, role, loginInfo.JWT.Claims())
-	} else if role.DisableReauthentication {
-		return logical.ErrorResponse("role does not allow reauthentication"), nil
-	} else if err := b.updateIamIdentityForReauth(identityEntry, role, loginInfo.JWT.Claims()); err != nil {
-		return logical.ErrorResponse(
-			fmt.Sprintf("unable to reauthenticate: %s", err)), nil
-	}
-
-	currentTime := time.Now()
-	maxTTL := b.System().MaxLeaseTTL()
-	if role.MaxTTL > b.System().MaxLeaseTTL() {
-		maxTTL = role.MaxTTL
-	}
-
-	identityEntry.UpdatedAt = currentTime
-	identityEntry.ExpiresAt = currentTime.Add(maxTTL)
-	identityEntry.DisableReauthentication = role.DisableReauthentication && identityEntry.DisableReauthentication
-
-	if err := b.upsertIdentity(req.Storage, identityEntry); err != nil {
-		return nil, err
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	resp := &logical.Response{
 		Auth: &logical.Auth{
 			Period:   role.Period,
 			Policies: role.Policies,
-			InternalData: map[string]interface{}{
-				"entity_type": identityEntry.EntityType,
-				"entity_id":   identityEntry.EntityId,
-			},
 			Metadata: map[string]string{
 				"service_account_id":    serviceAccount.UniqueId,
 				"service_account_email": serviceAccount.Email,
@@ -240,16 +182,16 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, data *framework.Fiel
 		},
 	}
 
-	if !identityEntry.DisableReauthentication {
-		resp.Auth.Metadata["nonce"] = identityEntry.ClientNonce
-	}
-
 	return resp, nil
 }
 
-func (b *GcpAuthBackend) pathIamRenew(req *logical.Request, serviceAccountId string, role *gcpRole) error {
-	serviceAccount, err := util.ServiceAccount(b.iamClient, serviceAccountId, role.ProjectId)
+func (b *GcpAuthBackend) pathIamRenew(req *logical.Request, role *gcpRole) error {
+	serviceAccountId, ok := req.Auth.Metadata["service_account_id"]
+	if !ok {
+		return errors.New("service account id metadata not associated with auth token, invalid")
+	}
 
+	serviceAccount, err := util.ServiceAccount(b.iamClient, serviceAccountId, role.ProjectId)
 	if err != nil {
 		return fmt.Errorf("cannot find service account %s", serviceAccountId)
 	}
@@ -326,7 +268,7 @@ func (b *GcpAuthBackend) verifiedServiceAccount(loginInfo *iamLoginInfo, role *g
 		},
 	}
 	if err = loginInfo.JWT.Validate(pubKey, loginInfo.signingMethod, jwtValidator); err != nil {
-		return nil, fmt.Errorf("invalid jwt: %s", err)
+		return nil, fmt.Errorf("invalid service account JWT: %s", err)
 	}
 
 	return util.ServiceAccount(b.iamClient, loginInfo.serviceAccountId, role.ProjectId)
@@ -341,55 +283,4 @@ func (b *GcpAuthBackend) validateAgainstIAMRole(serviceAccount *iam.ServiceAccou
 
 	return fmt.Errorf("service account %s (id: %s) is not authorized for role",
 		serviceAccount.Email, serviceAccount.UniqueId)
-}
-
-// newServiceAccountIdentity creates a new whitelist identity entry for a service account.
-func (b *GcpAuthBackend) newServiceAccountIdentity(
-	uniqueId, roleName string, role *gcpRole, claims jwt.Claims) (*whitelistIdentity, error) {
-	tokenExp, ok := claims.Expiration()
-	if !ok {
-		return nil, errors.New("'exp' claim is required for service account JWT")
-	}
-	nonce, ok := claims.JWTID()
-	if role.DisableReauthentication {
-		nonce = ""
-	} else if !ok {
-		var err error
-		nonce, err = uuid.GenerateUUID()
-		if err != nil {
-			return nil, errors.New("failed to generate random nonce")
-		}
-	}
-
-	identityEntry := &whitelistIdentity{
-		Role:        roleName,
-		EntityId:    uniqueId,
-		ClientNonce: nonce,
-		TokenExp:    tokenExp,
-		EntityType:  iamEntityType,
-	}
-	return identityEntry, nil
-}
-
-// updateIamReauthenticatedIdentity checks that an IAM service account identity can be reauthenticated.
-// It will update the iam-specific fields for the whitelist identity, or returns an error if reauth is not allowed.
-func (b *GcpAuthBackend) updateIamIdentityForReauth(identity *whitelistIdentity, role *gcpRole, claims jwt.Claims) error {
-	if identity.DisableReauthentication {
-		return errors.New("reauthentication disabled for this identity")
-	}
-
-	jwtId, ok := claims.JWTID()
-	if !ok {
-		return errors.New("missing required nonce in JWT 'jti' field for reauthentication")
-	} else if identity.ClientNonce != jwtId {
-		return errors.New("client nonce mismatch")
-	}
-
-	tokenExp, ok := claims.Expiration()
-	if !ok || tokenExp.Before(identity.TokenExp) {
-		return errors.New("JWT `exp` must be equal to or after previous token expiration")
-	}
-	identity.TokenExp = tokenExp
-
-	return nil
 }

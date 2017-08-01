@@ -41,11 +41,6 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 					Type:        framework.TypeString,
 					Description: `The name of the project for service accounts allowed to authenticate to this role`,
 				},
-				"disable_reauthentication": {
-					Type:        framework.TypeBool,
-					Default:     false,
-					Description: `If true, indicates that an authenticating entity (based on role type) cannot reauthenticate. Defaults to false.`,
-				},
 				// Token Limits
 				"ttl": {
 					Type:        framework.TypeDurationSecond,
@@ -302,10 +297,9 @@ This special path allows a user to add, remove, or set the service accounts allo
 GCP IAM role.`
 
 type gcpRole struct {
-	RoleType                string   `json:"role_type" structs:"role_type" mapstructure:"role_type"`
-	ProjectId               string   `json:"project_id" structs:"project_id" mapstructure:"project_id"`
-	Policies                []string `json:"policies" structs:"policies" mapstructure:"policies"`
-	DisableReauthentication bool     `json:"disable_reauthentication" structs:"disable_reauthentication" mapstructure:"disable_reauthentication"`
+	RoleType  string   `json:"role_type" structs:"role_type" mapstructure:"role_type"`
+	ProjectId string   `json:"project_id" structs:"project_id" mapstructure:"project_id"`
+	Policies  []string `json:"policies" structs:"policies" mapstructure:"policies"`
 
 	TTL    time.Duration `json:"ttl" structs:"ttl" mapstructure:"ttl"`
 	MaxTTL time.Duration `json:"max_ttl" structs:"max_ttl" mapstructure:"max_ttl"`
@@ -337,14 +331,6 @@ func (b *GcpAuthBackend) updateRole(role *gcpRole, op logical.Operation, data *f
 	}
 	if role.ProjectId == "" {
 		return nil, errors.New("role cannot have empty project name")
-	}
-
-	// Update flag to disable reauthentication.
-	disableAuthentication, ok := data.GetOk("disable_reauthentication")
-	if ok {
-		role.DisableReauthentication = disableAuthentication.(bool)
-	} else if op == logical.CreateOperation {
-		role.DisableReauthentication = false
 	}
 
 	// Update token TTL.
