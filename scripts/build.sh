@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-TOOL=vault-plugin-gcp-auth
+TOOL=vault-plugin-auth-gcp
 #
 # This script builds the application from source for multiple platforms.
 set -e
