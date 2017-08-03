@@ -9,9 +9,7 @@ import (
 )
 
 func TestConfig(t *testing.T) {
-	testAccPreCheck(t)
 	b, reqStorage := getTestBackend(t)
-
 	creds := util.GcpCredentials{
 		ClientEmail:  "testUser@google.com",
 		ClientId:     "user123",
@@ -70,6 +68,11 @@ func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	if resp == nil && expected == nil {
+		return
+	}
+
 	if resp.IsError() {
 		t.Fatal(resp.Error())
 	}

@@ -21,16 +21,16 @@ type GcpCredentials struct {
 }
 
 // Credentials attempts to parse GcpCredentials from a JSON string.
-func Credentials(credentialsJson string) (GcpCredentials, error) {
-	credentials := GcpCredentials{}
+func Credentials(credentialsJson string) (*GcpCredentials, error) {
+	credentials := &GcpCredentials{}
 	if err := json.Unmarshal([]byte(credentialsJson), &credentials); err != nil {
-		return GcpCredentials{}, err
+		return nil, err
 	}
 	return credentials, nil
 }
 
 // GetHttpClient creates an HTTP client from the given Google credentials and scopes.
-func GetHttpClient(credentials GcpCredentials, clientScopes ...string) (*http.Client, error) {
+func GetHttpClient(credentials *GcpCredentials, clientScopes ...string) (*http.Client, error) {
 	conf := jwt.Config{
 		Email:      credentials.ClientEmail,
 		PrivateKey: []byte(credentials.PrivateKey),

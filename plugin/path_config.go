@@ -104,7 +104,7 @@ func (config *gcpConfig) Update(data *framework.FieldData) error {
 		if len(creds.PrivateKeyId) == 0 {
 			return errors.New("google credentials not found from given JSON")
 		}
-		config.GcpCredentials = creds
+		config.GcpCredentials = *creds
 	}
 
 	return nil

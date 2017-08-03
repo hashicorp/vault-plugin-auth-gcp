@@ -12,8 +12,6 @@ import (
 )
 
 func TestRoleIam(t *testing.T) {
-	testAccPreCheck(t)
-
 	b, reqStorage := getTestBackend(t)
 
 	creds, err := getTestCredentials()
@@ -58,8 +56,6 @@ func TestRoleIam(t *testing.T) {
 }
 
 func TestRoleIam_ServiceAccounts(t *testing.T) {
-	testAccPreCheck(t)
-
 	b, reqStorage := getTestBackend(t)
 
 	creds, err := getTestCredentials()
@@ -102,7 +98,6 @@ func TestRoleIam_ServiceAccounts(t *testing.T) {
 	testIamRoleRead(t, b, reqStorage, roleName, expectedCreate)
 	testRoleUpdateServiceAccounts(t, b, reqStorage, dataUpdate)
 	testIamRoleRead(t, b, reqStorage, roleName, expectedRead)
-
 }
 
 func testRoleCreate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {

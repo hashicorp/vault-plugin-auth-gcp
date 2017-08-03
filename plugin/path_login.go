@@ -143,8 +143,6 @@ type iamLoginInfo struct {
 }
 
 func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, data *framework.FieldData, role *gcpRole) (*logical.Response, error) {
-	roleName := data.Get("role").(string)
-
 	loginInfo, err := b.parseIamLoginInfo(data)
 	if err != nil {
 		return logical.ErrorResponse(
@@ -172,7 +170,7 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, data *framework.Fiel
 			Metadata: map[string]string{
 				"service_account_id":    serviceAccount.UniqueId,
 				"service_account_email": serviceAccount.Email,
-				"role":                  roleName,
+				"role":                  data.Get("role").(string),
 			},
 			DisplayName: serviceAccount.Email,
 			LeaseOptions: logical.LeaseOptions{
