@@ -1,9 +1,10 @@
 package util
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/vault/helper/jsonutil"
 	"google.golang.org/api/iam/v1"
+	"time"
 )
 
 const (
@@ -13,12 +14,13 @@ const (
 )
 
 func ServiceAccountLoginJwt(
-	iamClient *iam.Service, aud, project, serviceAccount string) (*iam.SignJwtResponse, error) {
+	iamClient *iam.Service, exp time.Time, aud, project, serviceAccount string) (*iam.SignJwtResponse, error) {
 	accountResource := fmt.Sprintf(serviceAccountTemplate, project, serviceAccount)
 
-	payload, err := jsonutil.EncodeJSON(map[string]string{
+	payload, err := json.Marshal(map[string]interface{}{
 		"sub": serviceAccount,
 		"aud": aud,
+		"exp": exp.Unix(),
 	})
 	if err != nil {
 		return nil, err

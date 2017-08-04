@@ -41,6 +41,11 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 					Type:        framework.TypeString,
 					Description: `The name of the project for service accounts allowed to authenticate to this role`,
 				},
+				"max_jwt_exp": {
+					Type:        framework.TypeDurationSecond,
+					Default:     defaultJwtExpMin * 3600,
+					Description: `Duration in seconds from time of validation that a JWT must expire within.`,
+				},
 				// Token Limits
 				"ttl": {
 					Type:        framework.TypeDurationSecond,
@@ -145,9 +150,10 @@ func (b *GcpAuthBackend) pathRoleRead(req *logical.Request, data *framework.Fiel
 	roleMap := structs.New(role).Map()
 
 	// Display all the durations in seconds
-	roleMap["ttl"] = role.TTL / time.Second
-	roleMap["max_ttl"] = role.MaxTTL / time.Second
-	roleMap["period"] = role.Period / time.Second
+	roleMap["max_jwt_exp"] = int(role.MaxJwtExp / time.Second)
+	roleMap["ttl"] = int(role.TTL / time.Second)
+	roleMap["max_ttl"] = int(role.MaxTTL / time.Second)
+	roleMap["period"] = int(role.Period / time.Second)
 
 	resp := &logical.Response{
 		Data: roleMap,
@@ -172,7 +178,7 @@ func (b *GcpAuthBackend) pathRoleCreateUpdate(req *logical.Request, data *framew
 		role = &gcpRole{}
 	}
 
-	resp, err := b.updateRole(role, req.Operation, data)
+	resp, err := role.updateRole(b.System(), req.Operation, data)
 
 	if err := b.storeRole(req.Storage, name, role); err != nil {
 		return nil, err
@@ -291,132 +297,6 @@ func removeServiceAccounts(role *gcpRole, accounts []string) {
 	role.ServiceAccounts = updatedAccounts
 }
 
-const pathServiceAccountHelpSyn = `Edit service accounts associated with an existing GCP IAM role`
-const pathServiceAccountHelpDesc = `
-This special path allows a user to add, remove, or set the service accounts allowed to login for an existing
-GCP IAM role.`
-
-type gcpRole struct {
-	RoleType  string   `json:"role_type" structs:"role_type" mapstructure:"role_type"`
-	ProjectId string   `json:"project_id" structs:"project_id" mapstructure:"project_id"`
-	Policies  []string `json:"policies" structs:"policies" mapstructure:"policies"`
-
-	TTL    time.Duration `json:"ttl" structs:"ttl" mapstructure:"ttl"`
-	MaxTTL time.Duration `json:"max_ttl" structs:"max_ttl" mapstructure:"max_ttl"`
-	Period time.Duration `json:"period" structs:"period" mapstructure:"period"`
-
-	// IAM-specific attributes
-	ServiceAccounts []string `json:"service_accounts" structs:"service_accounts" mapstructure:"service_accounts"`
-}
-
-// Update updates the given role with values parsed/validated from given FieldData.
-// The response is only used to pass back warnings. If there is an error in updating, it is returned in the error field.
-func (b *GcpAuthBackend) updateRole(role *gcpRole, op logical.Operation, data *framework.FieldData) (*logical.Response, error) {
-	warnResp := &logical.Response{}
-
-	if role == nil {
-		return nil, errors.New("role expected to be created before update")
-	}
-
-	// Update policies.
-	role.Policies = policyutil.ParsePolicies(data.Get("policies").(string))
-	if len(role.Policies) == 0 {
-		return nil, errors.New("role must have at least one bound policy")
-	}
-
-	// Update GCP project name.
-	projectNameRaw, ok := data.GetOk("project_id")
-	if ok {
-		role.ProjectId = projectNameRaw.(string)
-	}
-	if role.ProjectId == "" {
-		return nil, errors.New("role cannot have empty project name")
-	}
-
-	// Update token TTL.
-	ttlRaw, ok := data.GetOk("ttl")
-	if ok {
-		role.TTL = time.Duration(ttlRaw.(int)) * time.Second
-		defaultLeaseTTL := b.System().DefaultLeaseTTL()
-		if role.TTL > defaultLeaseTTL {
-			warnResp.AddWarning(fmt.Sprintf(
-				"Given ttl of %d seconds greater than current mount/system default of %d seconds; ttl will be capped at login time",
-				role.TTL/time.Second, defaultLeaseTTL/time.Second))
-		}
-	} else if op == logical.CreateOperation {
-		role.TTL = time.Duration(data.Get("ttl").(int)) * time.Second
-	}
-
-	// Update token Max TTL.
-	maxTTLInt, ok := data.GetOk("max_ttl")
-	if ok {
-		role.MaxTTL = time.Duration(maxTTLInt.(int)) * time.Second
-		systemMaxTTL := b.System().MaxLeaseTTL()
-		if role.MaxTTL > systemMaxTTL {
-			warnResp.AddWarning(fmt.Sprintf(
-				"Given max_ttl of %d seconds greater than current mount/system default of %d seconds; max_ttl will be capped at login time",
-				role.MaxTTL/time.Second, systemMaxTTL/time.Second))
-		}
-	} else if op == logical.CreateOperation {
-		role.MaxTTL = time.Duration(data.Get("max_ttl").(int)) * time.Second
-	}
-	if role.MaxTTL < time.Duration(0) {
-		return nil, errors.New("max_ttl cannot be negative")
-	}
-	if role.MaxTTL != 0 && role.MaxTTL < role.TTL {
-		return nil, errors.New("ttl should be shorter than max_ttl")
-	}
-
-	// Update token period.
-	periodRaw, ok := data.GetOk("period")
-	if ok {
-		role.Period = time.Second * time.Duration(periodRaw.(int))
-	} else if op == logical.CreateOperation {
-		role.Period = time.Second * time.Duration(data.Get("period").(int))
-	}
-	if role.Period > b.System().MaxLeaseTTL() {
-		fmt.Errorf("'period' of '%s' is greater than the backend's maximum lease TTL of '%s'", role.Period.String(), b.System().MaxLeaseTTL().String())
-	}
-
-	// Set role type and update fields specific to this type
-	roleTypeRaw, ok := data.GetOk("type")
-	if ok {
-		if op == logical.UpdateOperation {
-			return nil, errors.New("role type cannot be changed for an existing role")
-		}
-		role.RoleType = roleTypeRaw.(string)
-	} else if op == logical.CreateOperation {
-		return nil, errors.New("role type must be provided for a new role")
-	}
-
-	switch role.RoleType {
-	case iamRoleType:
-		if err := role.updateIamFields(data); err != nil {
-			return nil, err
-		}
-	default:
-		return nil, fmt.Errorf("role type '%s' is not supported", role.RoleType)
-	}
-
-	if len(warnResp.Warnings) == 0 {
-		warnResp = nil
-	}
-	return warnResp, nil
-}
-
-// updateIamFields updates IAM-role-only fields
-func (role *gcpRole) updateIamFields(data *framework.FieldData) error {
-	serviceAccountsRaw, ok := data.GetOk("service_accounts")
-	if ok {
-		role.ServiceAccounts = strings.Split(serviceAccountsRaw.(string), ",")
-	}
-	if len(role.ServiceAccounts) == 0 {
-		return errors.New(errEmptyIamServiceAccounts)
-	}
-
-	return nil
-}
-
 // role reads a gcpRole from storage. This assumes the caller has already obtained the role lock.
 func (b *GcpAuthBackend) role(s logical.Storage, name string) (*gcpRole, error) {
 	entry, err := s.Get(fmt.Sprintf("role/%s", strings.ToLower(name)))
@@ -445,3 +325,156 @@ func (b *GcpAuthBackend) storeRole(s logical.Storage, roleName string, role *gcp
 
 	return s.Put(entry)
 }
+
+type gcpRole struct {
+	// Type of this role. See path_role constants for currently supported types.
+	RoleType string `json:"role_type" structs:"role_type" mapstructure:"role_type"`
+
+	// Project ID in GCP for authorized entities.
+	ProjectId string `json:"project_id" structs:"project_id" mapstructure:"project_id"`
+
+	// Policies for Vault to assign to authorized entities.
+	Policies []string `json:"policies" structs:"policies" mapstructure:"policies"`
+
+	// MaxJwtExp is the duration from time of authentication that a JWT used to authenticate to role must expire within.
+	MaxJwtExp time.Duration `json:"max_jwt_exp" structs:"max_jwt_exp" mapstructure:"max_jwt_exp"`
+
+	// TTL of Vault auth leases under this role.
+	TTL time.Duration `json:"ttl" structs:"ttl" mapstructure:"ttl"`
+
+	// Max total TTL including renewals, of Vault auth leases under this role.
+	MaxTTL time.Duration `json:"max_ttl" structs:"max_ttl" mapstructure:"max_ttl"`
+
+	// Period, If set, indicates that this token should not expire and
+	// should be automatically renewed within this time period
+	// with TTL equal to this value.
+	Period time.Duration `json:"period" structs:"period" mapstructure:"period"`
+
+	// IAM-specific attributes
+	ServiceAccounts []string `json:"service_accounts" structs:"service_accounts" mapstructure:"service_accounts"`
+}
+
+// Update updates the given role with values parsed/validated from given FieldData.
+// The response is only used to pass back warnings. If there is an error in updating, it is returned in the error field.
+func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, data *framework.FieldData) (warnResp *logical.Response, err error) {
+	warnResp = &logical.Response{}
+
+	if role == nil {
+		return nil, errors.New("role expected to be created before update")
+	}
+
+	// Update policies.
+	role.Policies = policyutil.ParsePolicies(data.Get("policies").(string))
+	if len(role.Policies) == 0 {
+		return nil, errors.New("role must have at least one bound policy")
+	}
+
+	// Update GCP project id.
+	projectIdRaw, ok := data.GetOk("project_id")
+	if ok {
+		role.ProjectId = projectIdRaw.(string)
+	}
+	if role.ProjectId == "" {
+		return nil, errors.New("role cannot have empty project name")
+	}
+
+	// Update max JWT exp duration.
+	maxJwtExp, ok := data.GetOk("max_jwt_exp")
+	if ok {
+		role.MaxJwtExp = time.Duration(maxJwtExp.(int)) * time.Second
+	} else {
+		role.MaxJwtExp = time.Duration(defaultJwtExpMin) * time.Minute
+	}
+
+	if role.MaxJwtExp > time.Hour {
+		return nil, errors.New("max_jwt_exp cannot be more than one hour")
+	}
+
+	// Update token TTL.
+	ttlRaw, ok := data.GetOk("ttl")
+	if ok {
+		role.TTL = time.Duration(ttlRaw.(int)) * time.Second
+		defaultLeaseTTL := sys.DefaultLeaseTTL()
+		if role.TTL > defaultLeaseTTL {
+			warnResp.AddWarning(fmt.Sprintf(
+				"Given ttl of %d seconds greater than current mount/system default of %d seconds; ttl will be capped at login time",
+				role.TTL/time.Second, defaultLeaseTTL/time.Second))
+		}
+	} else if op == logical.CreateOperation {
+		role.TTL = time.Duration(data.Get("ttl").(int)) * time.Second
+	}
+
+	// Update token Max TTL.
+	maxTTLRaw, ok := data.GetOk("max_ttl")
+	if ok {
+		role.MaxTTL = time.Duration(maxTTLRaw.(int)) * time.Second
+		systemMaxTTL := sys.MaxLeaseTTL()
+		if role.MaxTTL > systemMaxTTL {
+			warnResp.AddWarning(fmt.Sprintf(
+				"Given max_ttl of %d seconds greater than current mount/system default of %d seconds; max_ttl will be capped at login time",
+				role.MaxTTL/time.Second, systemMaxTTL/time.Second))
+		}
+	} else if op == logical.CreateOperation {
+		role.MaxTTL = time.Duration(data.Get("max_ttl").(int)) * time.Second
+	}
+	if role.MaxTTL < time.Duration(0) {
+		return nil, errors.New("max_ttl cannot be negative")
+	}
+	if role.MaxTTL != 0 && role.MaxTTL < role.TTL {
+		return nil, errors.New("ttl should be shorter than max_ttl")
+	}
+
+	// Update token period.
+	periodRaw, ok := data.GetOk("period")
+	if ok {
+		role.Period = time.Second * time.Duration(periodRaw.(int))
+	} else if op == logical.CreateOperation {
+		role.Period = time.Second * time.Duration(data.Get("period").(int))
+	}
+	if role.Period > sys.MaxLeaseTTL() {
+		fmt.Errorf("'period' of '%s' is greater than the backend's maximum lease TTL of '%s'", role.Period.String(), sys.MaxLeaseTTL().String())
+	}
+
+	// Set role type and update fields specific to this type
+	roleTypeRaw, ok := data.GetOk("type")
+	if ok {
+		if op == logical.UpdateOperation {
+			return nil, errors.New("role type cannot be changed for an existing role")
+		}
+		role.RoleType = roleTypeRaw.(string)
+	} else if op == logical.CreateOperation {
+		return nil, errors.New("role type must be provided for a new role")
+	}
+
+	switch role.RoleType {
+	case iamRoleType:
+		if err := role.updateIamFields(data); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("role type '%s' is not supported", role.RoleType)
+	}
+
+	if len(warnResp.Warnings) == 0 {
+		warnResp = nil
+	}
+	return warnResp, nil
+}
+
+// updateIamFields updates IAM-only fields for a role.
+func (role *gcpRole) updateIamFields(data *framework.FieldData) error {
+	serviceAccountsRaw, ok := data.GetOk("service_accounts")
+	if ok {
+		role.ServiceAccounts = strings.Split(serviceAccountsRaw.(string), ",")
+	}
+	if len(role.ServiceAccounts) == 0 {
+		return errors.New(errEmptyIamServiceAccounts)
+	}
+
+	return nil
+}
+
+const pathServiceAccountHelpSyn = `Edit service accounts associated with an existing GCP IAM role`
+const pathServiceAccountHelpDesc = `
+This special path allows a user to add, remove, or set the service accounts allowed to login for an existing
+GCP IAM role.`

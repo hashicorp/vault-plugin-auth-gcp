@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestRoleIam(t *testing.T) {
@@ -41,16 +40,19 @@ func TestRoleIam(t *testing.T) {
 		"ttl":              1000,
 		"max_ttl":          2000,
 		"period":           30,
+		"max_jwt_exp":      1200, // 20 minutes
 		"service_accounts": strings.Join(serviceAccounts, ","),
 	})
+
 	testIamRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"role_type":                "iam",
 		"project_name":             os.Getenv("GOOGLE_PROJECT"),
 		"policies":                 []string{"dev", "default"},
 		"disable_reauthentication": false,
-		"ttl":              time.Duration(1000),
-		"max_ttl":          time.Duration(2000),
-		"period":           time.Duration(30),
+		"ttl":              1000,
+		"max_ttl":          2000,
+		"period":           30,
+		"max_jwt_exp":      1200,
 		"service_accounts": serviceAccounts,
 	})
 }
@@ -186,28 +188,36 @@ func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) e
 		return fmt.Errorf("policies mismatch, expected %v but got %v", expectedVal, resp.Data["policies"])
 	}
 
+	expectedVal, ok = expected["max_jwt_exp"]
+	if !ok {
+		expectedVal = int(defaultJwtExpMin * 60)
+	}
+	if resp.Data["max_jwt_exp"] != expectedVal {
+		return fmt.Errorf("max_jwt_exp mismatch, expected %d but got %d", expectedVal, resp.Data["max_jwt_exp"])
+	}
+
 	expectedVal, ok = expected["ttl"]
 	if !ok {
-		expectedVal = time.Duration(0)
+		expectedVal = 0
 	}
 	if resp.Data["ttl"] != expectedVal {
-		return fmt.Errorf("ttl mismatch, expected %s but got %s", expectedVal, resp.Data["ttl"])
+		return fmt.Errorf("ttl mismatch, expected %d but got %d", expectedVal, resp.Data["ttl"])
 	}
 
 	expectedVal, ok = expected["max_ttl"]
 	if !ok {
-		expectedVal = time.Duration(0)
+		expectedVal = 0
 	}
 	if resp.Data["max_ttl"] != expectedVal {
-		return fmt.Errorf("max_ttl mismatch, expected %s but got %s", expectedVal, resp.Data["max_ttl"])
+		return fmt.Errorf("max_ttl mismatch, expected %d but got %d", expectedVal, resp.Data["max_ttl"])
 	}
 
 	expectedVal, ok = expected["period"]
 	if !ok {
-		expectedVal = time.Duration(0)
+		expectedVal = 0
 	}
 	if resp.Data["period"] != expectedVal {
-		return fmt.Errorf("period mismatch, expected %s but got %s", expectedVal, resp.Data["period"])
+		return fmt.Errorf("period mismatch, expected %d but got %d", expectedVal, resp.Data["period"])
 	}
 	return nil
 }

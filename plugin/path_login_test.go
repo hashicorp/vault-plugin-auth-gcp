@@ -1,6 +1,7 @@
 package gcpauth
 
 import (
+	"fmt"
 	"github.com/SermoDigital/jose/crypto"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/hashicorp/vault-plugin-auth-gcp/util"
@@ -40,10 +41,10 @@ func TestLoginIam(t *testing.T) {
 		"max_ttl":          1800,
 	})
 
-	jwtVal := getTestIamToken(t, creds)
+	jwtVal := getTestIamToken(t, creds, time.Now().Add(time.Duration(defaultJwtExpMin-5)*time.Minute))
 	loginData := map[string]interface{}{
-		"role":       roleName,
-		"signed_jwt": jwtVal,
+		"role": roleName,
+		"jwt":  jwtVal,
 	}
 
 	metadata := map[string]string{
@@ -85,10 +86,10 @@ func TestLoginIam_UnauthorizedRole(t *testing.T) {
 		"service_accounts": "notarealserviceaccount",
 	})
 
-	jwtVal := getTestIamToken(t, creds)
+	jwtVal := getTestIamToken(t, creds, time.Now().Add(time.Duration(defaultJwtExpMin-5)*time.Minute))
 	loginData := map[string]interface{}{
-		"role":       roleName,
-		"signed_jwt": jwtVal,
+		"role": roleName,
+		"jwt":  jwtVal,
 	}
 
 	testLoginError(t, b, reqStorage, loginData, []string{
@@ -113,9 +114,9 @@ func TestLoginIam_MissingRole(t *testing.T) {
 	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
 		"credentials": os.Getenv(googleCredentialsEnv),
 	})
-	jwtVal := getTestIamToken(t, creds)
+	jwtVal := getTestIamToken(t, creds, time.Now().Add(time.Duration(defaultJwtExpMin-5)*time.Minute))
 	loginData := map[string]interface{}{
-		"signed_jwt": jwtVal,
+		"jwt": jwtVal,
 	}
 	testLoginError(t, b, reqStorage, loginData, []string{"role is required"})
 
@@ -155,12 +156,67 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	loginData := map[string]interface{}{
-		"role":       roleName,
-		"signed_jwt": jwtVal,
+		"role": roleName,
+		"kid":  creds.PrivateKeyId,
+		"jwt":  jwtVal,
 	}
 
-	testLoginError(t, b, reqStorage, loginData, []string{})
+	testLoginError(t, b, reqStorage, loginData, []string{
+		"invalid JWT",
+		"token is expired",
+	})
+}
+
+// TestLoginIam_JwtExpiresLate checks that we return an error response for an expired JWT.
+func TestLoginIam_JwtExpiresTime(t *testing.T) {
+	b, reqStorage := getTestBackend(t)
+
+	creds, err := getTestCredentials()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	roleName := "testrole"
+
+	maxJwtExpSeconds := 2400
+	testRoleCreate(t, b, reqStorage, map[string]interface{}{
+		"name":             roleName,
+		"type":             "iam",
+		"policies":         "dev, prod",
+		"project_id":       creds.ProjectId,
+		"service_accounts": creds.ClientEmail,
+		"max_jwt_exp":      maxJwtExpSeconds,
+	})
+
+	badExp := time.Now().Add(time.Duration(maxJwtExpSeconds+1200) * time.Second)
+	loginData := map[string]interface{}{
+		"role": roleName,
+		"jwt":  getTestIamToken(t, creds, badExp),
+	}
+
+	testLoginError(t, b, reqStorage, loginData, []string{
+		"invalid JWT",
+		fmt.Sprintf("expire within %v", time.Duration(maxJwtExpSeconds)*time.Second),
+	})
+
+	validExp := time.Now().Add(time.Duration(maxJwtExpSeconds-1200) * time.Second)
+	loginData["jwt"] = getTestIamToken(t, creds, validExp)
+
+	metadata := map[string]string{
+		"service_account_id":    creds.ClientId,
+		"service_account_email": creds.ClientEmail,
+		"role":                  roleName,
+	}
+	role := &gcpRole{
+		RoleType:        "iam",
+		ProjectId:       creds.ProjectId,
+		Policies:        []string{"default", "dev", "prod"},
+		ServiceAccounts: []string{creds.ClientEmail},
+	}
+	testLoginIam(t, b, reqStorage, loginData, metadata, role)
+
 }
 
 func testLoginIam(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, expectedMetadata map[string]string, role *gcpRole) {
@@ -230,7 +286,7 @@ func testLoginError(t *testing.T, b logical.Backend, s logical.Storage, d map[st
 	}
 }
 
-func getTestIamToken(t *testing.T, creds *util.GcpCredentials) string {
+func getTestIamToken(t *testing.T, creds *util.GcpCredentials, exp time.Time) string {
 	// Generate signed JWT to login with.
 	httpClient, err := util.GetHttpClient(creds, iam.CloudPlatformScope)
 	if err != nil {
@@ -240,7 +296,7 @@ func getTestIamToken(t *testing.T, creds *util.GcpCredentials) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signedJwtResp, err := util.ServiceAccountLoginJwt(iamClient, expectedJwtAud, creds.ProjectId, creds.ClientEmail)
+	signedJwtResp, err := util.ServiceAccountLoginJwt(iamClient, exp, expectedJwtAud, creds.ProjectId, creds.ClientEmail)
 	if err != nil {
 		t.Fatal(err)
 	}

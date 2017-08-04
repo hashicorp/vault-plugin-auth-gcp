@@ -17,6 +17,9 @@ import (
 
 const (
 	expectedJwtAud string = "auth/gcp/login"
+
+	// Default duration that JWT tokens must expire within to be accepted
+	defaultJwtExpMin int = 15
 )
 
 func pathLogin(b *GcpAuthBackend) *framework.Path {
@@ -27,11 +30,11 @@ func pathLogin(b *GcpAuthBackend) *framework.Path {
 				Type:        framework.TypeString,
 				Description: `Name of the role against which the login is being attempted. Required.`,
 			},
-			"key_id": {
+			"kid": {
 				Type:        framework.TypeString,
 				Description: `The ID of the service account key used to sign the request. If not specified, Vault will attempt to infer this from a 'kid' value in the JWT header.`,
 			},
-			"signed_jwt": {
+			"jwt": {
 				Type:        framework.TypeString,
 				Description: `A signed JWT for authenticating a service account.`,
 			},
@@ -63,9 +66,14 @@ func (b *GcpAuthBackend) pathLogin(req *logical.Request, data *framework.FieldDa
 		return logical.ErrorResponse(fmt.Sprintf("role '%s' not found", roleName)), nil
 	}
 
+	loginInfo, err := b.parseLoginInfo(data)
+	if err != nil {
+		return logical.ErrorResponse(fmt.Sprintf("Unable to parse login info from given data: %s", err)), nil
+	}
+
 	switch role.RoleType {
 	case iamRoleType:
-		return b.pathIamLogin(req, data, role)
+		return b.pathIamLogin(req, loginInfo, roleName, role)
 	default:
 		return logical.ErrorResponse(fmt.Sprintf("login against role type '%s' is unsupported", role.RoleType)), nil
 	}
@@ -109,28 +117,13 @@ func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.Fi
 	}
 }
 
-const pathLoginHelpSyn = `Authenticates Google Cloud Platform entities with Vault.`
-const pathLoginHelpDesc = `
-Authenticate Google Cloud Platform (GCP) entities.
-
-Currently supports authentication for:
-
-IAM service accounts
-=====================
-IAM service accounts can use GCP APIs or tools to sign a JSON Web Token (JWT).
-This JWT should contain the id (expected field 'client_id') or email
-(expected field 'client_email') of the authenticationg service account in its claims.
-Vault verifies the signed JWT and parses the identity of the account.
-
-Renewal is rejected if the role, service account, or original signing key no longer exists.
-`
-
-// ---- IAM login domain ----
-
-// iamLoginInfo represents the data given to Vault for logging in using the IAM method.1
-type iamLoginInfo struct {
-	// ID or email of the service account.
+// loginInfo represents the data given to Vault for logging in using the IAM method.1
+type gcpLoginInfo struct {
+	// ID or email of an IAM service account or that inferred for a GCE VM.
 	serviceAccountId string
+
+	// ID or email of an IAM service account or that inferred for a GCE VM.
+	instanceId string
 
 	// ID of the public key to verify the signed JWT.
 	keyId string
@@ -142,15 +135,100 @@ type iamLoginInfo struct {
 	JWT jwt.JWT
 }
 
-func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, data *framework.FieldData, role *gcpRole) (*logical.Response, error) {
-	loginInfo, err := b.parseIamLoginInfo(data)
+func (b *GcpAuthBackend) parseLoginInfo(data *framework.FieldData) (*gcpLoginInfo, error) {
+	loginInfo := &gcpLoginInfo{}
+	var err error
+
+	signedJwt, ok := data.GetOk("jwt")
+	if !ok {
+		return nil, errors.New("jwt argument is required")
+	}
+	signedJwtBytes := []byte(signedJwt.(string))
+
+	// Parse into JWS to get header values.
+	jwsVal, err := jws.Parse(signedJwtBytes)
 	if err != nil {
-		return logical.ErrorResponse(
-			fmt.Sprintf("unable to parse input for login against role type '%s': %s", role.RoleType, err)), nil
+		return nil, err
+	}
+	headerVal := jwsVal.Protected()
+
+	if headerVal.Has("kid") {
+		loginInfo.keyId = jwsVal.Protected().Get("kid").(string)
+	} else {
+		loginInfo.keyId = data.Get("kid").(string)
+	}
+	if loginInfo.keyId == "" {
+		return nil, errors.New("either kid must be provided or JWT must have 'kid' header value")
 	}
 
+	if headerVal.Has("alg") {
+		loginInfo.signingMethod = jws.GetSigningMethod(headerVal.Get("alg").(string))
+	} else {
+		// Default to RSA256
+		loginInfo.signingMethod = crypto.SigningMethodRS256
+	}
+
+	// Parse claims
+	loginInfo.JWT, err = jws.ParseJWT(signedJwtBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	sub, ok := loginInfo.JWT.Claims().Subject()
+	if !ok {
+		return nil, errors.New("expected 'sub' claim with service account id or email")
+	}
+	loginInfo.serviceAccountId = sub
+
+	return loginInfo, nil
+}
+
+func (info *gcpLoginInfo) validateJWT(keyPEM string, maxJwtExp time.Duration) error {
+	pubKey, err := util.PublicKey(keyPEM)
+	if err != nil {
+		return err
+	}
+
+	validator := &jwt.Validator{
+		Expected: jwt.Claims{
+			"aud": expectedJwtAud,
+		},
+		Fn: func(c jwt.Claims) error {
+			exp, ok := c.Expiration()
+			if !ok {
+				return errors.New("JWT claim 'exp' is required")
+			}
+			delta := exp.Sub(time.Now())
+			if delta > maxJwtExp {
+				return fmt.Errorf("Given JWT expires in %v minutes but must expire within %v for this role. Please generate a new token with a valid expiration.",
+					int(delta/time.Minute), maxJwtExp)
+			}
+
+			return nil
+		},
+	}
+
+	if err := info.JWT.Validate(pubKey, info.signingMethod, validator); err != nil {
+		return fmt.Errorf("invalid JWT: %s", err)
+	}
+
+	return nil
+}
+
+// ---- IAM login domain ----
+
+func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginInfo, roleName string, role *gcpRole) (*logical.Response, error) {
 	// Verify and get service account from signed JWT.
-	serviceAccount, err := b.verifiedServiceAccount(loginInfo, role)
+	key, err := util.ServiceAccountKey(b.iamClient, loginInfo.keyId, loginInfo.serviceAccountId, role.ProjectId)
+	if err != nil {
+		return logical.ErrorResponse(fmt.Sprintf("service account %s has no key with id %s", loginInfo.serviceAccountId, loginInfo.keyId)), nil
+	}
+
+	if err := loginInfo.validateJWT(key.PublicKeyData, role.MaxJwtExp); err != nil {
+		return logical.ErrorResponse(err.Error()), nil
+	}
+
+	serviceAccount, err := util.ServiceAccount(b.iamClient, loginInfo.serviceAccountId, role.ProjectId)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +248,7 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, data *framework.Fiel
 			Metadata: map[string]string{
 				"service_account_id":    serviceAccount.UniqueId,
 				"service_account_email": serviceAccount.Email,
-				"role":                  data.Get("role").(string),
+				"role":                  roleName,
 			},
 			DisplayName: serviceAccount.Email,
 			LeaseOptions: logical.LeaseOptions{
@@ -201,77 +279,6 @@ func (b *GcpAuthBackend) pathIamRenew(req *logical.Request, role *gcpRole) error
 	return nil
 }
 
-func (b *GcpAuthBackend) parseIamLoginInfo(data *framework.FieldData) (*iamLoginInfo, error) {
-	loginInfo := &iamLoginInfo{}
-	var err error
-
-	signedJwt, ok := data.GetOk("signed_jwt")
-	if !ok {
-		return nil, errors.New("signed_jwt argument is required")
-	}
-
-	signedJwtBytes := []byte(signedJwt.(string))
-
-	// Parse into JWS to get header values.
-	jwsVal, err := jws.Parse(signedJwtBytes)
-	if err != nil {
-		return nil, err
-	}
-	headerVal := jwsVal.Protected()
-
-	if headerVal.Has("kid") {
-		loginInfo.keyId = jwsVal.Protected().Get("kid").(string)
-	} else {
-		loginInfo.keyId = data.Get("key_id").(string)
-	}
-	if loginInfo.keyId == "" {
-		return nil, errors.New("either keyId or 'kid' header value in signedJwt must be provided")
-	}
-
-	if headerVal.Has("alg") {
-		loginInfo.signingMethod = jws.GetSigningMethod(headerVal.Get("alg").(string))
-	} else {
-		// Default to RSA256
-		loginInfo.signingMethod = crypto.SigningMethodRS256
-	}
-
-	// Parse claims
-	loginInfo.JWT, err = jws.ParseJWT(signedJwtBytes)
-	if err != nil {
-		return nil, err
-	}
-	sub, ok := loginInfo.JWT.Claims().Subject()
-	if !ok {
-		return nil, errors.New("signed jwt must have 'sub' claim with service account id or email")
-	}
-	loginInfo.serviceAccountId = sub
-	return loginInfo, nil
-}
-
-// verifiedServiceAccount verifies login info and fetches the authenticating service account.
-func (b *GcpAuthBackend) verifiedServiceAccount(loginInfo *iamLoginInfo, role *gcpRole) (*iam.ServiceAccount, error) {
-	key, err := util.ServiceAccountKey(b.iamClient, loginInfo.keyId, loginInfo.serviceAccountId, role.ProjectId)
-	if err != nil {
-		return nil, err
-	}
-
-	pubKey, err := util.PublicKey(key.PublicKeyData)
-	if err != nil {
-		return nil, fmt.Errorf("could not get valid public key: %s", err)
-	}
-	jwtValidator := &jwt.Validator{
-		Expected: jwt.Claims{
-			"sub": loginInfo.serviceAccountId,
-			"aud": expectedJwtAud,
-		},
-	}
-	if err = loginInfo.JWT.Validate(pubKey, loginInfo.signingMethod, jwtValidator); err != nil {
-		return nil, fmt.Errorf("invalid service account JWT: %s", err)
-	}
-
-	return util.ServiceAccount(b.iamClient, loginInfo.serviceAccountId, role.ProjectId)
-}
-
 // validateAgainstIAMRole returns an error if the given IAM service account is not authorized for the role.
 func (b *GcpAuthBackend) validateAgainstIAMRole(serviceAccount *iam.ServiceAccount, role *gcpRole) error {
 	if strutil.StrListContains(role.ServiceAccounts, serviceAccount.Email) ||
@@ -282,3 +289,19 @@ func (b *GcpAuthBackend) validateAgainstIAMRole(serviceAccount *iam.ServiceAccou
 	return fmt.Errorf("service account %s (id: %s) is not authorized for role",
 		serviceAccount.Email, serviceAccount.UniqueId)
 }
+
+const pathLoginHelpSyn = `Authenticates Google Cloud Platform entities with Vault.`
+const pathLoginHelpDesc = `
+Authenticate Google Cloud Platform (GCP) entities.
+
+Currently supports authentication for:
+
+IAM service accounts
+=====================
+IAM service accounts can use GCP APIs or tools to sign a JSON Web Token (JWT).
+This JWT should contain the id (expected field 'client_id') or email
+(expected field 'client_email') of the authenticationg service account in its claims.
+Vault verifies the signed JWT and parses the identity of the account.
+
+Renewal is rejected if the role, service account, or original signing key no longer exists.
+`
