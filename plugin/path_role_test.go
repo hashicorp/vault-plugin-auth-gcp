@@ -26,7 +26,7 @@ func TestRoleIam(t *testing.T) {
 		"project_id":       creds.ProjectId,
 		"service_accounts": strings.Join(serviceAccounts, ","),
 	})
-	testIamRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
+	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"name":             roleName,
 		"role_type":        "iam",
 		"project_name":     os.Getenv("GOOGLE_PROJECT"),
@@ -44,7 +44,7 @@ func TestRoleIam(t *testing.T) {
 		"service_accounts": strings.Join(serviceAccounts, ","),
 	})
 
-	testIamRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
+	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"role_type":                "iam",
 		"project_name":             os.Getenv("GOOGLE_PROJECT"),
 		"policies":                 []string{"dev", "default"},
@@ -97,9 +97,9 @@ func TestRoleIam_ServiceAccounts(t *testing.T) {
 	}
 
 	testRoleCreate(t, b, reqStorage, dataCreate)
-	testIamRoleRead(t, b, reqStorage, roleName, expectedCreate)
+	testRoleRead(t, b, reqStorage, roleName, expectedCreate)
 	testRoleUpdateServiceAccounts(t, b, reqStorage, dataUpdate)
-	testIamRoleRead(t, b, reqStorage, roleName, expectedRead)
+	testRoleRead(t, b, reqStorage, roleName, expectedRead)
 }
 
 func testRoleCreate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
@@ -147,7 +147,7 @@ func testRoleUpdateServiceAccounts(t *testing.T, b logical.Backend, s logical.St
 	}
 }
 
-func testIamRoleRead(t *testing.T, b logical.Backend, s logical.Storage, roleName string, expected map[string]interface{}) {
+func testRoleRead(t *testing.T, b logical.Backend, s logical.Storage, roleName string, expected map[string]interface{}) {
 	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.ReadOperation,
 		Path:      fmt.Sprintf("role/%s", roleName),
@@ -164,9 +164,22 @@ func testIamRoleRead(t *testing.T, b logical.Backend, s logical.Storage, roleNam
 		t.Fatal(err)
 	}
 
-	if !strutil.EquivalentSlices(resp.Data["service_accounts"].([]string), expected["service_accounts"].([]string)) {
-		t.Fatalf("service_accounts mismatch, expected %v but got %v", expected["service_accounts"], resp.Data["service_accounts"])
+	roleType := expected["role_type"].(string)
+	switch roleType {
+	case iamRoleType:
+		if err := testIamRoleRead(resp, expected); err != nil {
+			t.Fatal(err)
+		}
+	default:
+		t.Fatalf("unexpected role type %s for test", roleType)
 	}
+}
+
+func testIamRoleRead(resp *logical.Response, expected map[string]interface{}) error {
+	if !strutil.EquivalentSlices(resp.Data["service_accounts"].([]string), expected["service_accounts"].([]string)) {
+		return fmt.Errorf("service_accounts mismatch, expected %v but got %v", expected["service_accounts"], resp.Data["service_accounts"])
+	}
+	return nil
 }
 
 func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) error {

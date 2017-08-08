@@ -218,6 +218,9 @@ func (info *gcpLoginInfo) validateJWT(keyPEM string, maxJwtExp time.Duration) er
 // ---- IAM login domain ----
 
 func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginInfo, roleName string, role *gcpRole) (*logical.Response, error) {
+	b.clientMutex.Lock()
+	defer b.clientMutex.Unlock()
+
 	// Verify and get service account from signed JWT.
 	key, err := util.ServiceAccountKey(b.iamClient, loginInfo.keyId, loginInfo.serviceAccountId, role.ProjectId)
 	if err != nil {
@@ -267,6 +270,8 @@ func (b *GcpAuthBackend) pathIamRenew(req *logical.Request, role *gcpRole) error
 		return errors.New("service account id metadata not associated with auth token, invalid")
 	}
 
+	b.clientMutex.Lock()
+	defer b.clientMutex.Unlock()
 	serviceAccount, err := util.ServiceAccount(b.iamClient, serviceAccountId, role.ProjectId)
 	if err != nil {
 		return fmt.Errorf("cannot find service account %s", serviceAccountId)

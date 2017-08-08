@@ -20,9 +20,8 @@ type GcpAuthBackend struct {
 	// OAuth scopes for generating HTTP and GCP service clients.
 	oauthScopes []string
 
-	// Locks for guarding roles, config, and whitelists
-	roleMutex   sync.RWMutex
-	configMutex sync.RWMutex
+	// Locks for guarding service clients
+	clientMutex sync.RWMutex
 
 	// GCP service clients
 	iamClient *iam.Service
@@ -66,8 +65,8 @@ func Backend() *GcpAuthBackend {
 
 // Initialize attempts to create GCP clients from stored config.
 func (b *GcpAuthBackend) initClients(s logical.Storage) (err error) {
-	b.configMutex.RLock()
-	defer b.configMutex.RUnlock()
+	b.clientMutex.Lock()
+	defer b.clientMutex.Unlock()
 
 	config, err := b.config(s)
 	if err != nil {

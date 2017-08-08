@@ -105,9 +105,6 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 }
 
 func (b *GcpAuthBackend) pathRoleExistenceCheck(req *logical.Request, data *framework.FieldData) (bool, error) {
-	b.roleMutex.RLock()
-	defer b.roleMutex.RUnlock()
-
 	entry, err := b.role(req.Storage, data.Get("name").(string))
 	if err != nil {
 		return false, err
@@ -121,9 +118,6 @@ func (b *GcpAuthBackend) pathRoleDelete(req *logical.Request, data *framework.Fi
 		return logical.ErrorResponse(errEmptyRoleName), nil
 	}
 
-	b.roleMutex.Lock()
-	defer b.roleMutex.Unlock()
-
 	if err := req.Storage.Delete(fmt.Sprintf("role/%s", name)); err != nil {
 		return nil, err
 	}
@@ -135,9 +129,6 @@ func (b *GcpAuthBackend) pathRoleRead(req *logical.Request, data *framework.Fiel
 	if name == "" {
 		return logical.ErrorResponse(errEmptyRoleName), nil
 	}
-
-	b.roleMutex.RLock()
-	defer b.roleMutex.RUnlock()
 
 	role, err := b.role(req.Storage, name)
 	if err != nil {
@@ -166,9 +157,6 @@ func (b *GcpAuthBackend) pathRoleCreateUpdate(req *logical.Request, data *framew
 		return logical.ErrorResponse(errEmptyRoleName), nil
 	}
 
-	b.roleMutex.Lock()
-	defer b.roleMutex.Unlock()
-
 	role, err := b.role(req.Storage, name)
 	if err != nil {
 		return nil, err
@@ -187,10 +175,6 @@ func (b *GcpAuthBackend) pathRoleCreateUpdate(req *logical.Request, data *framew
 }
 
 func (b *GcpAuthBackend) pathRoleList(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-
-	b.roleMutex.RLock()
-	defer b.roleMutex.RUnlock()
-
 	roles, err := req.Storage.List("role/")
 	if err != nil {
 		return nil, err

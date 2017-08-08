@@ -50,9 +50,6 @@ func (b *GcpAuthBackend) pathConfigWrite(req *logical.Request, data *framework.F
 		return nil, err
 	}
 
-	b.configMutex.Lock()
-	defer b.configMutex.Unlock()
-
 	if err := req.Storage.Put(entry); err != nil {
 		return nil, err
 	}
