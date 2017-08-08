@@ -9,9 +9,9 @@ Currently, this plugin supports login for:
 **Please note**: We take Vault's security and our users' trust very seriously. If you believe you have found a security issue in Vault, _please responsibly disclose_ by contacting us at [security@hashicorp.com](mailto:security@hashicorp.com).
 
 ## Quick Links
--	Vault Website: https://www.vaultproject.io
--   GCP Auth BE Docs: https://www.vaultproject.io/docs/auth/gcp.html
--   Main Project Github: https://www.github.com/hashicorp/vault
+    - Vault Website: https://www.vaultproject.io
+    - GCP Auth BE Docs: https://www.vaultproject.io/docs/auth/gcp.html
+    - Main Project Github: https://www.github.com/hashicorp/vault
 
 
 ## Getting Started
