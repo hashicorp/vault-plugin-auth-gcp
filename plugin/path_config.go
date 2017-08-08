@@ -3,13 +3,12 @@ package gcpauth
 import (
 	"errors"
 	"fmt"
-	"github.com/fatih/structs"
 	"github.com/hashicorp/vault-plugin-auth-gcp/util"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
 
-const warningACLReadAccess string = "read access to this endpoint should be controlled via ACLs as it will return the configuration information as-is, including any passwords."
+const warningACLReadAccess string = "Read access to this endpoint should be controlled via ACLs as it will return the configuration information as-is, including any passwords."
 
 func pathConfig(b *GcpAuthBackend) *framework.Path {
 	return &framework.Path{
@@ -66,7 +65,13 @@ func (b *GcpAuthBackend) pathConfigRead(req *logical.Request, data *framework.Fi
 	}
 
 	resp := &logical.Response{
-		Data: structs.New(config).Map(),
+		Data: map[string]interface{}{
+			"client_email":   config.ClientEmail,
+			"client_id":      config.ClientId,
+			"private_key_id": config.PrivateKeyId,
+			"private_key":    config.PrivateKey,
+			"project_id":     config.ProjectId,
+		},
 	}
 
 	resp.AddWarning(warningACLReadAccess)
@@ -92,9 +97,9 @@ type gcpConfig struct {
 
 // Update sets gcpConfig values parsed from the FieldData.
 func (config *gcpConfig) Update(data *framework.FieldData) error {
-	credentialsJson, ok := data.GetOk("credentials")
-	if ok {
-		creds, err := util.Credentials(credentialsJson.(string))
+	credentialsJson := data.Get("credentials").(string)
+	if credentialsJson != "" {
+		creds, err := util.Credentials(credentialsJson)
 		if err != nil {
 			return fmt.Errorf("error reading google credentials from given JSON: %s", err)
 		}

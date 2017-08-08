@@ -1,21 +1,19 @@
 package gcpauth
 
 import (
-	"github.com/hashicorp/vault-plugin-auth-gcp/util"
 	"github.com/hashicorp/vault/helper/jsonutil"
 	"github.com/hashicorp/vault/logical"
-	"github.com/mitchellh/mapstructure"
 	"testing"
 )
 
 func TestConfig(t *testing.T) {
 	b, reqStorage := getTestBackend(t)
-	creds := util.GcpCredentials{
-		ClientEmail:  "testUser@google.com",
-		ClientId:     "user123",
-		PrivateKeyId: "privateKey123",
-		PrivateKey:   "iAmAPrivateKey",
-		ProjectId:    "project123",
+	creds := map[string]interface{}{
+		"client_email":   "testUser@google.com",
+		"client_id":      "user123",
+		"private_key_id": "privateKey123",
+		"private_key":    "iAmAPrivateKey",
+		"project_id":     "project123",
 	}
 
 	credJson, err := jsonutil.EncodeJSON(creds)
@@ -26,12 +24,14 @@ func TestConfig(t *testing.T) {
 		"credentials": credJson,
 	})
 
-	expected := &gcpConfig{
-		GcpCredentials: creds,
+	expected := map[string]interface{}{}
+	for k, v := range creds {
+		expected[k] = v
 	}
+
 	testConfigRead(t, b, reqStorage, expected)
 
-	creds.ProjectId = "newProjectId123"
+	creds["project_id"] = "newProjectId123"
 	credJson, err = jsonutil.EncodeJSON(creds)
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +40,7 @@ func TestConfig(t *testing.T) {
 		"credentials": credJson,
 	})
 
-	expected.ProjectId = "newProjectId123"
+	expected["project_id"] = "newProjectId123"
 	testConfigRead(t, b, reqStorage, expected)
 }
 
@@ -59,7 +59,7 @@ func testConfigUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[
 	}
 }
 
-func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected *gcpConfig) {
+func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected map[string]interface{}) {
 	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.ReadOperation,
 		Path:      "config",
@@ -77,13 +77,20 @@ func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected
 		t.Fatal(resp.Error())
 	}
 
-	actual := &gcpConfig{}
-	if err := mapstructure.WeakDecode(resp.Data, actual); err != nil {
-		t.Fatalf("could not decode resp into gcpConfig: %s", err)
+	if resp.Data["client_email"] != expected["client_email"] {
+		t.Fatalf("client_email mismatch, expected %s but actually %s", expected["client_email"], resp.Data["client_email"])
 	}
-
-	if actual.GcpCredentials != expected.GcpCredentials {
-		t.Fatalf("credentials mismatch, expected:\n%v\naActual:\n%v\n", expected.GcpCredentials, actual.GcpCredentials)
+	if resp.Data["client_id"] != expected["client_id"] {
+		t.Fatalf("client_id mismatch, expected %s but actually %s", expected["client_id"], resp.Data["client_id"])
+	}
+	if resp.Data["private_key_id"] != expected["private_key_id"] {
+		t.Fatalf("private_key_id mismatch, expected %s but actually %s", expected["private_key_id"], resp.Data["private_key_id"])
+	}
+	if resp.Data["private_key"] != expected["private_key"] {
+		t.Fatalf("private_key mismatch, expected %s but actually %s", expected["private_key"], resp.Data["private_key"])
+	}
+	if resp.Data["project_id"] != expected["project_id"] {
+		t.Fatalf("project_id mismatch, expected %s but actually %s", expected["project_id"], resp.Data["project_id"])
 	}
 
 	if len(resp.Warnings) != 1 || resp.Warnings[0] != warningACLReadAccess {
