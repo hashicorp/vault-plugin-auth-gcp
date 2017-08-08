@@ -5,10 +5,12 @@ import (
 	"github.com/hashicorp/vault-plugin-auth-gcp/util"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
+	"github.com/hashicorp/vault/version"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iam/v1"
 	"net/http"
+	"runtime"
 	"sync"
 )
 
@@ -86,11 +88,14 @@ func (b *GcpAuthBackend) initClients(s logical.Storage) (err error) {
 		}
 	}
 
+	userAgentStr := fmt.Sprintf("(%s %s) Vault/%s", runtime.GOOS, runtime.GOARCH, version.GetVersion().FullVersionNumber(true))
+
 	b.iamClient, err = iam.New(httpClient)
 	if err != nil {
 		b.Close()
 		return err
 	}
+	b.iamClient.UserAgent = userAgentStr
 
 	return nil
 }
