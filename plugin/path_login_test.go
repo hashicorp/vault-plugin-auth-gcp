@@ -16,6 +16,7 @@ import (
 
 const (
 	googleCredentialsEnv = "GOOGLE_CREDENTIALS"
+	testMountPoint       = "testgcp"
 )
 
 func TestLoginIam(t *testing.T) {
@@ -142,9 +143,9 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 		"service_accounts": creds.ClientEmail,
 	})
 
-	// Create self-signed JWT to test.
+	// Create fake self-signed JWT to test.
 	claims := jws.Claims{}
-	claims.SetAudience(expectedJwtAud)
+	claims.SetAudience(fmt.Sprintf(expectedJwtAudTemplate, testMountPoint))
 	claims.SetSubject(creds.ClientId)
 	claims.SetExpiration(time.Now().Add(-100 * time.Second))
 
@@ -221,10 +222,11 @@ func TestLoginIam_JwtExpiresTime(t *testing.T) {
 
 func testLoginIam(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, expectedMetadata map[string]string, role *gcpRole) {
 	resp, err := b.HandleRequest(&logical.Request{
-		Operation: logical.UpdateOperation,
-		Path:      "login",
-		Data:      d,
-		Storage:   s,
+		Operation:  logical.UpdateOperation,
+		Path:       "login",
+		MountPoint: testMountPoint,
+		Data:       d,
+		Storage:    s,
 	})
 
 	if err != nil {
@@ -264,10 +266,11 @@ func testLoginIam(t *testing.T, b logical.Backend, s logical.Storage, d map[stri
 
 func testLoginError(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, errorSubstrings []string) {
 	resp, err := b.HandleRequest(&logical.Request{
-		Operation: logical.UpdateOperation,
-		Path:      "login",
-		Data:      d,
-		Storage:   s,
+		Operation:  logical.UpdateOperation,
+		Path:       "login",
+		MountPoint: testMountPoint,
+		Data:       d,
+		Storage:    s,
 	})
 
 	if err != nil {
@@ -296,6 +299,8 @@ func getTestIamToken(t *testing.T, creds *util.GcpCredentials, exp time.Time) st
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	expectedJwtAud := fmt.Sprintf(expectedJwtAudTemplate, testMountPoint)
 	signedJwtResp, err := util.ServiceAccountLoginJwt(iamClient, exp, expectedJwtAud, creds.ProjectId, creds.ClientEmail)
 	if err != nil {
 		t.Fatal(err)

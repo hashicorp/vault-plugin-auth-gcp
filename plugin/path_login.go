@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	expectedJwtAud string = "auth/gcp/login"
+	expectedJwtAudTemplate string = "auth/%s/login"
 
 	// Default duration that JWT tokens must expire within to be accepted
 	defaultJwtExpMin int = 15
@@ -183,7 +183,7 @@ func (b *GcpAuthBackend) parseLoginInfo(data *framework.FieldData) (*gcpLoginInf
 	return loginInfo, nil
 }
 
-func (info *gcpLoginInfo) validateJWT(keyPEM string, maxJwtExp time.Duration) error {
+func (info *gcpLoginInfo) validateJWT(req *logical.Request, keyPEM string, maxJwtExp time.Duration) error {
 	pubKey, err := util.PublicKey(keyPEM)
 	if err != nil {
 		return err
@@ -191,7 +191,7 @@ func (info *gcpLoginInfo) validateJWT(keyPEM string, maxJwtExp time.Duration) er
 
 	validator := &jwt.Validator{
 		Expected: jwt.Claims{
-			"aud": expectedJwtAud,
+			"aud": fmt.Sprintf(expectedJwtAudTemplate, req.MountPoint),
 		},
 		Fn: func(c jwt.Claims) error {
 			exp, ok := c.Expiration()
@@ -227,7 +227,7 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginI
 		return logical.ErrorResponse(fmt.Sprintf("service account %s has no key with id %s", loginInfo.serviceAccountId, loginInfo.keyId)), nil
 	}
 
-	if err := loginInfo.validateJWT(key.PublicKeyData, role.MaxJwtExp); err != nil {
+	if err := loginInfo.validateJWT(req, key.PublicKeyData, role.MaxJwtExp); err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
