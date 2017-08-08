@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/fatih/structs"
 	"github.com/hashicorp/vault/helper/policyutil"
-	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"strings"
@@ -15,7 +14,7 @@ import (
 const (
 	iamRoleType                = "iam"
 	errEmptyRoleName           = "role name is required"
-	errEmptyIamServiceAccounts = "IAM role type must have at least one service accounts"
+	errEmptyIamServiceAccounts = "IAM role type must have at least one service account"
 )
 
 // pathsRole creates paths for listing roles and CRUD operations.
@@ -39,7 +38,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 				},
 				"project_id": {
 					Type:        framework.TypeString,
-					Description: `The name of the project for service accounts allowed to authenticate to this role`,
+					Description: `The id of the project for service accounts allowed to authenticate to this role`,
 				},
 				"max_jwt_exp": {
 					Type:        framework.TypeDurationSecond,
@@ -101,7 +100,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 			HelpSynopsis:    pathListRolesHelpSyn,
 			HelpDescription: pathListRolesHelpDesc,
 		},
-		b.pathEditServiceAccount(),
+		b.pathEditRoleListAttr("service-accounts", iamRoleType, func(r *gcpRole) *[]string { return &r.ServiceAccounts }),
 	}
 }
 
@@ -210,10 +209,16 @@ the authorization token for the instance can access.
 const pathListRolesHelpSyn = `Lists all the roles that are registered with Vault.`
 const pathListRolesHelpDesc = `Lists all roles under the GCP backends by name.`
 
-// pathsRoleServiceAccount creates a path for adding or removing service accounts to/from an existing IAM role.
-func (b *GcpAuthBackend) pathEditServiceAccount() *framework.Path {
+type roleAttrAccessor func(role *gcpRole) *[]string
+
+// pathEditRoleStringList creates a path for adding or removing string values for a list attribute for an existing role.
+//
+// attr: the plural name of an attribute used as the suffix for the path "role/$roleName/$attr"
+// roleType: the role type to restrict an attribute by. If empty, assumed to be valid for any role.
+// accessor: function returning a pointer to that list of attr strings to get/update the value
+func (b *GcpAuthBackend) pathEditRoleListAttr(attr string, roleType string, accessor roleAttrAccessor) *framework.Path {
 	return &framework.Path{
-		Pattern: fmt.Sprintf("role/%s/service-accounts$", framework.GenericNameRegex("name")),
+		Pattern: fmt.Sprintf("role/%s/%s", framework.GenericNameRegex("name"), attr),
 		Fields: map[string]*framework.FieldSchema{
 			"name": {
 				Type:        framework.TypeString,
@@ -221,81 +226,80 @@ func (b *GcpAuthBackend) pathEditServiceAccount() *framework.Path {
 			},
 			"add": {
 				Type:        framework.TypeCommaStringSlice,
-				Description: `A comma-seperated list of service accounts`,
+				Description: `A comma-seperated list of %s to add to the role `,
 			},
 			"remove": {
 				Type:        framework.TypeCommaStringSlice,
-				Description: `A comma-seperated list of service accounts to remove`,
+				Description: `A comma-seperated list of %s to remove from the role`,
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.UpdateOperation: b.pathEditServiceAccountsOperator,
+			logical.UpdateOperation: b.pathEditRoleListAttrOperator(roleType, accessor),
 		},
-		HelpSynopsis:    pathServiceAccountHelpSyn,
-		HelpDescription: pathServiceAccountHelpDesc,
+		HelpSynopsis:    fmt.Sprintf(pathEditListHelpSynTemplate, attr),
+		HelpDescription: fmt.Sprintf(pathEditListHelpDescTemplate, attr),
 	}
 }
 
-// pathsRoleServiceAccount returns the OperationFunc for updating a service accounts given an update function.
-func (b *GcpAuthBackend) pathEditServiceAccountsOperator(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	name := data.Get("name").(string)
-	if name == "" {
-		return logical.ErrorResponse(errEmptyRoleName), nil
-	}
+func (b *GcpAuthBackend) pathEditRoleListAttrOperator(roleType string, accessor roleAttrAccessor) framework.OperationFunc {
+	return func(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+		name := data.Get("name").(string)
+		if name == "" {
+			return logical.ErrorResponse(errEmptyRoleName), nil
+		}
 
-	role, err := b.role(req.Storage, name)
-	if err != nil {
-		return nil, err
-	}
+		role, err := b.role(req.Storage, name)
+		if err != nil {
+			return nil, err
+		}
 
-	if role.RoleType != iamRoleType {
-		return logical.ErrorResponse(fmt.Sprintf("cannot update %s-specific attribute service accounts for role type %s", iamRoleType, role.RoleType)), nil
-	}
+		if len(roleType) > 0 && role.RoleType != roleType {
+			return logical.ErrorResponse(fmt.Sprintf("cannot update %s-specific attribute service accounts for role type %s", roleType, role.RoleType)), nil
+		}
 
-	toAdd := data.Get("add").([]string)
-	toRemove := data.Get("remove").([]string)
-	if len(toAdd) == 0 && len(toRemove) == 0 {
-		return logical.ErrorResponse("must provide at least one service account to add or remove"), nil
-	}
+		toAdd := data.Get("add").([]string)
+		toRemove := data.Get("remove").([]string)
 
-	addServiceAccounts(role, toAdd)
-	removeServiceAccounts(role, toRemove)
+		if len(toAdd) == 0 && len(toRemove) == 0 {
+			return logical.ErrorResponse("must provide at least one service account to add or remove"), nil
+		}
 
-	if len(role.ServiceAccounts) == 0 {
-		return logical.ErrorResponse(errEmptyIamServiceAccounts), nil
-	}
+		*accessor(role) = editStringValues(*accessor(role), toAdd, toRemove)
 
-	if err := b.storeRole(req.Storage, name, role); err != nil {
-		return nil, err
+		if err := b.storeRole(req.Storage, name, role); err != nil {
+			return nil, err
+		}
+		return nil, nil
 	}
-	return nil, nil
 }
 
-// updateServiceAccountsFunc is an update function for the service accounts of a role.
-type updateServiceAccountsFunc func(*gcpRole, []string)
+func editStringValues(initial []string, toAdd []string, toRemove []string) []string {
+	strMap := map[string]bool{}
+	for _, name := range initial {
+		strMap[name] = true
+	}
 
-func addServiceAccounts(role *gcpRole, accounts []string) {
-	serviceAccounts := append(role.ServiceAccounts, accounts...)
-	role.ServiceAccounts = strutil.RemoveDuplicates(serviceAccounts, false)
+	for _, name := range toAdd {
+		strMap[name] = true
+	}
+
+	for _, name := range toRemove {
+		delete(strMap, name)
+	}
+
+	updated := make([]string, len(strMap))
+
+	i := 0
+	for k := range strMap {
+		updated[i] = k
+		i++
+	}
+
+	return updated
 }
 
-func removeServiceAccounts(role *gcpRole, accounts []string) {
-	accountMap := map[string]bool{}
-	for _, name := range role.ServiceAccounts {
-		accountMap[name] = true
-	}
-
-	for _, name := range accounts {
-		delete(accountMap, name)
-	}
-
-	updatedAccounts := []string{}
-	for name := range accountMap {
-		updatedAccounts = append(updatedAccounts, name)
-	}
-
-	role.ServiceAccounts = updatedAccounts
-}
+const pathEditListHelpSynTemplate = `Edit %s associated with an existing GCP IAM role`
+const pathEditListHelpDescTemplate = `This path allows a user to add or remove values for the role attribute %s`
 
 // role reads a gcpRole from storage. This assumes the caller has already obtained the role lock.
 func (b *GcpAuthBackend) role(s logical.Storage, name string) (*gcpRole, error) {
@@ -318,6 +322,10 @@ func (b *GcpAuthBackend) role(s logical.Storage, name string) (*gcpRole, error) 
 
 // storeRole saves the gcpRole to storage.
 func (b *GcpAuthBackend) storeRole(s logical.Storage, roleName string, role *gcpRole) error {
+	if err := role.validate(b.System()); err != nil {
+		return err
+	}
+
 	entry, err := logical.StorageEntryJSON(fmt.Sprintf("role/%s", roleName), role)
 	if err != nil {
 		return err
@@ -355,27 +363,39 @@ type gcpRole struct {
 }
 
 // Update updates the given role with values parsed/validated from given FieldData.
-// The response is only used to pass back warnings. If there is an error in updating, it is returned in the error field.
-func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, data *framework.FieldData) (warnResp *logical.Response, err error) {
-	warnResp = &logical.Response{}
+// Exactly one of the response and error will be nil. The response is only used to pass back warnings.
+// This method does not validate the role. Validation is done before storage.
+func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, data *framework.FieldData) (*logical.Response, error) {
+	warnResp := &logical.Response{}
 
-	if role == nil {
-		return nil, errors.New("role expected to be created before update")
+	// Set role type
+	roleTypeRaw, ok := data.GetOk("type")
+	if ok {
+		if op == logical.UpdateOperation {
+			return nil, errors.New("role type cannot be changed for an existing role")
+		}
+		role.RoleType = roleTypeRaw.(string)
+	} else if op == logical.CreateOperation {
+		return nil, errors.New("role type must be provided for a new role")
+	}
+
+	//Update fields specific to this type
+	switch role.RoleType {
+	case iamRoleType:
+		if err := role.updateIamFields(data, op); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("role type '%s' is not supported", role.RoleType)
 	}
 
 	// Update policies.
 	role.Policies = policyutil.ParsePolicies(data.Get("policies").(string))
-	if len(role.Policies) == 0 {
-		return nil, errors.New("role must have at least one bound policy")
-	}
 
 	// Update GCP project id.
 	projectIdRaw, ok := data.GetOk("project_id")
 	if ok {
 		role.ProjectId = projectIdRaw.(string)
-	}
-	if role.ProjectId == "" {
-		return nil, errors.New("role cannot have empty project name")
 	}
 
 	// Update max JWT exp duration.
@@ -384,10 +404,6 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 		role.MaxJwtExp = time.Duration(maxJwtExp.(int)) * time.Second
 	} else {
 		role.MaxJwtExp = time.Duration(defaultJwtExpMin) * time.Minute
-	}
-
-	if role.MaxJwtExp > time.Hour {
-		return nil, errors.New("max_jwt_exp cannot be more than one hour")
 	}
 
 	// Update token TTL.
@@ -417,12 +433,6 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 	} else if op == logical.CreateOperation {
 		role.MaxTTL = time.Duration(data.Get("max_ttl").(int)) * time.Second
 	}
-	if role.MaxTTL < time.Duration(0) {
-		return nil, errors.New("max_ttl cannot be negative")
-	}
-	if role.MaxTTL != 0 && role.MaxTTL < role.TTL {
-		return nil, errors.New("ttl should be shorter than max_ttl")
-	}
 
 	// Update token period.
 	periodRaw, ok := data.GetOk("period")
@@ -431,29 +441,6 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 	} else if op == logical.CreateOperation {
 		role.Period = time.Second * time.Duration(data.Get("period").(int))
 	}
-	if role.Period > sys.MaxLeaseTTL() {
-		fmt.Errorf("'period' of '%s' is greater than the backend's maximum lease TTL of '%s'", role.Period.String(), sys.MaxLeaseTTL().String())
-	}
-
-	// Set role type and update fields specific to this type
-	roleTypeRaw, ok := data.GetOk("type")
-	if ok {
-		if op == logical.UpdateOperation {
-			return nil, errors.New("role type cannot be changed for an existing role")
-		}
-		role.RoleType = roleTypeRaw.(string)
-	} else if op == logical.CreateOperation {
-		return nil, errors.New("role type must be provided for a new role")
-	}
-
-	switch role.RoleType {
-	case iamRoleType:
-		if err := role.updateIamFields(data); err != nil {
-			return nil, err
-		}
-	default:
-		return nil, fmt.Errorf("role type '%s' is not supported", role.RoleType)
-	}
 
 	if len(warnResp.Warnings) == 0 {
 		warnResp = nil
@@ -461,20 +448,58 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 	return warnResp, nil
 }
 
+func (role *gcpRole) validate(sys logical.SystemView) error {
+	switch role.RoleType {
+	case iamRoleType:
+		if err := role.validateIamFields(); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("role type '%s' is invalid", role.RoleType)
+	}
+
+	if len(role.Policies) == 0 {
+		return errors.New("role must have at least one bound policy")
+	}
+
+	if role.ProjectId == "" {
+		return errors.New("role cannot have empty project_id")
+	}
+
+	if role.MaxJwtExp > time.Hour {
+		return errors.New("max_jwt_exp cannot be more than one hour")
+	}
+
+	if role.MaxTTL < time.Duration(0) {
+		return errors.New("max_ttl cannot be negative")
+	}
+	if role.MaxTTL != 0 && role.MaxTTL < role.TTL {
+		return errors.New("ttl should be shorter than max_ttl")
+	}
+
+	if role.Period > sys.MaxLeaseTTL() {
+		return fmt.Errorf("'period' of '%s' is greater than the backend's maximum lease TTL of '%s'", role.Period.String(), sys.MaxLeaseTTL().String())
+	}
+
+	return nil
+}
+
 // updateIamFields updates IAM-only fields for a role.
-func (role *gcpRole) updateIamFields(data *framework.FieldData) error {
+func (role *gcpRole) updateIamFields(data *framework.FieldData, op logical.Operation) error {
 	serviceAccountsRaw, ok := data.GetOk("service_accounts")
 	if ok {
 		role.ServiceAccounts = strings.Split(serviceAccountsRaw.(string), ",")
-	}
-	if len(role.ServiceAccounts) == 0 {
+	} else if op == logical.CreateOperation {
 		return errors.New(errEmptyIamServiceAccounts)
 	}
 
 	return nil
 }
 
-const pathServiceAccountHelpSyn = `Edit service accounts associated with an existing GCP IAM role`
-const pathServiceAccountHelpDesc = `
-This special path allows a user to add, remove, or set the service accounts allowed to login for an existing
-GCP IAM role.`
+// validateIamFields validates the IAM-only fields for a role.
+func (role *gcpRole) validateIamFields() error {
+	if len(role.ServiceAccounts) == 0 {
+		return errors.New(errEmptyIamServiceAccounts)
+	}
+	return nil
+}

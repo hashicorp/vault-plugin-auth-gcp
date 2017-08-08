@@ -258,7 +258,7 @@ func testLoginIam(t *testing.T, b logical.Backend, s logical.Storage, d map[stri
 		t.Fatal("expected lease options to be renewable")
 	}
 	if resp.Auth.LeaseOptions.TTL != role.TTL {
-		t.Fatalf("Lease option TTL mismatch, expected %v but got %v", role.TTL, resp.Auth.LeaseOptions.TTL)
+		t.Fatalf("lease option TTL mismatch, expected %v but got %v", role.TTL, resp.Auth.LeaseOptions.TTL)
 	}
 }
 

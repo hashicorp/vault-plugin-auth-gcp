@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/vault/logical/framework"
 )
 
-const warningACLReadAccess string = "Read access to this endpoint should be controlled via ACLs as it will return the configuration information as-is, including any passwords."
+const warningACLReadAccess string = "read access to this endpoint should be controlled via ACLs as it will return the configuration information as-is, including any passwords."
 
 func pathConfig(b *GcpAuthBackend) *framework.Path {
 	return &framework.Path{

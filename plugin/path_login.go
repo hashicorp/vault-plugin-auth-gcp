@@ -51,7 +51,7 @@ func pathLogin(b *GcpAuthBackend) *framework.Path {
 
 func (b *GcpAuthBackend) pathLogin(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	if err := b.initClients(req.Storage); err != nil {
-		return logical.ErrorResponse("Unable to initialize GCP backend: " + err.Error()), nil
+		return logical.ErrorResponse("unable to initialize GCP backend: " + err.Error()), nil
 	}
 
 	roleName := data.Get("role").(string)
@@ -68,7 +68,7 @@ func (b *GcpAuthBackend) pathLogin(req *logical.Request, data *framework.FieldDa
 
 	loginInfo, err := b.parseLoginInfo(data)
 	if err != nil {
-		return logical.ErrorResponse(fmt.Sprintf("Unable to parse login info from given data: %s", err)), nil
+		return logical.ErrorResponse(fmt.Sprintf("unable to parse login info from given data: %s", err)), nil
 	}
 
 	switch role.RoleType {
@@ -81,7 +81,7 @@ func (b *GcpAuthBackend) pathLogin(req *logical.Request, data *framework.FieldDa
 
 func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	if err := b.initClients(req.Storage); err != nil {
-		return logical.ErrorResponse("Unable to initialize GCP backend: " + err.Error()), nil
+		return logical.ErrorResponse("unable to initialize GCP backend: " + err.Error()), nil
 	}
 
 	// Check role exists and allowed policies are still the same.
@@ -200,7 +200,7 @@ func (info *gcpLoginInfo) validateJWT(keyPEM string, maxJwtExp time.Duration) er
 			}
 			delta := exp.Sub(time.Now())
 			if delta > maxJwtExp {
-				return fmt.Errorf("Given JWT expires in %v minutes but must expire within %v for this role. Please generate a new token with a valid expiration.",
+				return fmt.Errorf("JWT expires in %v minutes but must expire within %v for this role. Please generate a new token with a valid expiration.",
 					int(delta/time.Minute), maxJwtExp)
 			}
 

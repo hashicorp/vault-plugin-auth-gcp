@@ -28,7 +28,7 @@ func getTestBackend(t *testing.T) (logical.Backend, logical.Storage) {
 	}
 	err := b.Setup(config)
 	if err != nil {
-		t.Fatalf("Unable to create backend: %s", err)
+		t.Fatalf("unable to create backend: %s", err)
 	}
 
 	return b, config.StorageView
@@ -48,7 +48,7 @@ func getTestCredentials() (*util.GcpCredentials, error) {
 
 	credentials, err := util.Credentials(credentialsJSON)
 	if err != nil {
-		return nil, fmt.Errorf("Valid Google credentials JSON could not be read from %s env variable: %s", googleCredentialsEnv, err)
+		return nil, fmt.Errorf("valid Google credentials JSON could not be read from %s env variable: %s", googleCredentialsEnv, err)
 	}
 	return credentials, nil
 }
