@@ -44,8 +44,9 @@ func Backend() *GcpAuthBackend {
 	}
 
 	b.Backend = &framework.Backend{
-		BackendType: logical.TypeCredential,
 		AuthRenew:   b.pathLoginRenew,
+		BackendType: logical.TypeCredential,
+		Invalidate:  b.invalidate,
 		Help:        backendHelp,
 		PathsSpecial: &logical.Paths{
 			Unauthenticated: []string{
@@ -61,6 +62,16 @@ func Backend() *GcpAuthBackend {
 		),
 	}
 	return b
+}
+
+func (b *GcpAuthBackend) invalidate(key string) {
+	switch key {
+	case "config":
+		b.clientMutex.Lock()
+		defer b.clientMutex.Unlock()
+
+		b.iamClient = nil
+	}
 }
 
 // Initialize attempts to create GCP clients from stored config.
