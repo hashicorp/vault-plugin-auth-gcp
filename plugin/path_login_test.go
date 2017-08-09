@@ -16,7 +16,7 @@ import (
 
 const (
 	googleCredentialsEnv = "GOOGLE_CREDENTIALS"
-	testMountPoint       = "testgcp"
+	testMountPoint       = "auth/testgcp"
 )
 
 func TestLoginIam(t *testing.T) {
@@ -145,7 +145,7 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 
 	// Create fake self-signed JWT to test.
 	claims := jws.Claims{}
-	claims.SetAudience(fmt.Sprintf(expectedJwtAudTemplate, testMountPoint))
+	claims.SetAudience(testMountPoint + loginPath)
 	claims.SetSubject(creds.ClientId)
 	claims.SetExpiration(time.Now().Add(-100 * time.Second))
 
@@ -300,7 +300,7 @@ func getTestIamToken(t *testing.T, creds *util.GcpCredentials, exp time.Time) st
 		t.Fatal(err)
 	}
 
-	expectedJwtAud := fmt.Sprintf(expectedJwtAudTemplate, testMountPoint)
+	expectedJwtAud := testMountPoint + loginPath
 	signedJwtResp, err := util.ServiceAccountLoginJwt(iamClient, exp, expectedJwtAud, creds.ProjectId, creds.ClientEmail)
 	if err != nil {
 		t.Fatal(err)

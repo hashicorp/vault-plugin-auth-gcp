@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	expectedJwtAudTemplate string = "auth/%s/login"
+	loginPath string = "login"
 
 	// Default duration that JWT tokens must expire within to be accepted
 	defaultJwtExpMin int = 15
@@ -24,7 +24,7 @@ const (
 
 func pathLogin(b *GcpAuthBackend) *framework.Path {
 	return &framework.Path{
-		Pattern: "login$",
+		Pattern: fmt.Sprintf("%s$", loginPath),
 		Fields: map[string]*framework.FieldSchema{
 			"role": {
 				Type:        framework.TypeString,
@@ -191,7 +191,7 @@ func (info *gcpLoginInfo) validateJWT(req *logical.Request, keyPEM string, maxJw
 
 	validator := &jwt.Validator{
 		Expected: jwt.Claims{
-			"aud": fmt.Sprintf(expectedJwtAudTemplate, req.MountPoint),
+			"aud": fmt.Sprintf(req.MountPoint + loginPath),
 		},
 		Fn: func(c jwt.Claims) error {
 			exp, ok := c.Expiration()
