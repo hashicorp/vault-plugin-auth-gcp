@@ -12,8 +12,7 @@ import (
 )
 
 const (
-	serviceAccountAttr = "service-accounts"
-
+	serviceAccountAttr         = "service-accounts"
 	iamRoleType                = "iam"
 	errEmptyRoleName           = "role name is required"
 	errEmptyIamServiceAccounts = "IAM role type must have at least one service account"
