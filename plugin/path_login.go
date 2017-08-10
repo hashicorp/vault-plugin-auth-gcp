@@ -20,6 +20,8 @@ const (
 
 	// Default duration that JWT tokens must expire within to be accepted
 	defaultJwtExpMin int = 15
+
+	clientErrorTemplate string = "backend not configured properly, could not create %s client: %s"
 )
 
 func pathLogin(b *GcpAuthBackend) *framework.Path {
@@ -117,7 +119,7 @@ func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.Fi
 	}
 }
 
-// loginInfo represents the data given to Vault for logging in using the IAM method.1
+// gcpLoginInfo represents the data given to Vault for logging in using the IAM method.
 type gcpLoginInfo struct {
 	// ID or email of an IAM service account or that inferred for a GCE VM.
 	serviceAccountId string
@@ -218,11 +220,13 @@ func (info *gcpLoginInfo) validateJWT(req *logical.Request, keyPEM string, maxJw
 // ---- IAM login domain ----
 
 func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginInfo, roleName string, role *gcpRole) (*logical.Response, error) {
-	b.clientMutex.Lock()
-	defer b.clientMutex.Unlock()
+	iamClient, err := b.IAM(req.Storage)
+	if err != nil {
+		return logical.ErrorResponse(fmt.Sprintf(clientErrorTemplate, "IAM", err)), nil
+	}
 
 	// Verify and get service account from signed JWT.
-	key, err := util.ServiceAccountKey(b.iamClient, loginInfo.keyId, loginInfo.serviceAccountId, role.ProjectId)
+	key, err := util.ServiceAccountKey(iamClient, loginInfo.keyId, loginInfo.serviceAccountId, role.ProjectId)
 	if err != nil {
 		return logical.ErrorResponse(fmt.Sprintf("service account %s has no key with id %s", loginInfo.serviceAccountId, loginInfo.keyId)), nil
 	}
@@ -231,7 +235,7 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginI
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	serviceAccount, err := util.ServiceAccount(b.iamClient, loginInfo.serviceAccountId, role.ProjectId)
+	serviceAccount, err := util.ServiceAccount(iamClient, loginInfo.serviceAccountId, role.ProjectId)
 	if err != nil {
 		return nil, err
 	}
@@ -265,6 +269,11 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginI
 }
 
 func (b *GcpAuthBackend) pathIamRenew(req *logical.Request, role *gcpRole) error {
+	iamClient, err := b.IAM(req.Storage)
+	if err != nil {
+		return fmt.Errorf(clientErrorTemplate, "IAM", err)
+	}
+
 	serviceAccountId, ok := req.Auth.Metadata["service_account_id"]
 	if !ok {
 		return errors.New("service account id metadata not associated with auth token, invalid")
@@ -272,7 +281,7 @@ func (b *GcpAuthBackend) pathIamRenew(req *logical.Request, role *gcpRole) error
 
 	b.clientMutex.Lock()
 	defer b.clientMutex.Unlock()
-	serviceAccount, err := util.ServiceAccount(b.iamClient, serviceAccountId, role.ProjectId)
+	serviceAccount, err := util.ServiceAccount(iamClient, serviceAccountId, role.ProjectId)
 	if err != nil {
 		return fmt.Errorf("cannot find service account %s", serviceAccountId)
 	}

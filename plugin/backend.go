@@ -67,10 +67,7 @@ func Backend() *GcpAuthBackend {
 func (b *GcpAuthBackend) invalidate(key string) {
 	switch key {
 	case "config":
-		b.clientMutex.Lock()
-		defer b.clientMutex.Unlock()
-
-		b.iamClient = nil
+		b.Close()
 	}
 }
 
@@ -112,7 +109,29 @@ func (b *GcpAuthBackend) initClients(s logical.Storage) (err error) {
 
 // Close deletes created GCP clients in backend.
 func (b *GcpAuthBackend) Close() {
+	b.clientMutex.Lock()
+	defer b.clientMutex.Unlock()
+
 	b.iamClient = nil
+}
+
+func (b *GcpAuthBackend) IAM(s logical.Storage) (*iam.Service, error) {
+	b.clientMutex.RLock()
+	if b.iamClient != nil {
+		defer b.clientMutex.RUnlock()
+		return b.iamClient, nil
+	}
+
+	b.clientMutex.RUnlock()
+	b.clientMutex.Lock()
+	defer b.clientMutex.Unlock()
+
+	err := b.initClients(s)
+	if err != nil {
+		return nil, err
+	}
+
+	return b.iamClient, nil
 }
 
 const backendHelp = `
