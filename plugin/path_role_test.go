@@ -64,42 +64,51 @@ func TestRoleIam_ServiceAccounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(t)
 	}
-
-	stableAccounts := []string{"id1234", "test1@google.com"}
-	toRemove := []string{"toremove12345", "toremove@google.com"}
-	toAdd := []string{"toAdd34567", "toAdd@google.com"}
-
 	roleName := "testrole"
-	createAccounts := append(stableAccounts, toRemove...)
-	dataCreate := map[string]interface{}{
+
+	initial := []string{"id1234", "test1@google.com"}
+	data := map[string]interface{}{
 		"name":             roleName,
 		"type":             "iam",
 		"project_id":       creds.ProjectId,
-		"service_accounts": strings.Join(createAccounts, ","),
+		"service_accounts": strings.Join(initial, ","),
 	}
-	expectedCreate := map[string]interface{}{
+	expectedRole := map[string]interface{}{
 		"name":             roleName,
 		"role_type":        "iam",
 		"project_name":     os.Getenv("GOOGLE_PROJECT"),
-		"service_accounts": createAccounts,
+		"service_accounts": initial,
 	}
 
-	dataUpdate := map[string]interface{}{
+	testRoleCreate(t, b, reqStorage, data)
+	testRoleRead(t, b, reqStorage, roleName, expectedRole)
+
+	// Test add appends and de-duplicates values
+	toAdd := []string{"toAdd34567", "toremove@google.com", "test1@google.com"}
+	expectedRole["service_accounts"] = []string{
+		// Initial
+		"id1234",
+		"test1@google.com",
+		// Added values
+		"toAdd34567",
+		"toremove@google.com",
+	}
+	testRoleAddServiceAccounts(t, b, reqStorage, map[string]interface{}{
 		"name":   roleName,
-		"add":    strings.Join(toAdd, ","),
-		"remove": strings.Join(toRemove, ","),
-	}
-	expectedRead := map[string]interface{}{
-		"name":             roleName,
-		"role_type":        "iam",
-		"project_name":     os.Getenv("GOOGLE_PROJECT"),
-		"service_accounts": append(stableAccounts, toAdd...),
-	}
+		"values": strings.Join(toAdd, ","),
+	})
+	testRoleRead(t, b, reqStorage, roleName, expectedRole)
 
-	testRoleCreate(t, b, reqStorage, dataCreate)
-	testRoleRead(t, b, reqStorage, roleName, expectedCreate)
-	testRoleUpdateServiceAccounts(t, b, reqStorage, dataUpdate)
-	testRoleRead(t, b, reqStorage, roleName, expectedRead)
+	// Test removal of values.
+	toRemove := []string{"toremove12345", "toremove@google.com"}
+	expectedRole["service_accounts"] = []string{
+		"id1234", "test1@google.com", "toAdd34567",
+	}
+	testRoleRemoveServiceAccounts(t, b, reqStorage, map[string]interface{}{
+		"name":   roleName,
+		"values": strings.Join(toRemove, ","),
+	})
+	testRoleRead(t, b, reqStorage, roleName, expectedRole)
 }
 
 func testRoleCreate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
@@ -132,10 +141,25 @@ func testRoleUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[st
 	}
 }
 
-func testRoleUpdateServiceAccounts(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+func testRoleAddServiceAccounts(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
 	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.UpdateOperation,
-		Path:      fmt.Sprintf("role/%s/service-accounts", d["name"]),
+		Path:      fmt.Sprintf("role/%s/add-service-accounts", d["name"]),
+		Data:      d,
+		Storage:   s,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.IsError() {
+		t.Fatal(resp.Error())
+	}
+}
+
+func testRoleRemoveServiceAccounts(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+	resp, err := b.HandleRequest(&logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      fmt.Sprintf("role/%s/remove-service-accounts", d["name"]),
 		Data:      d,
 		Storage:   s,
 	})
@@ -203,10 +227,10 @@ func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) e
 
 	expectedVal, ok = expected["max_jwt_exp"]
 	if !ok {
-		expectedVal = int(defaultJwtExpMin * 60)
+		expectedVal = defaultJwtExpMin * 60
 	}
 	if resp.Data["max_jwt_exp"] != expectedVal {
-		return fmt.Errorf("max_jwt_exp mismatch, expected %d but got %d", expectedVal, resp.Data["max_jwt_exp"])
+		return fmt.Errorf("max_jwt_exp mismatch, expected %v but got %v", expectedVal, resp.Data["max_jwt_exp"])
 	}
 
 	expectedVal, ok = expected["ttl"]
@@ -214,7 +238,7 @@ func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) e
 		expectedVal = 0
 	}
 	if resp.Data["ttl"] != expectedVal {
-		return fmt.Errorf("ttl mismatch, expected %d but got %d", expectedVal, resp.Data["ttl"])
+		return fmt.Errorf("ttl mismatch, expected %v but got %v", expectedVal, resp.Data["ttl"])
 	}
 
 	expectedVal, ok = expected["max_ttl"]
@@ -222,7 +246,7 @@ func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) e
 		expectedVal = 0
 	}
 	if resp.Data["max_ttl"] != expectedVal {
-		return fmt.Errorf("max_ttl mismatch, expected %d but got %d", expectedVal, resp.Data["max_ttl"])
+		return fmt.Errorf("max_ttl mismatch, expected %v but got %v", expectedVal, resp.Data["max_ttl"])
 	}
 
 	expectedVal, ok = expected["period"]
@@ -230,7 +254,7 @@ func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) e
 		expectedVal = 0
 	}
 	if resp.Data["period"] != expectedVal {
-		return fmt.Errorf("period mismatch, expected %d but got %d", expectedVal, resp.Data["period"])
+		return fmt.Errorf("period mismatch, expected %v but got %v", expectedVal, resp.Data["period"])
 	}
 	return nil
 }
