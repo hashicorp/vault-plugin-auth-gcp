@@ -1,11 +1,13 @@
 package util
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"github.com/hashicorp/go-cleanhttp"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/jwt"
 	"net/http"
@@ -38,7 +40,8 @@ func GetHttpClient(credentials *GcpCredentials, clientScopes ...string) (*http.C
 		TokenURL:   "https://accounts.google.com/o/oauth2/token",
 	}
 
-	client := conf.Client(oauth2.NoContext)
+	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, cleanhttp.DefaultClient())
+	client := conf.Client(ctx)
 	return client, nil
 }
 

@@ -8,6 +8,9 @@ import (
 
 func TestConfig(t *testing.T) {
 	b, reqStorage := getTestBackend(t)
+
+	testConfigRead(t, b, reqStorage, nil)
+
 	creds := map[string]interface{}{
 		"client_email":   "testUser@google.com",
 		"client_id":      "user123",
@@ -20,6 +23,7 @@ func TestConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
 		"credentials": credJson,
 	})
@@ -65,6 +69,7 @@ func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected
 		Path:      "config",
 		Storage:   s,
 	})
+
 	if err != nil {
 		t.Fatal(err)
 	}

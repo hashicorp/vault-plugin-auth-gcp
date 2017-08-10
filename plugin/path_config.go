@@ -17,7 +17,8 @@ func pathConfig(b *GcpAuthBackend) *framework.Path {
 			"credentials": {
 				Type: framework.TypeString,
 				Description: `
-Google credentials JSON that Vault will use to verify users against GCP APIs. If not specified, will use application default credentials`,
+Google credentials JSON that Vault will use to verify users against GCP APIs.
+If not specified, will use application default credentials`,
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -66,11 +67,11 @@ func (b *GcpAuthBackend) pathConfigRead(req *logical.Request, data *framework.Fi
 
 	resp := &logical.Response{
 		Data: map[string]interface{}{
-			"client_email":   config.ClientEmail,
-			"client_id":      config.ClientId,
-			"private_key_id": config.PrivateKeyId,
-			"private_key":    config.PrivateKey,
-			"project_id":     config.ProjectId,
+			"client_email":   config.Credentials.ClientEmail,
+			"client_id":      config.Credentials.ClientId,
+			"private_key_id": config.Credentials.PrivateKeyId,
+			"private_key":    config.Credentials.PrivateKey,
+			"project_id":     config.Credentials.ProjectId,
 		},
 	}
 
@@ -92,7 +93,7 @@ iam AUTH:
 // Currently it only holds credentials, but we are leaving it as a seperate
 // struct in case we add more fields in the future.
 type gcpConfig struct {
-	util.GcpCredentials
+	Credentials *util.GcpCredentials
 }
 
 // Update sets gcpConfig values parsed from the FieldData.
@@ -106,7 +107,7 @@ func (config *gcpConfig) Update(data *framework.FieldData) error {
 		if len(creds.PrivateKeyId) == 0 {
 			return errors.New("google credentials not found from given JSON")
 		}
-		config.GcpCredentials = *creds
+		config.Credentials = creds
 	}
 
 	return nil

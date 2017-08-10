@@ -1,7 +1,9 @@
 package gcpauth
 
 import (
+	"context"
 	"fmt"
+	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/vault-plugin-auth-gcp/util"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
@@ -82,14 +84,16 @@ func (b *GcpAuthBackend) initClients(s logical.Storage) (err error) {
 	}
 
 	var httpClient *http.Client
-	if config == nil || len(config.PrivateKey) == 0 {
+	if config == nil || config.Credentials == nil {
 		// Use Application Default Credentials
-		httpClient, err = google.DefaultClient(oauth2.NoContext, b.oauthScopes...)
+		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, cleanhttp.DefaultClient())
+
+		httpClient, err = google.DefaultClient(ctx, b.oauthScopes...)
 		if err != nil {
 			return fmt.Errorf("credentials were not configured and fallback to application default credentials failed: %s", err)
 		}
 	} else {
-		httpClient, err = util.GetHttpClient(&config.GcpCredentials, b.oauthScopes...)
+		httpClient, err = util.GetHttpClient(config.Credentials, b.oauthScopes...)
 		if err != nil {
 			return err
 		}
