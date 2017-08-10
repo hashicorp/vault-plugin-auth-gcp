@@ -52,10 +52,6 @@ func pathLogin(b *GcpAuthBackend) *framework.Path {
 }
 
 func (b *GcpAuthBackend) pathLogin(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	if err := b.initClients(req.Storage); err != nil {
-		return logical.ErrorResponse("unable to initialize GCP backend: " + err.Error()), nil
-	}
-
 	roleName := data.Get("role").(string)
 	if roleName == "" {
 		return logical.ErrorResponse("role is required"), nil
@@ -82,13 +78,9 @@ func (b *GcpAuthBackend) pathLogin(req *logical.Request, data *framework.FieldDa
 }
 
 func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	if err := b.initClients(req.Storage); err != nil {
-		return logical.ErrorResponse("unable to initialize GCP backend: " + err.Error()), nil
-	}
-
 	// Check role exists and allowed policies are still the same.
-	roleName, ok := req.Auth.Metadata["role"]
-	if !ok {
+	roleName := req.Auth.Metadata["role"]
+	if roleName == "" {
 		return logical.ErrorResponse("role name metadata not associated with auth token, invalid"), nil
 	}
 	role, err := b.role(req.Storage, roleName)
@@ -110,7 +102,7 @@ func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.Fi
 	}
 
 	// If 'Period' is set on the Role, the token should never expire.
-	if role.Period > time.Duration(0) {
+	if role.Period > 0 {
 		// Replenish the TTL with current role's Period.
 		req.Auth.TTL = role.Period
 		return &logical.Response{Auth: req.Auth}, nil
@@ -129,9 +121,6 @@ type gcpLoginInfo struct {
 
 	// ID of the public key to verify the signed JWT.
 	keyId string
-
-	// Method used to sign the JWT.
-	signingMethod crypto.SigningMethod
 
 	// Signed JWT
 	JWT jwt.JWT
@@ -161,13 +150,6 @@ func (b *GcpAuthBackend) parseLoginInfo(data *framework.FieldData) (*gcpLoginInf
 	}
 	if loginInfo.keyId == "" {
 		return nil, errors.New("either kid must be provided or JWT must have 'kid' header value")
-	}
-
-	if headerVal.Has("alg") {
-		loginInfo.signingMethod = jws.GetSigningMethod(headerVal.Get("alg").(string))
-	} else {
-		// Default to RSA256
-		loginInfo.signingMethod = crypto.SigningMethodRS256
 	}
 
 	// Parse claims
@@ -210,7 +192,7 @@ func (info *gcpLoginInfo) validateJWT(req *logical.Request, keyPEM string, maxJw
 		},
 	}
 
-	if err := info.JWT.Validate(pubKey, info.signingMethod, validator); err != nil {
+	if err := info.JWT.Validate(pubKey, crypto.SigningMethodRS256, validator); err != nil {
 		return fmt.Errorf("invalid JWT: %s", err)
 	}
 
@@ -279,8 +261,6 @@ func (b *GcpAuthBackend) pathIamRenew(req *logical.Request, role *gcpRole) error
 		return errors.New("service account id metadata not associated with auth token, invalid")
 	}
 
-	b.clientMutex.Lock()
-	defer b.clientMutex.Unlock()
 	serviceAccount, err := util.ServiceAccount(iamClient, serviceAccountId, role.ProjectId)
 	if err != nil {
 		return fmt.Errorf("cannot find service account %s", serviceAccountId)

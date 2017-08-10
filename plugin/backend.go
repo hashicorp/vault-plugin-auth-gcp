@@ -73,11 +73,39 @@ func (b *GcpAuthBackend) invalidate(key string) {
 	}
 }
 
-// Initialize attempts to create GCP clients from stored config.
-func (b *GcpAuthBackend) initClients(s logical.Storage) (err error) {
+// Close deletes created GCP clients in backend.
+func (b *GcpAuthBackend) Close() {
 	b.clientMutex.Lock()
 	defer b.clientMutex.Unlock()
 
+	b.iamClient = nil
+}
+
+func (b *GcpAuthBackend) IAM(s logical.Storage) (*iam.Service, error) {
+	b.clientMutex.RLock()
+	if b.iamClient != nil {
+		defer b.clientMutex.RUnlock()
+		return b.iamClient, nil
+	}
+
+	b.clientMutex.RUnlock()
+	b.clientMutex.Lock()
+	defer b.clientMutex.Unlock()
+
+	// Check if client was created during lock switch.
+	if b.iamClient == nil {
+		err := b.initClients(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return b.iamClient, nil
+}
+
+// Initialize attempts to create GCP clients from stored config.
+// It does not attempt to claim the client lock.
+func (b *GcpAuthBackend) initClients(s logical.Storage) (err error) {
 	config, err := b.config(s)
 	if err != nil {
 		return err
@@ -109,33 +137,6 @@ func (b *GcpAuthBackend) initClients(s logical.Storage) (err error) {
 	b.iamClient.UserAgent = userAgentStr
 
 	return nil
-}
-
-// Close deletes created GCP clients in backend.
-func (b *GcpAuthBackend) Close() {
-	b.clientMutex.Lock()
-	defer b.clientMutex.Unlock()
-
-	b.iamClient = nil
-}
-
-func (b *GcpAuthBackend) IAM(s logical.Storage) (*iam.Service, error) {
-	b.clientMutex.RLock()
-	if b.iamClient != nil {
-		defer b.clientMutex.RUnlock()
-		return b.iamClient, nil
-	}
-
-	b.clientMutex.RUnlock()
-	b.clientMutex.Lock()
-	defer b.clientMutex.Unlock()
-
-	err := b.initClients(s)
-	if err != nil {
-		return nil, err
-	}
-
-	return b.iamClient, nil
 }
 
 const backendHelp = `
