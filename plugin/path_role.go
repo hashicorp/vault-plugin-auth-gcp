@@ -43,7 +43,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 				},
 				"max_jwt_exp": {
 					Type:        framework.TypeDurationSecond,
-					Default:     defaultJwtExpMin * 3600,
+					Default:     defaultMaxJwtExpMin * 3600,
 					Description: `Duration in seconds from time of validation that a JWT must expire within.`,
 				},
 				// Token Limits
@@ -408,7 +408,7 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 	if ok {
 		role.MaxJwtExp = time.Duration(maxJwtExp.(int)) * time.Second
 	} else {
-		role.MaxJwtExp = time.Duration(defaultJwtExpMin) * time.Minute
+		role.MaxJwtExp = time.Duration(defaultMaxJwtExpMin) * time.Minute
 	}
 
 	// Update token TTL.

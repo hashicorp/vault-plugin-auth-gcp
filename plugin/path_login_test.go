@@ -1,9 +1,11 @@
 package gcpauth
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"github.com/SermoDigital/jose"
 	"github.com/SermoDigital/jose/crypto"
-	"github.com/SermoDigital/jose/jws"
+	"github.com/SermoDigital/jose/jwt"
 	"github.com/hashicorp/vault-plugin-auth-gcp/util"
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/logical"
@@ -16,7 +18,6 @@ import (
 
 const (
 	googleCredentialsEnv = "GOOGLE_CREDENTIALS"
-	testMountPoint       = "auth/testgcp"
 )
 
 func TestLoginIam(t *testing.T) {
@@ -42,7 +43,9 @@ func TestLoginIam(t *testing.T) {
 		"max_ttl":          1800,
 	})
 
-	jwtVal := getTestIamToken(t, creds, time.Now().Add(time.Duration(defaultJwtExpMin-5)*time.Minute))
+	// Have token expire within 5 minutes of max JWT exp
+	expDelta := time.Duration(defaultMaxJwtExpMin-5) * time.Minute
+	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
 	loginData := map[string]interface{}{
 		"role": roleName,
 		"jwt":  jwtVal,
@@ -87,7 +90,9 @@ func TestLoginIam_UnauthorizedRole(t *testing.T) {
 		"service_accounts": "notarealserviceaccount",
 	})
 
-	jwtVal := getTestIamToken(t, creds, time.Now().Add(time.Duration(defaultJwtExpMin-5)*time.Minute))
+	// Have token expire within 5 minutes of max JWT exp
+	expDelta := time.Duration(defaultMaxJwtExpMin-5) * time.Minute
+	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
 	loginData := map[string]interface{}{
 		"role": roleName,
 		"jwt":  jwtVal,
@@ -115,7 +120,10 @@ func TestLoginIam_MissingRole(t *testing.T) {
 	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
 		"credentials": os.Getenv(googleCredentialsEnv),
 	})
-	jwtVal := getTestIamToken(t, creds, time.Now().Add(time.Duration(defaultJwtExpMin-5)*time.Minute))
+
+	// Have token expire within 5 minutes of max JWT exp
+	expDelta := time.Duration(defaultMaxJwtExpMin-5) * time.Minute
+	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
 	loginData := map[string]interface{}{
 		"jwt": jwtVal,
 	}
@@ -144,20 +152,8 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 	})
 
 	// Create fake self-signed JWT to test.
-	claims := jws.Claims{}
-	claims.SetAudience(testMountPoint + loginPath)
-	claims.SetSubject(creds.ClientId)
-	claims.SetExpiration(time.Now().Add(-100 * time.Second))
 
-	privateKey, err := crypto.ParseRSAPrivateKeyFromPEM([]byte(creds.PrivateKey))
-	if err != nil {
-		t.Fatal(err)
-	}
-	jwtVal, err := jws.NewJWT(claims, crypto.SigningMethodRS256).Serialize(privateKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	jwtVal := createExpiredIamToken(t, roleName, creds)
 	loginData := map[string]interface{}{
 		"role": roleName,
 		"kid":  creds.PrivateKeyId,
@@ -191,10 +187,10 @@ func TestLoginIam_JwtExpiresTime(t *testing.T) {
 		"max_jwt_exp":      maxJwtExpSeconds,
 	})
 
-	badExp := time.Now().Add(time.Duration(maxJwtExpSeconds+1200) * time.Second)
+	badExpDelta := time.Duration(maxJwtExpSeconds+1200) * time.Second
 	loginData := map[string]interface{}{
 		"role": roleName,
-		"jwt":  getTestIamToken(t, creds, badExp),
+		"jwt":  getTestIamToken(t, roleName, creds, badExpDelta),
 	}
 
 	testLoginError(t, b, reqStorage, loginData, []string{
@@ -202,9 +198,8 @@ func TestLoginIam_JwtExpiresTime(t *testing.T) {
 		fmt.Sprintf("expire within %v", time.Duration(maxJwtExpSeconds)*time.Second),
 	})
 
-	validExp := time.Now().Add(time.Duration(maxJwtExpSeconds-1200) * time.Second)
-	loginData["jwt"] = getTestIamToken(t, creds, validExp)
-
+	validExpDelta := time.Duration(maxJwtExpSeconds-1200) * time.Second
+	loginData["jwt"] = getTestIamToken(t, roleName, creds, validExpDelta)
 	metadata := map[string]string{
 		"service_account_id":    creds.ClientId,
 		"service_account_email": creds.ClientEmail,
@@ -222,11 +217,10 @@ func TestLoginIam_JwtExpiresTime(t *testing.T) {
 
 func testLoginIam(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, expectedMetadata map[string]string, role *gcpRole) {
 	resp, err := b.HandleRequest(&logical.Request{
-		Operation:  logical.UpdateOperation,
-		Path:       "login",
-		MountPoint: testMountPoint,
-		Data:       d,
-		Storage:    s,
+		Operation: logical.UpdateOperation,
+		Path:      "login",
+		Data:      d,
+		Storage:   s,
 	})
 
 	if err != nil {
@@ -266,11 +260,10 @@ func testLoginIam(t *testing.T, b logical.Backend, s logical.Storage, d map[stri
 
 func testLoginError(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, errorSubstrings []string) {
 	resp, err := b.HandleRequest(&logical.Request{
-		Operation:  logical.UpdateOperation,
-		Path:       "login",
-		MountPoint: testMountPoint,
-		Data:       d,
-		Storage:    s,
+		Operation: logical.UpdateOperation,
+		Path:      "login",
+		Data:      d,
+		Storage:   s,
 	})
 
 	if err != nil {
@@ -289,7 +282,7 @@ func testLoginError(t *testing.T, b logical.Backend, s logical.Storage, d map[st
 	}
 }
 
-func getTestIamToken(t *testing.T, creds *util.GcpCredentials, exp time.Time) string {
+func getTestIamToken(t *testing.T, roleName string, creds *util.GcpCredentials, expDelta time.Duration) string {
 	// Generate signed JWT to login with.
 	httpClient, err := util.GetHttpClient(creds, iam.CloudPlatformScope)
 	if err != nil {
@@ -300,11 +293,53 @@ func getTestIamToken(t *testing.T, creds *util.GcpCredentials, exp time.Time) st
 		t.Fatal(err)
 	}
 
-	expectedJwtAud := testMountPoint + loginPath
+	expectedJwtAud := fmt.Sprintf(expectedJwtAudTemplate, roleName)
+	exp := time.Now().Add(expDelta)
 	signedJwtResp, err := util.ServiceAccountLoginJwt(iamClient, exp, expectedJwtAud, creds.ProjectId, creds.ClientEmail)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	return signedJwtResp.SignedJwt
+}
+
+func createExpiredIamToken(t *testing.T, roleName string, creds *util.GcpCredentials) string {
+	// Create header.
+	header, err := jose.Protected{
+		"alg": crypto.SigningMethodRS256.Alg(),
+		"kid": creds.PrivateKeyId,
+		"typ": "JWT",
+	}.Base64()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	claims := jwt.Claims{}
+	claims.SetAudience(fmt.Sprintf(expectedJwtAudTemplate, roleName))
+	claims.SetSubject(creds.ClientId)
+	claims.SetExpiration(time.Now().Add(-100 * time.Minute))
+	claimBytes, err := claims.Base64()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create JWT signature.
+	toSign := fmt.Sprintf("%s.%s", string(header), string(claimBytes))
+	h := sha256.New()
+	h.Write([]byte(toSign))
+
+	key, err := crypto.ParseRSAPrivateKeyFromPEM([]byte(creds.PrivateKey))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig, err := crypto.SigningMethodRS256.Sign([]byte(toSign), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig64, err := sig.Base64()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return fmt.Sprintf("%s.%s", toSign, sig64)
 }

@@ -227,7 +227,7 @@ func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) e
 
 	expectedVal, ok = expected["max_jwt_exp"]
 	if !ok {
-		expectedVal = int64(defaultJwtExpMin * 60)
+		expectedVal = int64(defaultMaxJwtExpMin * 60)
 	}
 	if resp.Data["max_jwt_exp"] != expectedVal.(int64) {
 		return fmt.Errorf("max_jwt_exp mismatch, expected %v but got %v", expectedVal, resp.Data["max_jwt_exp"])

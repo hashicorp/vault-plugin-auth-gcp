@@ -16,25 +16,21 @@ import (
 )
 
 const (
-	loginPath string = "login"
+	expectedJwtAudTemplate string = "vault/%s"
 
 	// Default duration that JWT tokens must expire within to be accepted
-	defaultJwtExpMin int = 15
+	defaultMaxJwtExpMin int = 15
 
 	clientErrorTemplate string = "backend not configured properly, could not create %s client: %s"
 )
 
 func pathLogin(b *GcpAuthBackend) *framework.Path {
 	return &framework.Path{
-		Pattern: fmt.Sprintf("%s$", loginPath),
+		Pattern: "login$",
 		Fields: map[string]*framework.FieldSchema{
 			"role": {
 				Type:        framework.TypeString,
 				Description: `Name of the role against which the login is being attempted. Required.`,
-			},
-			"kid": {
-				Type:        framework.TypeString,
-				Description: `The ID of the service account key used to sign the request. If not specified, Vault will attempt to infer this from a 'kid' value in the JWT header.`,
 			},
 			"jwt": {
 				Type:        framework.TypeString,
@@ -52,28 +48,17 @@ func pathLogin(b *GcpAuthBackend) *framework.Path {
 }
 
 func (b *GcpAuthBackend) pathLogin(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	roleName := data.Get("role").(string)
-	if roleName == "" {
-		return logical.ErrorResponse("role is required"), nil
-	}
-	role, err := b.role(req.Storage, roleName)
+	loginInfo, err := b.parseInfoFromJwt(req, data)
 	if err != nil {
-		return nil, err
-	}
-	if role == nil {
-		return logical.ErrorResponse(fmt.Sprintf("role '%s' not found", roleName)), nil
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	loginInfo, err := b.parseLoginInfo(data)
-	if err != nil {
-		return logical.ErrorResponse(fmt.Sprintf("unable to parse login info from given data: %s", err)), nil
-	}
-
-	switch role.RoleType {
+	roleType := loginInfo.Role.RoleType
+	switch roleType {
 	case iamRoleType:
-		return b.pathIamLogin(req, loginInfo, roleName, role)
+		return b.pathIamLogin(req, loginInfo)
 	default:
-		return logical.ErrorResponse(fmt.Sprintf("login against role type '%s' is unsupported", role.RoleType)), nil
+		return logical.ErrorResponse(fmt.Sprintf("login against role type '%s' is unsupported", roleType)), nil
 	}
 }
 
@@ -98,7 +83,7 @@ func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.Fi
 			return logical.ErrorResponse(err.Error()), nil
 		}
 	default:
-		return nil, fmt.Errorf("unexpected role type '%s' for login renewal", role.RoleType)
+		return nil, fmt.Errorf("unexpected role type '%s' for loginN renewal", role.RoleType)
 	}
 
 	// If 'Period' is set on the Role, the token should never expire.
@@ -113,22 +98,41 @@ func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.Fi
 
 // gcpLoginInfo represents the data given to Vault for logging in using the IAM method.
 type gcpLoginInfo struct {
-	// ID or email of an IAM service account or that inferred for a GCE VM.
-	serviceAccountId string
+	// Name of the role being logged in against
+	RoleName string
+
+	// Role being logged in against
+	Role *gcpRole
 
 	// ID or email of an IAM service account or that inferred for a GCE VM.
-	instanceId string
+	ServiceAccountId string
+
+	// ID or email of an IAM service account or that inferred for a GCE VM.
+	InstanceId string
 
 	// ID of the public key to verify the signed JWT.
-	keyId string
+	KeyId string
 
 	// Signed JWT
 	JWT jwt.JWT
 }
 
-func (b *GcpAuthBackend) parseLoginInfo(data *framework.FieldData) (*gcpLoginInfo, error) {
+func (b *GcpAuthBackend) parseInfoFromJwt(req *logical.Request, data *framework.FieldData) (*gcpLoginInfo, error) {
 	loginInfo := &gcpLoginInfo{}
 	var err error
+
+	loginInfo.RoleName = data.Get("role").(string)
+	if loginInfo.RoleName == "" {
+		return nil, errors.New("role is required")
+	}
+
+	loginInfo.Role, err = b.role(req.Storage, loginInfo.RoleName)
+	if err != nil {
+		return nil, err
+	}
+	if loginInfo.Role == nil {
+		return nil, fmt.Errorf("role '%s' not found", loginInfo.RoleName)
+	}
 
 	signedJwt, ok := data.GetOk("jwt")
 	if !ok {
@@ -144,12 +148,9 @@ func (b *GcpAuthBackend) parseLoginInfo(data *framework.FieldData) (*gcpLoginInf
 	headerVal := jwsVal.Protected()
 
 	if headerVal.Has("kid") {
-		loginInfo.keyId = jwsVal.Protected().Get("kid").(string)
+		loginInfo.KeyId = jwsVal.Protected().Get("kid").(string)
 	} else {
-		loginInfo.keyId = data.Get("kid").(string)
-	}
-	if loginInfo.keyId == "" {
-		return nil, errors.New("either kid must be provided or JWT must have 'kid' header value")
+		return nil, errors.New("provided JWT must have 'kid' header value")
 	}
 
 	// Parse claims
@@ -160,14 +161,14 @@ func (b *GcpAuthBackend) parseLoginInfo(data *framework.FieldData) (*gcpLoginInf
 
 	sub, ok := loginInfo.JWT.Claims().Subject()
 	if !ok {
-		return nil, errors.New("expected 'sub' claim with service account id or email")
+		return nil, errors.New("expected JWT to have 'sub' claim with service account id or email")
 	}
-	loginInfo.serviceAccountId = sub
+	loginInfo.ServiceAccountId = sub
 
 	return loginInfo, nil
 }
 
-func (info *gcpLoginInfo) validateJWT(req *logical.Request, keyPEM string, maxJwtExp time.Duration) error {
+func (info *gcpLoginInfo) validateJWT(keyPEM string, loginInfo *gcpLoginInfo) error {
 	pubKey, err := util.PublicKey(keyPEM)
 	if err != nil {
 		return err
@@ -175,17 +176,16 @@ func (info *gcpLoginInfo) validateJWT(req *logical.Request, keyPEM string, maxJw
 
 	validator := &jwt.Validator{
 		Expected: jwt.Claims{
-			"aud": fmt.Sprintf(req.MountPoint + loginPath),
+			"aud": fmt.Sprintf(expectedJwtAudTemplate, loginInfo.RoleName),
 		},
 		Fn: func(c jwt.Claims) error {
 			exp, ok := c.Expiration()
 			if !ok {
 				return errors.New("JWT claim 'exp' is required")
 			}
-			delta := exp.Sub(time.Now())
-			if delta > maxJwtExp {
+			if exp.After(time.Now().Add(loginInfo.Role.MaxJwtExp)) {
 				return fmt.Errorf("JWT expires in %v minutes but must expire within %v for this role. Please generate a new token with a valid expiration.",
-					int(delta/time.Minute), maxJwtExp)
+					int(exp.Sub(time.Now())/time.Minute), loginInfo.Role.MaxJwtExp)
 			}
 
 			return nil
@@ -201,23 +201,25 @@ func (info *gcpLoginInfo) validateJWT(req *logical.Request, keyPEM string, maxJw
 
 // ---- IAM login domain ----
 
-func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginInfo, roleName string, role *gcpRole) (*logical.Response, error) {
+func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginInfo) (*logical.Response, error) {
 	iamClient, err := b.IAM(req.Storage)
 	if err != nil {
 		return logical.ErrorResponse(fmt.Sprintf(clientErrorTemplate, "IAM", err)), nil
 	}
 
+	role := loginInfo.Role
+
 	// Verify and get service account from signed JWT.
-	key, err := util.ServiceAccountKey(iamClient, loginInfo.keyId, loginInfo.serviceAccountId, role.ProjectId)
+	key, err := util.ServiceAccountKey(iamClient, loginInfo.KeyId, loginInfo.ServiceAccountId, role.ProjectId)
 	if err != nil {
-		return logical.ErrorResponse(fmt.Sprintf("service account %s has no key with id %s", loginInfo.serviceAccountId, loginInfo.keyId)), nil
+		return logical.ErrorResponse(fmt.Sprintf("service account %s has no key with id %s", loginInfo.ServiceAccountId, loginInfo.KeyId)), nil
 	}
 
-	if err := loginInfo.validateJWT(req, key.PublicKeyData, role.MaxJwtExp); err != nil {
+	if err := loginInfo.validateJWT(key.PublicKeyData, loginInfo); err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	serviceAccount, err := util.ServiceAccount(iamClient, loginInfo.serviceAccountId, role.ProjectId)
+	serviceAccount, err := util.ServiceAccount(iamClient, loginInfo.ServiceAccountId, role.ProjectId)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +239,7 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginI
 			Metadata: map[string]string{
 				"service_account_id":    serviceAccount.UniqueId,
 				"service_account_email": serviceAccount.Email,
-				"role":                  roleName,
+				"role":                  loginInfo.RoleName,
 			},
 			DisplayName: serviceAccount.Email,
 			LeaseOptions: logical.LeaseOptions{
