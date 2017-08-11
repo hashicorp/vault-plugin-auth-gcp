@@ -49,10 +49,10 @@ func TestRoleIam(t *testing.T) {
 		"project_name":             os.Getenv("GOOGLE_PROJECT"),
 		"policies":                 []string{"dev", "default"},
 		"disable_reauthentication": false,
-		"ttl":              1000,
-		"max_ttl":          2000,
-		"period":           30,
-		"max_jwt_exp":      1200,
+		"ttl":              int64(1000),
+		"max_ttl":          int64(2000),
+		"period":           int64(30),
+		"max_jwt_exp":      int64(1200),
 		"service_accounts": serviceAccounts,
 	})
 }
@@ -227,15 +227,15 @@ func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) e
 
 	expectedVal, ok = expected["max_jwt_exp"]
 	if !ok {
-		expectedVal = defaultJwtExpMin * 60
+		expectedVal = int64(defaultJwtExpMin * 60)
 	}
-	if resp.Data["max_jwt_exp"] != expectedVal {
+	if resp.Data["max_jwt_exp"] != expectedVal.(int64) {
 		return fmt.Errorf("max_jwt_exp mismatch, expected %v but got %v", expectedVal, resp.Data["max_jwt_exp"])
 	}
 
 	expectedVal, ok = expected["ttl"]
 	if !ok {
-		expectedVal = 0
+		expectedVal = int64(0)
 	}
 	if resp.Data["ttl"] != expectedVal {
 		return fmt.Errorf("ttl mismatch, expected %v but got %v", expectedVal, resp.Data["ttl"])
@@ -243,7 +243,7 @@ func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) e
 
 	expectedVal, ok = expected["max_ttl"]
 	if !ok {
-		expectedVal = 0
+		expectedVal = int64(0)
 	}
 	if resp.Data["max_ttl"] != expectedVal {
 		return fmt.Errorf("max_ttl mismatch, expected %v but got %v", expectedVal, resp.Data["max_ttl"])
@@ -251,7 +251,7 @@ func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) e
 
 	expectedVal, ok = expected["period"]
 	if !ok {
-		expectedVal = 0
+		expectedVal = int64(0)
 	}
 	if resp.Data["period"] != expectedVal {
 		return fmt.Errorf("period mismatch, expected %v but got %v", expectedVal, resp.Data["period"])

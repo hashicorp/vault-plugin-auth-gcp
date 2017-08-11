@@ -144,10 +144,10 @@ func (b *GcpAuthBackend) pathRoleRead(req *logical.Request, data *framework.Fiel
 		"role_type":   role.RoleType,
 		"project_id":  role.ProjectId,
 		"policies":    role.Policies,
-		"max_jwt_exp": int(role.MaxJwtExp / time.Second),
-		"ttl":         int(role.TTL / time.Second),
-		"max_ttl":     int(role.MaxTTL / time.Second),
-		"period":      int(role.Period / time.Second),
+		"max_jwt_exp": int64(role.MaxJwtExp / time.Second),
+		"ttl":         int64(role.TTL / time.Second),
+		"max_ttl":     int64(role.MaxTTL / time.Second),
+		"period":      int64(role.Period / time.Second),
 	}
 
 	switch role.RoleType {
