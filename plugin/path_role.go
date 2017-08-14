@@ -39,7 +39,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 				},
 				"project_id": {
 					Type:        framework.TypeString,
-					Description: `The id of the project for service accounts allowed to authenticate to this role`,
+					Description: `The id of the project for service accounts allowed to authenticate to this role.`,
 				},
 				"max_jwt_exp": {
 					Type:        framework.TypeDurationSecond,
@@ -58,9 +58,11 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 					Description: "The maximum allowed lifetime of tokens issued using this role.",
 				},
 				"period": {
-					Type:        framework.TypeDurationSecond,
-					Default:     0,
-					Description: `If set, indicates that the token generated using this role should never expire. The token should be renewed within the duration specified by this value. At each renewal, the token's TTL will be set to the value of this parameter.`,
+					Type:    framework.TypeDurationSecond,
+					Default: 0,
+					Description: `
+If set, indicates that the token generated using this role should never expire. The token should be renewed within the
+ duration specified by this value. At each renewal, the token's TTL will be set to the value of this parameter.`,
 				},
 				// IAM Role Domain
 				"service_accounts": {
@@ -395,7 +397,12 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 	}
 
 	// Update policies.
-	role.Policies = policyutil.ParsePolicies(data.Get("policies").(string))
+	policies, ok := data.GetOk("policies")
+	if ok {
+		role.Policies = policyutil.ParsePolicies(policies.(string))
+	} else if op == logical.CreateOperation {
+		role.Policies = policyutil.ParsePolicies("")
+	}
 
 	// Update GCP project id.
 	projectIdRaw, ok := data.GetOk("project_id")

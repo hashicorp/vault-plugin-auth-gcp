@@ -18,7 +18,7 @@ Currently, this plugin supports login for:
 
 This is a [Vault plugin](https://www.vaultproject.io/docs/internals/plugins.html)
 and is meant to work with Vault. This guide assumes you have already installed Vault
-and have an basic understanding of how Vault works.
+and have a basic understanding of how Vault works.
 
 Otherwise, first read this guide on how to [get started with Vault](https://www.vaultproject.io/intro/getting-started/install.html).
 

@@ -277,7 +277,7 @@ func testLoginError(t *testing.T, b logical.Backend, s logical.Storage, d map[st
 	errMsg := strings.ToLower(resp.Error().Error())
 	for _, v := range errorSubstrings {
 		if !strings.Contains(errMsg, strings.ToLower(v)) {
-			t.Fatalf("expected '%s' to be in error: '%s'", v, resp.Error())
+			t.Fatalf("expected '%s' to be in error: '%v'", v, resp.Error())
 		}
 	}
 }

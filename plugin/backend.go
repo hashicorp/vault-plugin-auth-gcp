@@ -118,7 +118,7 @@ func (b *GcpAuthBackend) initClients(s logical.Storage) (err error) {
 
 		httpClient, err = google.DefaultClient(ctx, b.oauthScopes...)
 		if err != nil {
-			return fmt.Errorf("credentials were not configured and fallback to application default credentials failed: %s", err)
+			return fmt.Errorf("credentials were not configured and fallback to application default credentials failed: %v", err)
 		}
 	} else {
 		httpClient, err = util.GetHttpClient(config.Credentials, b.oauthScopes...)

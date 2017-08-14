@@ -21,7 +21,7 @@ const (
 	// Default duration that JWT tokens must expire within to be accepted
 	defaultMaxJwtExpMin int = 15
 
-	clientErrorTemplate string = "backend not configured properly, could not create %s client: %s"
+	clientErrorTemplate string = "backend not configured properly, could not create %s client: %v"
 )
 
 func pathLogin(b *GcpAuthBackend) *framework.Path {
@@ -83,7 +83,7 @@ func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.Fi
 			return logical.ErrorResponse(err.Error()), nil
 		}
 	default:
-		return nil, fmt.Errorf("unexpected role type '%s' for loginN renewal", role.RoleType)
+		return nil, fmt.Errorf("unexpected role type '%s' for login renewal", role.RoleType)
 	}
 
 	// If 'Period' is set on the Role, the token should never expire.
@@ -106,9 +106,6 @@ type gcpLoginInfo struct {
 
 	// ID or email of an IAM service account or that inferred for a GCE VM.
 	ServiceAccountId string
-
-	// ID or email of an IAM service account or that inferred for a GCE VM.
-	InstanceId string
 
 	// ID of the public key to verify the signed JWT.
 	KeyId string
@@ -193,7 +190,7 @@ func (info *gcpLoginInfo) validateJWT(keyPEM string, loginInfo *gcpLoginInfo) er
 	}
 
 	if err := info.JWT.Validate(pubKey, crypto.SigningMethodRS256, validator); err != nil {
-		return fmt.Errorf("invalid JWT: %s", err)
+		return fmt.Errorf("invalid JWT: %v", err)
 	}
 
 	return nil
@@ -296,7 +293,7 @@ IAM service accounts
 =====================
 IAM service accounts can use GCP APIs or tools to sign a JSON Web Token (JWT).
 This JWT should contain the id (expected field 'client_id') or email
-(expected field 'client_email') of the authenticationg service account in its claims.
+(expected field 'client_email') of the authenticating service account in its claims.
 Vault verifies the signed JWT and parses the identity of the account.
 
 Renewal is rejected if the role, service account, or original signing key no longer exists.

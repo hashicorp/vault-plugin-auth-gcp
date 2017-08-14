@@ -3,6 +3,7 @@ package gcpauth
 import (
 	"github.com/hashicorp/vault/helper/jsonutil"
 	"github.com/hashicorp/vault/logical"
+	"reflect"
 	"testing"
 )
 
@@ -58,7 +59,7 @@ func testConfigUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.IsError() {
+	if resp != nil && resp.IsError() {
 		t.Fatal(resp.Error())
 	}
 }
@@ -82,20 +83,8 @@ func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected
 		t.Fatal(resp.Error())
 	}
 
-	if resp.Data["client_email"] != expected["client_email"] {
-		t.Fatalf("client_email mismatch, expected %s but actually %s", expected["client_email"], resp.Data["client_email"])
-	}
-	if resp.Data["client_id"] != expected["client_id"] {
-		t.Fatalf("client_id mismatch, expected %s but actually %s", expected["client_id"], resp.Data["client_id"])
-	}
-	if resp.Data["private_key_id"] != expected["private_key_id"] {
-		t.Fatalf("private_key_id mismatch, expected %s but actually %s", expected["private_key_id"], resp.Data["private_key_id"])
-	}
-	if resp.Data["private_key"] != expected["private_key"] {
-		t.Fatalf("private_key mismatch, expected %s but actually %s", expected["private_key"], resp.Data["private_key"])
-	}
-	if resp.Data["project_id"] != expected["project_id"] {
-		t.Fatalf("project_id mismatch, expected %s but actually %s", expected["project_id"], resp.Data["project_id"])
+	if !reflect.DeepEqual(resp.Data, expected) {
+		t.Fatalf("config mismatch, expected %v but actually %v", expected, resp.Data)
 	}
 
 	if len(resp.Warnings) != 1 || resp.Warnings[0] != warningACLReadAccess {

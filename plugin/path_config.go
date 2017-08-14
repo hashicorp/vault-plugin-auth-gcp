@@ -42,7 +42,7 @@ func (b *GcpAuthBackend) pathConfigWrite(req *logical.Request, data *framework.F
 	}
 
 	if err := config.Update(data); err != nil {
-		return logical.ErrorResponse(fmt.Sprintf("could not update config: %s", err)), nil
+		return logical.ErrorResponse(fmt.Sprintf("could not update config: %v", err)), nil
 	}
 
 	entry, err := logical.StorageEntryJSON("config", config)
@@ -93,7 +93,7 @@ iam AUTH:
 // Currently it only holds credentials, but we are leaving it as a seperate
 // struct in case we add more fields in the future.
 type gcpConfig struct {
-	Credentials *util.GcpCredentials
+	Credentials *util.GcpCredentials `json:"credentials" structs:"credentials" mapstructure:"credentials"`
 }
 
 // Update sets gcpConfig values parsed from the FieldData.
@@ -102,7 +102,7 @@ func (config *gcpConfig) Update(data *framework.FieldData) error {
 	if credentialsJson != "" {
 		creds, err := util.Credentials(credentialsJson)
 		if err != nil {
-			return fmt.Errorf("error reading google credentials from given JSON: %s", err)
+			return fmt.Errorf("error reading google credentials from given JSON: %v", err)
 		}
 		if len(creds.PrivateKeyId) == 0 {
 			return errors.New("google credentials not found from given JSON")
