@@ -401,7 +401,7 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 	if ok {
 		role.Policies = policyutil.ParsePolicies(policies.(string))
 	} else if op == logical.CreateOperation {
-		role.Policies = policyutil.ParsePolicies("")
+		role.Policies = policyutil.ParsePolicies(data.Get("policies").(string))
 	}
 
 	// Update GCP project id.
