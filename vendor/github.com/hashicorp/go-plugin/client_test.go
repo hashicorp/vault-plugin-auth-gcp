@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	hclog "github.com/hashicorp/go-hclog"
 )
 
 func TestClient(t *testing.T) {
@@ -579,7 +581,7 @@ func TestClient_SecureConfig(t *testing.T) {
 	_, err := c.Client()
 	c.Kill()
 	if err != ErrChecksumsDoNotMatch {
-		t.Fatal("err should be %s, got %s", ErrChecksumsDoNotMatch, err)
+		t.Fatalf("err should be %s, got %s", ErrChecksumsDoNotMatch, err)
 	}
 
 	// Get the checksum of the executable
@@ -747,7 +749,7 @@ func TestClient_secureConfigAndReattach(t *testing.T) {
 
 	_, err := c.Start()
 	if err != ErrSecureConfigAndReattach {
-		t.Fatal("err should not be %s, got %s", ErrSecureConfigAndReattach, err)
+		t.Fatalf("err should not be %s, got %s", ErrSecureConfigAndReattach, err)
 	}
 }
 
@@ -775,5 +777,84 @@ func TestClient_ping(t *testing.T) {
 	c.Kill()
 	if err := client.Ping(); err == nil {
 		t.Fatal("should error")
+	}
+}
+
+func TestClient_logger(t *testing.T) {
+	t.Run("net/rpc", func(t *testing.T) { testClient_logger(t, "netrpc") })
+	t.Run("grpc", func(t *testing.T) { testClient_logger(t, "grpc") })
+}
+
+func testClient_logger(t *testing.T, proto string) {
+	var buffer bytes.Buffer
+	stderr := io.MultiWriter(os.Stderr, &buffer)
+	// Custom hclog.Logger
+	clientLogger := hclog.New(&hclog.LoggerOptions{
+		Name:   "test-logger",
+		Level:  hclog.Trace,
+		Output: stderr,
+	})
+
+	process := helperProcess("test-interface-logger-" + proto)
+	c := NewClient(&ClientConfig{
+		Cmd:              process,
+		HandshakeConfig:  testHandshake,
+		Plugins:          testPluginMap,
+		Logger:           clientLogger,
+		AllowedProtocols: []Protocol{ProtocolNetRPC, ProtocolGRPC},
+	})
+	defer c.Kill()
+
+	// Grab the RPC client
+	client, err := c.Client()
+	if err != nil {
+		t.Fatalf("err should be nil, got %s", err)
+	}
+
+	// Grab the impl
+	raw, err := client.Dispense("test")
+	if err != nil {
+		t.Fatalf("err should be nil, got %s", err)
+	}
+
+	impl, ok := raw.(testInterface)
+	if !ok {
+		t.Fatalf("bad: %#v", raw)
+	}
+
+	{
+		// Discard everything else, and capture the output we care about
+		buffer.Reset()
+		impl.PrintKV("foo", "bar")
+		time.Sleep(100 * time.Millisecond)
+		line, err := buffer.ReadString('\n')
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(line, "foo=bar") {
+			t.Fatalf("bad: %q", line)
+		}
+	}
+
+	{
+		// Try an integer type
+		buffer.Reset()
+		impl.PrintKV("foo", 12)
+		time.Sleep(100 * time.Millisecond)
+		line, err := buffer.ReadString('\n')
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(line, "foo=12") {
+			t.Fatalf("bad: %q", line)
+		}
+	}
+
+	// Kill it
+	c.Kill()
+
+	// Test that it knows it is exited
+	if !c.Exited() {
+		t.Fatal("should say client has exited")
 	}
 }
