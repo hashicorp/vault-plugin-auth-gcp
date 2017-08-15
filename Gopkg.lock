@@ -4,8 +4,8 @@
 [[projects]]
   name = "cloud.google.com/go"
   packages = ["compute/metadata"]
-  revision = "a5913b3f7deecba45e98ff33cefbac4fd204ddd7"
-  version = "v0.10.0"
+  revision = "44bcd0b2078ba5e7fedbeb36808d1ed893534750"
+  version = "v0.11.0"
 
 [[projects]]
   name = "github.com/SermoDigital/jose"
@@ -17,7 +17,7 @@
   branch = "master"
   name = "github.com/armon/go-radix"
   packages = ["."]
-  revision = "4239b77079c7b5d1243b7b4736304ce8ddb6f0f2"
+  revision = "1fca145dffbcaa8fe914309b1ec0cfc67500fe61"
 
 [[projects]]
   name = "github.com/fatih/structs"
@@ -29,7 +29,7 @@
   branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto","ptypes/any"]
-  revision = "748d386b5c1ea99658fd69fe9f03991ce86a90c1"
+  revision = "1909bc2f63dc92bb931deace8b8312c4db72d12f"
 
 [[projects]]
   branch = "master"
@@ -65,7 +65,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-plugin"
   packages = ["."]
-  revision = "4e5a3725c607a756be8d35bf3a521c0f9c422666"
+  revision = "871e7582ebde6a93f3e03d8c6fa0d2eb2eb98d02"
 
 [[projects]]
   branch = "master"
@@ -88,8 +88,8 @@
 [[projects]]
   branch = "master"
   name = "github.com/hashicorp/vault"
-  packages = ["api","helper/certutil","helper/compressutil","helper/consts","helper/errutil","helper/jsonutil","helper/logformat","helper/mlock","helper/parseutil","helper/pluginutil","helper/policyutil","helper/salt","helper/strutil","helper/wrapping","logical","logical/framework","logical/plugin"]
-  revision = "823cef4cbf142fb9ed5b4d599c4915b0b7925b57"
+  packages = ["api","helper/certutil","helper/compressutil","helper/consts","helper/errutil","helper/jsonutil","helper/logformat","helper/mlock","helper/parseutil","helper/pluginutil","helper/policyutil","helper/salt","helper/strutil","helper/wrapping","logical","logical/framework","logical/plugin","version"]
+  revision = "44473719c1a45cc9e929b13a40abc45cfc6622e0"
 
 [[projects]]
   branch = "master"
@@ -100,8 +100,8 @@
 [[projects]]
   name = "github.com/mattn/go-colorable"
   packages = ["."]
-  revision = "941b50ebc6efddf4c41c8e4537a5f68a4e686b24"
-  version = "v0.0.8"
+  revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
+  version = "v0.0.9"
 
 [[projects]]
   name = "github.com/mattn/go-isatty"
@@ -131,7 +131,7 @@
   branch = "master"
   name = "github.com/mitchellh/go-testing-interface"
   packages = ["."]
-  revision = "e1449340a7b207d8ca90d41466272ece75cbb5b5"
+  revision = "9a441910b16872f7b8283682619b3761a9aa2222"
 
 [[projects]]
   branch = "master"
@@ -149,31 +149,31 @@
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context","context/ctxhttp","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
-  revision = "f5079bd7f6f74e23c4d65efa0f4ce14cbd6a3c0f"
+  revision = "1c05540f6879653db88113bc4a2b70aec4bd491f"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/oauth2"
   packages = [".","google","internal","jws","jwt"]
-  revision = "b53b38ad8a6435bd399ea76d0fa74f23149cca4e"
+  revision = "9a379c6b3e95a790ffc43293c2a78dee0d7b6e20"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "02a66801d979d706a4b445e24e03916eeaa2a404"
+  revision = "9f7170bcd8e9f4d3691c06401119c46a769a1e03"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
   packages = ["internal/gen","internal/triegen","internal/ucd","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
-  revision = "836efe42bb4aa16aaa17b9c155d8813d336ed720"
+  revision = "e56139fd9c5bc7244c76116c68e500765bb6db6b"
 
 [[projects]]
   branch = "master"
   name = "google.golang.org/api"
   packages = ["gensupport","googleapi","googleapi/internal/uritemplates","iam/v1"]
-  revision = "295e4bb0ade057ae2cfb9876ab0b54635dbfcea4"
+  revision = "98825bb0065da4054e5da6db34f5fc598e50bc24"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -185,17 +185,17 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "b0a3dcfcd1a9bd48e63634bd8802960804cf8315"
+  revision = "6b7d9516179cd47f4714cfeb0103ad1dede756c4"
 
 [[projects]]
   name = "google.golang.org/grpc"
-  packages = [".","codes","credentials","grpclb/grpc_lb_v1","grpclog","health","health/grpc_health_v1","internal","keepalive","metadata","naming","peer","stats","status","tap","transport"]
-  revision = "172ccacff3cfbddedcf1ba5ea06cda943bc976c1"
-  version = "v1.5.0"
+  packages = [".","codes","connectivity","credentials","grpclb/grpc_lb_v1","grpclog","health","health/grpc_health_v1","internal","keepalive","metadata","naming","peer","stats","status","tap","transport"]
+  revision = "b3ddf786825de56a4178401b7e174ee332173b66"
+  version = "v1.5.2"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8cc69880502b2a0534fdb5ce4cce32f61c2ef5d9050019e6f23f8b2bd54d8ac0"
+  inputs-digest = "77242c146c9f59cb2c0a49bf6b958cabfcfef40d0b9f9a685d377182d909ae0d"
   solver-name = "gps-cdcl"
   solver-version = 1
