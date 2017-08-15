@@ -274,6 +274,17 @@ func (b *GcpAuthBackend) pathIamRenew(req *logical.Request, role *gcpRole) error
 
 // validateAgainstIAMRole returns an error if the given IAM service account is not authorized for the role.
 func (b *GcpAuthBackend) validateAgainstIAMRole(serviceAccount *iam.ServiceAccount, role *gcpRole) error {
+	// This is just in case - project should already be used to retrieve service account.
+	if role.ProjectId != serviceAccount.ProjectId {
+		return fmt.Errorf("service account %s does not belong to project %s", serviceAccount.Email, role.ProjectId)
+	}
+
+	// Check if role has the wildcard as the only service account.
+	if len(role.ServiceAccounts) == 1 && role.ServiceAccounts[0] == serviceAccountWildcard {
+		return nil
+	}
+
+	// Check for service account id/email.
 	if strutil.StrListContains(role.ServiceAccounts, serviceAccount.Email) ||
 		strutil.StrListContains(role.ServiceAccounts, serviceAccount.UniqueId) {
 		return nil

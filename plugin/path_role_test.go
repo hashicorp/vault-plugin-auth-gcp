@@ -29,7 +29,7 @@ func TestRoleIam(t *testing.T) {
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"name":             roleName,
 		"role_type":        "iam",
-		"project_name":     os.Getenv("GOOGLE_PROJECT"),
+		"project_id":       os.Getenv("GOOGLE_PROJECT"),
 		"service_accounts": serviceAccounts,
 	})
 
@@ -46,7 +46,7 @@ func TestRoleIam(t *testing.T) {
 
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"role_type":                "iam",
-		"project_name":             os.Getenv("GOOGLE_PROJECT"),
+		"project_id":               os.Getenv("GOOGLE_PROJECT"),
 		"policies":                 []string{"dev", "default"},
 		"disable_reauthentication": false,
 		"ttl":              int64(1000),
@@ -54,6 +54,42 @@ func TestRoleIam(t *testing.T) {
 		"period":           int64(30),
 		"max_jwt_exp":      int64(1200),
 		"service_accounts": serviceAccounts,
+	})
+}
+
+func TestRoleIamWildcard(t *testing.T) {
+	b, reqStorage := getTestBackend(t)
+
+	creds, err := getTestCredentials()
+	if err != nil {
+		t.Fatal(t)
+	}
+
+	roleName := "testrole"
+
+	serviceAccounts := []string{creds.ClientEmail, "*"}
+	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
+		"name":             roleName,
+		"type":             "iam",
+		"project_id":       os.Getenv("GOOGLE_PROJECT"),
+		"service_accounts": strings.Join(serviceAccounts, ","),
+	}, []string{
+		fmt.Sprintf("cannot provide IAM service account wildcard '%s' (for all service accounts) with other service accounts", serviceAccountWildcard),
+	})
+
+	serviceAccounts = []string{"*"}
+	testRoleCreate(t, b, reqStorage, map[string]interface{}{
+		"name":             roleName,
+		"type":             "iam",
+		"project_id":       os.Getenv("GOOGLE_PROJECT"),
+		"service_accounts": strings.Join(serviceAccounts, ","),
+	})
+
+	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
+		"role_type":                "iam",
+		"project_id":               os.Getenv("GOOGLE_PROJECT"),
+		"disable_reauthentication": false,
+		"service_accounts":         serviceAccounts,
 	})
 }
 
@@ -76,7 +112,7 @@ func TestRoleIam_ServiceAccounts(t *testing.T) {
 	expectedRole := map[string]interface{}{
 		"name":             roleName,
 		"role_type":        "iam",
-		"project_name":     os.Getenv("GOOGLE_PROJECT"),
+		"project_id":       os.Getenv("GOOGLE_PROJECT"),
 		"service_accounts": initial,
 	}
 
@@ -93,20 +129,22 @@ func TestRoleIam_ServiceAccounts(t *testing.T) {
 		"toAdd34567",
 		"toremove@google.com",
 	}
-	testRoleAddServiceAccounts(t, b, reqStorage, map[string]interface{}{
-		"name":   roleName,
-		"values": strings.Join(toAdd, ","),
+	testRoleEditServiceAccounts(t, b, reqStorage, map[string]interface{}{
+		"name": roleName,
+		"add":  strings.Join(toAdd, ","),
 	})
 	testRoleRead(t, b, reqStorage, roleName, expectedRole)
 
 	// Test removal of values.
+	toAdd = []string{"toAdd2nd"}
 	toRemove := []string{"toremove12345", "toremove@google.com"}
 	expectedRole["service_accounts"] = []string{
-		"id1234", "test1@google.com", "toAdd34567",
+		"toAdd2nd", "id1234", "test1@google.com", "toAdd34567",
 	}
-	testRoleRemoveServiceAccounts(t, b, reqStorage, map[string]interface{}{
+	testRoleEditServiceAccounts(t, b, reqStorage, map[string]interface{}{
 		"name":   roleName,
-		"values": strings.Join(toRemove, ","),
+		"add":    strings.Join(toAdd, ","),
+		"remove": strings.Join(toRemove, ","),
 	})
 	testRoleRead(t, b, reqStorage, roleName, expectedRole)
 }
@@ -121,7 +159,7 @@ func testRoleCreate(t *testing.T, b logical.Backend, s logical.Storage, d map[st
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.IsError() {
+	if resp != nil && resp.IsError() {
 		t.Fatal(resp.Error())
 	}
 }
@@ -136,38 +174,44 @@ func testRoleUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[st
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.IsError() {
+	if resp != nil && resp.IsError() {
 		t.Fatal(resp.Error())
 	}
 }
 
-func testRoleAddServiceAccounts(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+func testRoleEditServiceAccounts(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
 	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.UpdateOperation,
-		Path:      fmt.Sprintf("role/%s/add-service-accounts", d["name"]),
+		Path:      fmt.Sprintf("role/%s/service-accounts", d["name"]),
 		Data:      d,
 		Storage:   s,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.IsError() {
+	if resp != nil && resp.IsError() {
 		t.Fatal(resp.Error())
 	}
 }
 
-func testRoleRemoveServiceAccounts(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+func testRoleCreateError(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, expected []string) {
 	resp, err := b.HandleRequest(&logical.Request{
-		Operation: logical.UpdateOperation,
-		Path:      fmt.Sprintf("role/%s/remove-service-accounts", d["name"]),
+		Operation: logical.CreateOperation,
+		Path:      fmt.Sprintf("role/%s", d["name"]),
 		Data:      d,
 		Storage:   s,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.IsError() {
-		t.Fatal(resp.Error())
+	if resp == nil || !resp.IsError() {
+		t.Fatalf("expected error containing: %s", strings.Join(expected, ", "))
+	}
+
+	for _, str := range expected {
+		if !strings.Contains(resp.Error().Error(), str) {
+			t.Fatalf("expected %s to be in error %v", str, resp.Error())
+		}
 	}
 }
 
@@ -180,7 +224,7 @@ func testRoleRead(t *testing.T, b logical.Backend, s logical.Storage, roleName s
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.IsError() {
+	if resp != nil && resp.IsError() {
 		t.Fatal(resp.Error())
 	}
 

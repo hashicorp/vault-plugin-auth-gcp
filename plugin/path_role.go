@@ -12,8 +12,10 @@ import (
 )
 
 const (
-	serviceAccountAttr         = "service-accounts"
-	iamRoleType                = "iam"
+	iamRoleType            = "iam"
+	serviceAccountAttr     = "service-accounts"
+	serviceAccountWildcard = "*"
+
 	errEmptyRoleName           = "role name is required"
 	errEmptyIamServiceAccounts = "IAM role type must have at least one service account"
 )
@@ -66,8 +68,10 @@ If set, indicates that the token generated using this role should never expire. 
 				},
 				// IAM Role Domain
 				"service_accounts": {
-					Type:        framework.TypeString,
-					Description: `A comma-seperated list of service accounts to allow to login as this role`,
+					Type: framework.TypeString,
+					Description: `
+A comma-seperated list of service accounts to allow to login as this role. If the single value "*" is given, this
+is assumed to be all service accounts under the role's project.`,
 				},
 			},
 
@@ -175,13 +179,16 @@ func (b *GcpAuthBackend) pathRoleCreateUpdate(req *logical.Request, data *framew
 		role = &gcpRole{}
 	}
 
-	resp, err := role.updateRole(b.System(), req.Operation, data)
+	warnResp, err := role.updateRole(b.System(), req.Operation, data)
 
-	if err := b.storeRole(req.Storage, name, role); err != nil {
+	errResp, err := b.storeRole(req.Storage, name, role)
+	if err != nil {
 		return nil, err
+	} else if errResp != nil {
+		return errResp, err
 	}
 
-	return resp, nil
+	return warnResp, nil
 }
 
 func (b *GcpAuthBackend) pathRoleList(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -206,54 +213,41 @@ const pathListRolesHelpDesc = `Lists all roles under the GCP backends by name.`
 func (b *GcpAuthBackend) pathRoleEditListAttr(attr string) []*framework.Path {
 	return []*framework.Path{
 		{
-			Pattern: fmt.Sprintf("role/%s/add-%s", framework.GenericNameRegex("name"), attr),
+			Pattern: fmt.Sprintf("role/%s/%s", framework.GenericNameRegex("name"), attr),
 			Fields: map[string]*framework.FieldSchema{
 				"name": {
 					Type:        framework.TypeString,
 					Description: "Name of the role.",
 				},
-				"values": {
+				"add": {
 					Type:        framework.TypeCommaStringSlice,
 					Description: "Values to add.",
 				},
-			},
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.UpdateOperation: b.pathRoleEditListOperator(attr, addStringValues),
-			},
-			HelpSynopsis:    pathAddToListHelpSyn,
-			HelpDescription: pathAddToListHelpDesc,
-		},
-		{
-			Pattern: fmt.Sprintf("role/%s/remove-%s", framework.GenericNameRegex("name"), attr),
-			Fields: map[string]*framework.FieldSchema{
-				"name": {
-					Type:        framework.TypeString,
-					Description: "Name of the role.",
-				},
-				"values": {
+				"remove": {
 					Type:        framework.TypeCommaStringSlice,
 					Description: "Values to remove.",
 				},
 			},
 			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.UpdateOperation: b.pathRoleEditListOperator(attr, removeStringValues),
+				logical.UpdateOperation: b.pathRoleEditListOperator(attr),
 			},
-			HelpSynopsis:    pathRemoveFromListHelpDesc,
-			HelpDescription: pathRemoveFromListHelpSyn,
+			HelpSynopsis:    pathAddToListHelpSyn,
+			HelpDescription: pathAddToListHelpDesc,
 		},
 	}
 }
 
-func (b *GcpAuthBackend) pathRoleEditListOperator(attr string, editFunc func([]string, []string) []string) framework.OperationFunc {
+func (b *GcpAuthBackend) pathRoleEditListOperator(attr string) framework.OperationFunc {
 	return func(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 		roleName := data.Get("name").(string)
 		if roleName == "" {
 			return logical.ErrorResponse(errEmptyRoleName), nil
 		}
 
-		values := data.Get("values").([]string)
-		if len(values) == 0 {
-			return logical.ErrorResponse("must provide at least one value"), nil
+		toAdd := data.Get("add").([]string)
+		toRemove := data.Get("remove").([]string)
+		if len(toAdd) == 0 && len(toRemove) == 0 {
+			return logical.ErrorResponse("must provide at least one value to add or remove"), nil
 		}
 
 		role, err := b.role(req.Storage, roleName)
@@ -266,25 +260,22 @@ func (b *GcpAuthBackend) pathRoleEditListOperator(attr string, editFunc func([]s
 			if role.RoleType != iamRoleType {
 				return logical.ErrorResponse(fmt.Sprintf("Cannot edit service accounts on non-IAM roles, role is type %s", role.RoleType)), nil
 			}
-			role.ServiceAccounts = editFunc(role.ServiceAccounts, values)
+			role.ServiceAccounts = editStringValues(role.ServiceAccounts, toAdd, toRemove)
 		default:
 			return nil, fmt.Errorf("unsupported attribute '%s'", attr)
 		}
 
-		if err := b.storeRole(req.Storage, roleName, role); err != nil {
-			return nil, err
-		}
-		return nil, nil
+		return b.storeRole(req.Storage, roleName, role)
 	}
 }
 
-func addStringValues(initial []string, toAdd []string) []string {
-	return strutil.RemoveDuplicates(append(initial, toAdd...), false)
-}
-
-func removeStringValues(initial []string, toRemove []string) []string {
+func editStringValues(initial []string, toAdd []string, toRemove []string) []string {
 	strMap := map[string]bool{}
 	for _, name := range initial {
+		strMap[name] = true
+	}
+
+	for _, name := range toAdd {
 		strMap[name] = true
 	}
 
@@ -303,10 +294,9 @@ func removeStringValues(initial []string, toRemove []string) []string {
 	return updated
 }
 
-const pathAddToListHelpSyn = `Add values to an list attribute on an existing role`
-const pathAddToListHelpDesc = `This path allows a user to add values to a list of values for a given role's list attribute`
-const pathRemoveFromListHelpSyn = `Remove values from an list on an existing role`
-const pathRemoveFromListHelpDesc = `This path allows a user to remove values from a list of values for a given role's list attribute`
+const pathAddToListHelpSyn = `Add and remove values for an list attribute on an existing role`
+const pathAddToListHelpDesc = `This path allows a user to add values to and/or remove from a list of values
+for a given role's list attribute`
 
 // role reads a gcpRole from storage. This assumes the caller has already obtained the role lock.
 func (b *GcpAuthBackend) role(s logical.Storage, name string) (*gcpRole, error) {
@@ -328,17 +318,17 @@ func (b *GcpAuthBackend) role(s logical.Storage, name string) (*gcpRole, error) 
 }
 
 // storeRole saves the gcpRole to storage.
-func (b *GcpAuthBackend) storeRole(s logical.Storage, roleName string, role *gcpRole) error {
+func (b *GcpAuthBackend) storeRole(s logical.Storage, roleName string, role *gcpRole) (*logical.Response, error) {
 	if err := role.validate(b.System()); err != nil {
-		return err
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	entry, err := logical.StorageEntryJSON(fmt.Sprintf("role/%s", roleName), role)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return s.Put(entry)
+	return nil, s.Put(entry)
 }
 
 type gcpRole struct {
@@ -512,6 +502,10 @@ func (role *gcpRole) updateIamFields(data *framework.FieldData, op logical.Opera
 func (role *gcpRole) validateIamFields() error {
 	if len(role.ServiceAccounts) == 0 {
 		return errors.New(errEmptyIamServiceAccounts)
+	}
+
+	if len(role.ServiceAccounts) > 1 && strutil.StrListContains(role.ServiceAccounts, serviceAccountWildcard) {
+		return fmt.Errorf("cannot provide IAM service account wildcard '%s' (for all service accounts) with other service accounts", serviceAccountWildcard)
 	}
 	return nil
 }

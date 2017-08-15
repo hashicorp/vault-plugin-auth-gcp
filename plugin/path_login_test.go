@@ -68,6 +68,51 @@ func TestLoginIam(t *testing.T) {
 	testLoginIam(t, b, reqStorage, loginData, metadata, role)
 }
 
+func TestLoginIamWildcard(t *testing.T) {
+	b, reqStorage := getTestBackend(t)
+
+	creds, err := getTestCredentials()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
+		"credentials": os.Getenv(googleCredentialsEnv),
+	})
+
+	roleName := "testrole"
+	testRoleCreate(t, b, reqStorage, map[string]interface{}{
+		"name":             roleName,
+		"type":             "iam",
+		"project_id":       creds.ProjectId,
+		"service_accounts": "*",
+	})
+
+	// Have token expire within 5 minutes of max JWT exp
+	expDelta := time.Duration(defaultMaxJwtExpMin-5) * time.Minute
+	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
+	loginData := map[string]interface{}{
+		"role": roleName,
+		"jwt":  jwtVal,
+	}
+
+	metadata := map[string]string{
+		"service_account_id":    creds.ClientId,
+		"service_account_email": creds.ClientEmail,
+		"role":                  roleName,
+	}
+	role := &gcpRole{
+		RoleType:        "iam",
+		ProjectId:       creds.ProjectId,
+		Policies:        []string{"default"},
+		TTL:             time.Duration(0),
+		MaxTTL:          time.Duration(0),
+		Period:          time.Duration(0),
+		ServiceAccounts: []string{creds.ClientEmail},
+	}
+	testLoginIam(t, b, reqStorage, loginData, metadata, role)
+}
+
 // TestLoginIam_UnauthorizedRole checks that we return an error response
 // if the user attempts to login against a role it is not authorized for.
 func TestLoginIam_UnauthorizedRole(t *testing.T) {
@@ -226,7 +271,7 @@ func testLoginIam(t *testing.T, b logical.Backend, s logical.Storage, d map[stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.IsError() {
+	if resp != nil && resp.IsError() {
 		t.Fatal(resp.Error())
 	}
 
