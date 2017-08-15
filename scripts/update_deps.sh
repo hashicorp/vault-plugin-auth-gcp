@@ -22,6 +22,9 @@ cd ${TOOL}
 ## Get golang dep tool
 go get -u github.com/golang/dep/cmd/dep
 
+## Remove existing manifest
+rm Gopkg*
+
 ## Init
 dep init
 
