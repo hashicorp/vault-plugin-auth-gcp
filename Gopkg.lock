@@ -65,7 +65,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-plugin"
   packages = ["."]
-  revision = "871e7582ebde6a93f3e03d8c6fa0d2eb2eb98d02"
+  revision = "ee15be783c351486c421ca2f6f4e6be6995a3719"
 
 [[projects]]
   branch = "master"
@@ -86,10 +86,10 @@
   revision = "392dba7d905ed5d04a5794ba89f558b27e2ba1ca"
 
 [[projects]]
-  branch = "master"
   name = "github.com/hashicorp/vault"
   packages = ["api","helper/certutil","helper/compressutil","helper/consts","helper/errutil","helper/jsonutil","helper/logformat","helper/mlock","helper/parseutil","helper/pluginutil","helper/policyutil","helper/salt","helper/strutil","helper/wrapping","logical","logical/framework","logical/plugin","version"]
-  revision = "44473719c1a45cc9e929b13a40abc45cfc6622e0"
+  revision = "af63d879130d2ee292f09257571d371100a513eb"
+  version = "v0.8.0"
 
 [[projects]]
   branch = "master"
@@ -196,6 +196,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "77242c146c9f59cb2c0a49bf6b958cabfcfef40d0b9f9a685d377182d909ae0d"
+  inputs-digest = "34a0271810dba1c3cec9f7b01717bb0e4350ce80a38b28ee744b94a62dc4688c"
   solver-name = "gps-cdcl"
   solver-version = 1

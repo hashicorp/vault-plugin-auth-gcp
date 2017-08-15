@@ -26,20 +26,12 @@
   version = "1.1.0"
 
 [[constraint]]
-  name = "github.com/fatih/structs"
-  version = "1.0.0"
-
-[[constraint]]
   branch = "master"
-  name = "github.com/go-errors/errors"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/hashicorp/go-uuid"
+  name = "github.com/hashicorp/go-cleanhttp"
 
 [[constraint]]
   name = "github.com/hashicorp/vault"
-  branch = "master"
+  version = "0.8.0"
 
 [[constraint]]
   name = "github.com/mgutz/logxi"
