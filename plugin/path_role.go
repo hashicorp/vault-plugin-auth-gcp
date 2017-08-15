@@ -270,13 +270,13 @@ func (b *GcpAuthBackend) pathRoleEditListOperator(attr string) framework.Operati
 }
 
 func editStringValues(initial []string, toAdd []string, toRemove []string) []string {
-	strMap := map[string]bool{}
+	strMap := map[string]struct{}{}
 	for _, name := range initial {
-		strMap[name] = true
+		strMap[name] = struct{}{}
 	}
 
 	for _, name := range toAdd {
-		strMap[name] = true
+		strMap[name] = struct{}{}
 	}
 
 	for _, name := range toRemove {

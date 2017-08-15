@@ -19,17 +19,16 @@ echo "Fetching ${TOOL}..."
 git clone git@github.com:hashicorp/${TOOL}.git
 cd ${TOOL}
 
-## Clean out earlier vendoring
-rm -rf Godeps vendor
-
-## Get govendor
-go get github.com/kardianos/govendor
+## Get golang dep tool
+go get -u github.com/golang/dep/cmd/dep
 
 ## Init
-govendor init
+dep init
 
 ## Fetch deps
 echo "Fetching deps, will take some time..."
-govendor fetch +missing
+dep ensure
+echo "Pruning unused deps..."
+dep prune
 
 echo "Done; to commit run \n\ncd ${GOPATH}/src/github.com/hashicorp/${TOOL}\n"

@@ -231,7 +231,10 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginI
 
 	resp := &logical.Response{
 		Auth: &logical.Auth{
-			Period:   role.Period,
+			Period: role.Period,
+			Persona: &logical.Persona{
+				Name: serviceAccount.UniqueId,
+			},
 			Policies: role.Policies,
 			Metadata: map[string]string{
 				"service_account_id":    serviceAccount.UniqueId,

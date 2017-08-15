@@ -65,7 +65,7 @@ func TestLoginIam(t *testing.T) {
 		Period:          time.Duration(0),
 		ServiceAccounts: []string{creds.ClientEmail},
 	}
-	testLoginIam(t, b, reqStorage, loginData, metadata, role)
+	testLoginIam(t, b, reqStorage, loginData, metadata, role, creds.ClientId)
 }
 
 func TestLoginIamWildcard(t *testing.T) {
@@ -110,7 +110,7 @@ func TestLoginIamWildcard(t *testing.T) {
 		Period:          time.Duration(0),
 		ServiceAccounts: []string{creds.ClientEmail},
 	}
-	testLoginIam(t, b, reqStorage, loginData, metadata, role)
+	testLoginIam(t, b, reqStorage, loginData, metadata, role, creds.ClientId)
 }
 
 // TestLoginIam_UnauthorizedRole checks that we return an error response
@@ -256,11 +256,13 @@ func TestLoginIam_JwtExpiresTime(t *testing.T) {
 		Policies:        []string{"default", "dev", "prod"},
 		ServiceAccounts: []string{creds.ClientEmail},
 	}
-	testLoginIam(t, b, reqStorage, loginData, metadata, role)
+	testLoginIam(t, b, reqStorage, loginData, metadata, role, creds.ClientId)
 
 }
 
-func testLoginIam(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, expectedMetadata map[string]string, role *gcpRole) {
+func testLoginIam(
+	t *testing.T, b logical.Backend, s logical.Storage,
+	d map[string]interface{}, expectedMetadata map[string]string, role *gcpRole, personaName string) {
 	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "login",
@@ -292,6 +294,10 @@ func testLoginIam(t *testing.T, b logical.Backend, s logical.Storage, d map[stri
 		if actual != expected {
 			t.Fatalf("metadata value '%s' mismatch, expected '%s' but got '%s'", k, expected, actual)
 		}
+	}
+
+	if resp.Auth.Persona.Name != personaName {
+		t.Fatalf("expected persona with name %s, got %s", personaName, resp.Auth.Persona.Name)
 	}
 
 	// Check lease options
