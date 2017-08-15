@@ -16,7 +16,7 @@ cd $tempdir
 mkdir -p src/github.com/hashicorp
 cd src/github.com/hashicorp
 echo "Fetching ${TOOL}..."
-git clone git@github.com:hashicorp/${TOOL}.git
+git clone https://github.com/hashicorp/${TOOL}.git
 cd ${TOOL}
 
 ## Get golang dep tool
