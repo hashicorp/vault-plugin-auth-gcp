@@ -65,7 +65,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-plugin"
   packages = ["."]
-  revision = "ee15be783c351486c421ca2f6f4e6be6995a3719"
+  revision = "a5174f84d7f8ff00fb07ab4ef1f380d32eee0e63"
 
 [[projects]]
   branch = "master"
@@ -89,7 +89,7 @@
   branch = "master"
   name = "github.com/hashicorp/vault"
   packages = ["api","helper/certutil","helper/compressutil","helper/consts","helper/errutil","helper/jsonutil","helper/logformat","helper/mlock","helper/parseutil","helper/pluginutil","helper/policyutil","helper/salt","helper/strutil","helper/wrapping","logical","logical/framework","logical/plugin","version"]
-  revision = "16863dbe4a68f9c3b8b251caf2ae9ce665786b08"
+  revision = "5d37bd54ef456d544819ca670572d1c84f23c68c"
 
 [[projects]]
   branch = "master"
