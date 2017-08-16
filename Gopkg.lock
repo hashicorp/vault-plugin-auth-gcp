@@ -86,10 +86,10 @@
   revision = "392dba7d905ed5d04a5794ba89f558b27e2ba1ca"
 
 [[projects]]
+  branch = "master"
   name = "github.com/hashicorp/vault"
   packages = ["api","helper/certutil","helper/compressutil","helper/consts","helper/errutil","helper/jsonutil","helper/logformat","helper/mlock","helper/parseutil","helper/pluginutil","helper/policyutil","helper/salt","helper/strutil","helper/wrapping","logical","logical/framework","logical/plugin","version"]
-  revision = "af63d879130d2ee292f09257571d371100a513eb"
-  version = "v0.8.0"
+  revision = "16863dbe4a68f9c3b8b251caf2ae9ce665786b08"
 
 [[projects]]
   branch = "master"
@@ -196,6 +196,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "34a0271810dba1c3cec9f7b01717bb0e4350ce80a38b28ee744b94a62dc4688c"
+  inputs-digest = "1d1844e8ad0f0cedb4cce8d4aa400cd07b5b3c5b26cb80e473908bdf9879c175"
   solver-name = "gps-cdcl"
   solver-version = 1
