@@ -23,7 +23,7 @@ cd ${TOOL}
 go get -u github.com/golang/dep/cmd/dep
 
 ## Remove existing manifest
-rm Gopkg* vendor
+rm -rf Gopkg* vendor
 
 ## Init
 dep init
