@@ -3,7 +3,8 @@ package gcpauth
 import (
 	"errors"
 	"fmt"
-	"github.com/hashicorp/vault-plugin-auth-gcp/util"
+
+	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/util"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )

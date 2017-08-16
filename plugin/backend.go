@@ -3,17 +3,18 @@ package gcpauth
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"runtime"
+	"sync"
+
 	"github.com/hashicorp/go-cleanhttp"
-	"github.com/hashicorp/vault-plugin-auth-gcp/util"
+	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/util"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"github.com/hashicorp/vault/version"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iam/v1"
-	"net/http"
-	"runtime"
-	"sync"
 )
 
 type GcpAuthBackend struct {

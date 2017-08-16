@@ -3,17 +3,18 @@ package gcpauth
 import (
 	"crypto/sha256"
 	"fmt"
-	"github.com/SermoDigital/jose"
-	"github.com/SermoDigital/jose/crypto"
-	"github.com/SermoDigital/jose/jwt"
-	"github.com/hashicorp/vault-plugin-auth-gcp/util"
-	"github.com/hashicorp/vault/helper/policyutil"
-	"github.com/hashicorp/vault/logical"
-	"google.golang.org/api/iam/v1"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/SermoDigital/jose"
+	"github.com/SermoDigital/jose/crypto"
+	"github.com/SermoDigital/jose/jwt"
+	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/util"
+	"github.com/hashicorp/vault/helper/policyutil"
+	"github.com/hashicorp/vault/logical"
+	"google.golang.org/api/iam/v1"
 )
 
 const (

@@ -3,16 +3,17 @@ package gcpauth
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/SermoDigital/jose/crypto"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
-	"github.com/hashicorp/vault-plugin-auth-gcp/util"
+	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/util"
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"google.golang.org/api/iam/v1"
-	"time"
 )
 
 const (

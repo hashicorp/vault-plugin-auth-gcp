@@ -2,13 +2,14 @@ package gcpauth
 
 import (
 	"fmt"
-	"github.com/hashicorp/vault-plugin-auth-gcp/util"
-	"github.com/hashicorp/vault/helper/logformat"
-	"github.com/hashicorp/vault/logical"
-	"github.com/mgutz/logxi/v1"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/util"
+	"github.com/hashicorp/vault/helper/logformat"
+	"github.com/hashicorp/vault/logical"
+	"github.com/mgutz/logxi/v1"
 )
 
 func getTestBackend(t *testing.T) (logical.Backend, logical.Storage) {
