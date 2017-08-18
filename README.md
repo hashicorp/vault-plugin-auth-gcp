@@ -26,51 +26,15 @@ To learn specifically about how plugins work, see documentation on [Vault plugin
 
 ### Usage
 
-Download the plugin binary into a location of your choice. This directory
-will be specified as the [`plugin_directory`](https://www.vaultproject.io/docs/configuration/index.html#plugin_directory)
-in the Vault config used to start the server.
+Please see [documentation for the plugin](https://www.vaultproject.io/docs/auth/gcp.html)
+on the Vault website.
 
-```json
-...
-plugin_directory = "path/to/plugin/directory"
-...
-```
-
-Start a Vault server with this config file:
-```sh
-$ vault server -config=path/to/config.json ...
-...
-```
-
-Once the server is started, register the plugin in the Vault server's [plugin catalog](https://www.vaultproject.io/docs/internals/plugins.html#plugin-catalog):
+This plugin is currently built into Vault and by default is accessed
+at `auth/gcp`. To enable this in a running Vault server:
 
 ```sh
-$ vault write sys/plugins/catalog/mygcpplugin \
-        sha_256=<expected SHA256 Hex value of the plugin binary> \
-        command="vault-plugin-auth-gcp"
-...
-Success! Data written to: sys/plugins/catalog/mygcpplugin
-```
-
-Any name can be substituted for the plugin name "mygcpplugin". This
-name will be referenced in the next step, where we enable the auth
-plugin backend using the GCP auth plugin:
-
-```sh
-$ vault auth-enable -plugin-name='mygcpplugin' -path='gcp' plugin
-...
-
-Successfully enabled 'plugin' at 'gcp'!
-```
-
-This example registers the backend under the path 'gcp'.
-From here, the backend paths can be accessed at `auth/gcp` like so:
-
-```sh
-$ vault write auth/gcp/config ttl=1000
-...
-$ vault read auth/gcp/role/myrolename
-...
+$ vault auth-enable 'gcp'
+Successfully enabled 'gcp' at 'gcp'!
 ```
 
 To see all the supported paths, see the [GCP auth backend docs](https://www.vaultproject.io/docs/auth/gcp.html).
@@ -101,14 +65,50 @@ $ make
 $ make dev
 ```
 
-From here, follow the instructions in [Usage](#usage) with this binary. Note you
-should generate a new sha256 checksum if you have made changes to the
-plugin. Example using openssl:
+Put the plugin binary into a location of your choice. This directory
+will be specified as the [`plugin_directory`](https://www.vaultproject.io/docs/configuration/index.html#plugin_directory)
+in the Vault config used to start the server.
+
+```json
+...
+plugin_directory = "path/to/plugin/directory"
+...
+```
+
+Start a Vault server with this config file:
+```sh
+$ vault server -config=path/to/config.json ...
+...
+```
+
+Once the server is started, register the plugin in the Vault server's [plugin catalog](https://www.vaultproject.io/docs/internals/plugins.html#plugin-catalog):
+
+```sh
+$ vault write sys/plugins/catalog/mygcpplugin \
+        sha_256=<expected SHA256 Hex value of the plugin binary> \
+        command="vault-plugin-auth-gcp"
+...
+Success! Data written to: sys/plugins/catalog/mygcpplugin
+```
+
+Note you should generate a new sha256 checksum if you have made changes
+to the plugin. Example using openssl:
 
 ```sh
 openssl dgst -sha256 $GOPATH/vault-plugin-gcp-auth
 ...
 SHA256(.../go/bin/vault-plugin-auth-gcp)= 896c13c0f5305daed381952a128322e02bc28a57d0c862a78cbc2ea66e8c6fa1
+```
+
+Any name can be substituted for the plugin name "mygcpplugin". This
+name will be referenced in the next step, where we enable the auth
+plugin backend using the GCP auth plugin:
+
+```sh
+$ vault auth-enable -plugin-name='mygcpplugin' -path='gcp' plugin
+...
+
+Successfully enabled 'plugin' at 'gcp'!
 ```
 
 ### Testing
