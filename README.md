@@ -24,7 +24,7 @@ Otherwise, first read this guide on how to [get started with Vault](https://www.
 
 To learn specifically about how plugins work, see documentation on [Vault plugins](https://www.vaultproject.io/docs/internals/plugins.html).
 
-### Usage
+## Usage
 
 Please see [documentation for the plugin](https://www.vaultproject.io/docs/auth/gcp.html)
 on the Vault website.
@@ -111,6 +111,19 @@ $ vault auth-enable -plugin-name='mygcpplugin' -path='gcp' plugin
 Successfully enabled 'plugin' at 'gcp'!
 ```
 
+**Note** If you are starting up and setting up Vault in an init script,
+make sure to have appropriate environment variables set. Currently, if
+you are using TLS and do not set env var VAULT_CAPATH, the plugin will
+fail to load completely and give an error like
+
+```sh
+$ vault auth-enable -plugin-name='mygcpplugin' -path='gcp' plugin
+...
+plugin: plugin process exited: path=/usr/local/bin/vault-plugin-auth-gcp
+sys: enable auth mount failed: path=gcp/ error=plugin exited before we could connect
+...
+```
+
 ### Testing
 
 To run tests, type `make test`. Note: this requires Docker to be installed. If
@@ -161,3 +174,4 @@ You can also specify a `TESTARGS` variable to filter tests like so:
 ```sh
 $ make testacc TESTARGS='--run=TestConfig'
 ```
+
