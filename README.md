@@ -111,26 +111,7 @@ $ vault auth-enable -plugin-name='mygcpplugin' -path='gcp' plugin
 Successfully enabled 'plugin' at 'gcp'!
 ```
 
-### Testing
-
-To run tests, type `make test`. Note: this requires Docker to be installed. If
-this exits with exit status 0, then everything is working!
-
-```sh
-$ make test
-...
-```
-
-If you're developing a specific package, you can run tests for just that
-package by specifying the `TEST` variable. For example below, only
-`vault` package tests will be run.
-
-```sh
-$ make test TEST=./vault
-...
-```
-
-#### Acceptance Tests
+#### Tests
 
 This plugin has comprehensive [acceptance tests](https://en.wikipedia.org/wiki/Acceptance_testing)
 covering most of the features of this auth backend.
@@ -150,14 +131,14 @@ data behind. Therefore, please run the acceptance tests at your own risk.
 At the very least, we recommend running them in their own private
 account for whatever backend you're testing.
 
-To run the acceptance tests, invoke `make testacc`:
+To run the acceptance tests, invoke `make test`:
 
 ```sh
-$ make testacc
+$ make test
 ```
 
 You can also specify a `TESTARGS` variable to filter tests like so:
 
 ```sh
-$ make testacc TESTARGS='--run=TestConfig'
+$ make test TESTARGS='--run=TestConfig'
 ```
