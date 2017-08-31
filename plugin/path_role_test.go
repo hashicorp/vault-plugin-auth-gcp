@@ -2,123 +2,133 @@ package gcpauth
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/logical"
+	"reflect"
 )
 
-func TestRoleIam(t *testing.T) {
+const (
+	defaultRoleName = "testrole"
+	defaultProject  = "project-123456"
+)
+
+// Defaults for verifying response data. If a value is not included here, it must be included in the
+// 'expected' map param for a test.
+var expectedDefaults map[string]interface{} = map[string]interface{}{
+	"policies": []string{"default"},
+	"ttl":      int64(baseRoleFieldSchema["ttl"].Default.(int)),
+	"max_ttl":  int64(baseRoleFieldSchema["ttl"].Default.(int)),
+	"period":   int64(baseRoleFieldSchema["ttl"].Default.(int)),
+	// IAM
+	"max_jwt_exp":         int64(iamOnlyFieldSchema["max_jwt_exp"].Default.(int)),
+	"allow_gce_inference": iamOnlyFieldSchema["allow_gce_inference"].Default.(bool),
+	// GCE
+	"zone":                   "",
+	"region":                 "",
+	"managed_instance_group": "",
+	"instance_group":         "",
+	"labels":                 map[string]string{},
+	"service_accounts":       []string{},
+}
+
+//-- IAM ROLE TESTS --
+func TestRoleUpdateIam(t *testing.T) {
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(t)
-	}
+	serviceAccounts := []string{"dev1@project-123456.iam.gserviceaccounts.com", "aserviceaccountid"}
 
-	serviceAccounts := []string{creds.ClientEmail}
-	roleName := "testrole"
+	// Bare minimum for iam roles
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":             roleName,
-		"type":             "iam",
-		"project_id":       creds.ProjectId,
+		"name":             defaultRoleName,
+		"type":             iamRoleType,
+		"project_id":       defaultProject,
 		"service_accounts": strings.Join(serviceAccounts, ","),
 	})
-	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
-		"name":             roleName,
-		"role_type":        "iam",
-		"project_id":       os.Getenv("GOOGLE_PROJECT"),
+	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
+		"name":             defaultRoleName,
+		"role_type":        iamRoleType,
+		"project_id":       defaultProject,
 		"service_accounts": serviceAccounts,
 	})
 
-	serviceAccounts = []string{creds.ClientEmail, "testaccount@google.com"}
+	serviceAccounts = append(serviceAccounts, "testaccount@google.com")
 	testRoleUpdate(t, b, reqStorage, map[string]interface{}{
-		"name":             roleName,
-		"policies":         "dev",
-		"ttl":              1000,
-		"max_ttl":          2000,
-		"period":           30,
-		"max_jwt_exp":      1200, // 20 minutes
-		"service_accounts": strings.Join(serviceAccounts, ","),
+		"name":                defaultRoleName,
+		"policies":            "dev",
+		"ttl":                 1000,
+		"max_ttl":             2000,
+		"period":              30,
+		"max_jwt_exp":         20 * 60, // 20 minutes
+		"allow_gce_inference": false,
+		"service_accounts":    strings.Join(serviceAccounts, ","),
 	})
 
-	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
-		"role_type":                "iam",
-		"project_id":               os.Getenv("GOOGLE_PROJECT"),
-		"policies":                 []string{"dev"},
-		"disable_reauthentication": false,
-		"ttl":              int64(1000),
-		"max_ttl":          int64(2000),
-		"period":           int64(30),
-		"max_jwt_exp":      int64(1200),
-		"service_accounts": serviceAccounts,
+	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
+		"role_type":           iamRoleType,
+		"project_id":          defaultProject,
+		"policies":            []string{"dev"},
+		"ttl":                 int64(1000),
+		"max_ttl":             int64(2000),
+		"period":              int64(30),
+		"max_jwt_exp":         int64(20 * 60),
+		"allow_gce_inference": false,
+		"service_accounts":    serviceAccounts,
 	})
 }
 
-func TestRoleIamWildcard(t *testing.T) {
+func TestRoleIam_Wildcard(t *testing.T) {
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(t)
-	}
+	defaultRoleName := "testrole"
+	serviceAccounts := []string{"*", "dev1@project-123456.iam.gserviceaccounts.com", "aserviceaccountid"}
 
-	roleName := "testrole"
-
-	serviceAccounts := []string{creds.ClientEmail, "*"}
 	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
-		"name":             roleName,
-		"type":             "iam",
-		"project_id":       os.Getenv("GOOGLE_PROJECT"),
+		"name":             defaultRoleName,
+		"type":             iamRoleType,
+		"project_id":       defaultProject,
 		"service_accounts": strings.Join(serviceAccounts, ","),
 	}, []string{
-		fmt.Sprintf("cannot provide IAM service account wildcard '%s' (for all service accounts) with other service accounts", serviceAccountWildcard),
+		fmt.Sprintf("cannot provide IAM service account wildcard '%s' (for all service accounts) with other service accounts", serviceAccountsWildcard),
 	})
 
 	serviceAccounts = []string{"*"}
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":             roleName,
-		"type":             "iam",
-		"project_id":       os.Getenv("GOOGLE_PROJECT"),
+		"name":             defaultRoleName,
+		"type":             iamRoleType,
+		"project_id":       defaultProject,
 		"service_accounts": strings.Join(serviceAccounts, ","),
 	})
 
-	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
-		"role_type":                "iam",
-		"project_id":               os.Getenv("GOOGLE_PROJECT"),
-		"disable_reauthentication": false,
-		"service_accounts":         serviceAccounts,
+	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
+		"role_type":        iamRoleType,
+		"project_id":       defaultProject,
+		"service_accounts": serviceAccounts,
 	})
 }
 
-func TestRoleIam_ServiceAccounts(t *testing.T) {
+func TestRoleIam_EditServiceAccounts(t *testing.T) {
 	b, reqStorage := getTestBackend(t)
-
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(t)
-	}
-	roleName := "testrole"
 
 	initial := []string{"id1234", "test1@google.com"}
 	data := map[string]interface{}{
-		"name":             roleName,
-		"type":             "iam",
-		"project_id":       creds.ProjectId,
+		"name":             defaultRoleName,
+		"type":             iamRoleType,
+		"project_id":       defaultProject,
 		"service_accounts": strings.Join(initial, ","),
 	}
 	expectedRole := map[string]interface{}{
-		"name":             roleName,
-		"role_type":        "iam",
-		"project_id":       os.Getenv("GOOGLE_PROJECT"),
+		"name":             defaultRoleName,
+		"role_type":        iamRoleType,
+		"project_id":       defaultProject,
 		"service_accounts": initial,
 	}
 
 	testRoleCreate(t, b, reqStorage, data)
-	testRoleRead(t, b, reqStorage, roleName, expectedRole)
+	testRoleRead(t, b, reqStorage, defaultRoleName, expectedRole)
 
 	// Test add appends and de-duplicates values
 	toAdd := []string{"toAdd34567", "toremove@google.com", "test1@google.com"}
@@ -131,10 +141,10 @@ func TestRoleIam_ServiceAccounts(t *testing.T) {
 		"toremove@google.com",
 	}
 	testRoleEditServiceAccounts(t, b, reqStorage, map[string]interface{}{
-		"name": roleName,
+		"name": defaultRoleName,
 		"add":  strings.Join(toAdd, ","),
 	})
-	testRoleRead(t, b, reqStorage, roleName, expectedRole)
+	testRoleRead(t, b, reqStorage, defaultRoleName, expectedRole)
 
 	// Test removal of values.
 	toAdd = []string{"toAdd2nd"}
@@ -143,13 +153,196 @@ func TestRoleIam_ServiceAccounts(t *testing.T) {
 		"toAdd2nd", "id1234", "test1@google.com", "toAdd34567",
 	}
 	testRoleEditServiceAccounts(t, b, reqStorage, map[string]interface{}{
-		"name":   roleName,
+		"name":   defaultRoleName,
 		"add":    strings.Join(toAdd, ","),
 		"remove": strings.Join(toRemove, ","),
 	})
-	testRoleRead(t, b, reqStorage, roleName, expectedRole)
+	testRoleRead(t, b, reqStorage, defaultRoleName, expectedRole)
 }
 
+func TestRoleIam_MissingRequiredArgs(t *testing.T) {
+	b, reqStorage := getTestBackend(t)
+
+	// empty type
+	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
+		"name":             defaultRoleName,
+		"project_id":       defaultProject,
+		"service_accounts": "aserviceaccountid",
+	}, []string{errEmptyRoleType})
+
+	// empty IAM service accounts
+	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
+		"name":       defaultRoleName,
+		"type":       iamRoleType,
+		"project_id": defaultProject,
+	}, []string{errEmptyIamServiceAccounts})
+
+	// empty project
+	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
+		"name":             defaultRoleName,
+		"type":             iamRoleType,
+		"service_accounts": "aserviceaccountid",
+	}, []string{errEmptyProjectId})
+}
+
+func TestRoleIam_HasGceArgs(t *testing.T) {
+	b, reqStorage := getTestBackend(t)
+
+	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
+		"name":             defaultRoleName,
+		"type":             iamRoleType,
+		"project_id":       defaultProject,
+		"service_accounts": "aserviceaccountid",
+		"zone":             "us-central1-b",
+		"labels":           "env:test",
+	}, []string{fmt.Sprintf(errTemplateInvalidRoleTypeArgs, iamRoleType, ""), "zone", "label"})
+
+	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
+		"name":             defaultRoleName,
+		"type":             iamRoleType,
+		"project_id":       defaultProject,
+		"service_accounts": "aserviceaccountid",
+		"region":           "us-central",
+	}, []string{fmt.Sprintf(errTemplateInvalidRoleTypeArgs, iamRoleType, ""), "region"})
+}
+
+//-- GCE ROLE TESTS --
+func TestRoleGce(t *testing.T) {
+	b, reqStorage := getTestBackend(t)
+
+	serviceAccounts := []string{"aserviceaccountid"}
+	defaultRoleName := "testrole"
+	testRoleCreate(t, b, reqStorage, map[string]interface{}{
+		"name":       defaultRoleName,
+		"type":       gceRoleType,
+		"project_id": defaultProject,
+	})
+	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
+		"name":             defaultRoleName,
+		"role_type":        gceRoleType,
+		"project_id":       defaultProject,
+		"service_accounts": []string{},
+	})
+
+	serviceAccounts = []string{"aserviceaccountid", "testaccount@google.com"}
+	testRoleUpdate(t, b, reqStorage, map[string]interface{}{
+		"name":                   defaultRoleName,
+		"policies":               "dev",
+		"ttl":                    1000,
+		"max_ttl":                2000,
+		"period":                 30,
+		"zone":                   "us-central-1b",
+		"region":                 "us-central",
+		"managed_instance_group": "devGroup",
+		"labels":                 "label1:foo,prod:true",
+		"service_accounts":       strings.Join(serviceAccounts, ","),
+	})
+
+	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
+		"role_type":  gceRoleType,
+		"project_id": defaultProject,
+		"policies":   []string{"dev", "default"},
+		"ttl":        int64(1000),
+		"max_ttl":    int64(2000),
+		"period":     int64(30),
+		"zone":       "us-central-1b",
+		"region":     "us-central",
+		"labels": map[string]string{
+			"label1": "foo",
+			"prod":   "true",
+		},
+		"managed_instance_group": "devGroup",
+		"service_accounts":       serviceAccounts,
+	})
+}
+
+func TestRoleGce_EditLabels(t *testing.T) {
+	b, reqStorage := getTestBackend(t)
+
+	labels := map[string]string{
+		"label1": "toReplace",
+		"foo":    "bar",
+	}
+	testRoleCreate(t, b, reqStorage, map[string]interface{}{
+		"name":       defaultRoleName,
+		"type":       gceRoleType,
+		"project_id": defaultProject,
+		"labels":     createGceLabelsString(labels),
+	})
+	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
+		"name":       defaultRoleName,
+		"role_type":  gceRoleType,
+		"project_id": defaultProject,
+		"labels":     labels,
+	})
+
+	testRoleEditLabels(t, b, reqStorage, map[string]interface{}{
+		"name": defaultRoleName,
+		"add":  "label1:replace,toAdd:value",
+	})
+	labels["label1"] = "replace"
+	labels["toAdd"] = "value"
+	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
+		"name":       defaultRoleName,
+		"role_type":  gceRoleType,
+		"project_id": defaultProject,
+		"labels":     labels,
+	})
+
+	testRoleEditLabels(t, b, reqStorage, map[string]interface{}{
+		"name":   defaultRoleName,
+		"add":    "add2:foo",
+		"remove": "foo, toAdd",
+	})
+	labels["add2"] = "foo"
+	delete(labels, "foo")
+	delete(labels, "toAdd")
+	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
+		"name":       defaultRoleName,
+		"role_type":  gceRoleType,
+		"project_id": defaultProject,
+		"labels":     labels,
+	})
+}
+
+//-- BASE ROLE TESTS --
+func TestRole_MissingRequiredArgs(t *testing.T) {
+	b, reqStorage := getTestBackend(t)
+
+	// empty type
+	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
+		"name":       defaultRoleName,
+		"project_id": defaultProject,
+	}, []string{"role type", errEmptyRoleType})
+
+	// empty IAM service accounts
+	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
+		"name":       defaultRoleName,
+		"type":       iamRoleType,
+		"project_id": defaultProject,
+	}, []string{errEmptyIamServiceAccounts})
+
+	// empty project
+	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
+		"name":             defaultRoleName,
+		"type":             iamRoleType,
+		"service_accounts": "aserviceaccountid",
+	}, []string{errEmptyProjectId})
+}
+
+func TestRole_InvalidRoleType(t *testing.T) {
+	b, reqStorage := getTestBackend(t)
+
+	// incorrect type
+	invalidRoleType := "not-a-role-type"
+	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
+		"name":       defaultRoleName,
+		"type":       invalidRoleType,
+		"project_id": defaultProject,
+	}, []string{"role type", invalidRoleType, "is invalid"})
+}
+
+//-- Utils --
 func testRoleCreate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
 	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.CreateOperation,
@@ -195,6 +388,21 @@ func testRoleEditServiceAccounts(t *testing.T, b logical.Backend, s logical.Stor
 	}
 }
 
+func testRoleEditLabels(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+	resp, err := b.HandleRequest(&logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      fmt.Sprintf("role/%s/labels", d["name"]),
+		Data:      d,
+		Storage:   s,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp != nil && resp.IsError() {
+		t.Fatal(resp.Error())
+	}
+}
+
 func testRoleCreateError(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, expected []string) {
 	resp, err := b.HandleRequest(&logical.Request{
 		Operation: logical.CreateOperation,
@@ -229,24 +437,40 @@ func testRoleRead(t *testing.T, b logical.Backend, s logical.Storage, roleName s
 		t.Fatal(resp.Error())
 	}
 
-	if err := testBaseRoleRead(resp, expected); err != nil {
+	if err := checkData(resp, expected, expectedDefaults); err != nil {
 		t.Fatal(err)
-	}
-
-	roleType := expected["role_type"].(string)
-	switch roleType {
-	case iamRoleType:
-		if err := testIamRoleRead(resp, expected); err != nil {
-			t.Fatal(err)
-		}
-	default:
-		t.Fatalf("unexpected role type %s for test", roleType)
 	}
 }
 
-func testIamRoleRead(resp *logical.Response, expected map[string]interface{}) error {
-	if !strutil.EquivalentSlices(resp.Data["service_accounts"].([]string), expected["service_accounts"].([]string)) {
-		return fmt.Errorf("service_accounts mismatch, expected %v but got %v", expected["service_accounts"], resp.Data["service_accounts"])
+func checkData(resp *logical.Response, expected map[string]interface{}, expectedDefault map[string]interface{}) error {
+	for k, actualVal := range resp.Data {
+		expectedVal, ok := expected[k]
+		if !ok {
+			expectedVal, ok = expectedDefault[k]
+			if !ok {
+				return fmt.Errorf("must provide expected value for '%s' for test", k)
+			}
+		}
+
+		var isEqual bool
+		switch actualVal.(type) {
+		case []string:
+			actual := actualVal.([]string)
+			expected := expectedVal.([]string)
+			isEqual = (len(actual) == 0 && len(expected) == 0) ||
+				strutil.EquivalentSlices(actual, expected)
+		case map[string]string:
+			actual := actualVal.(map[string]string)
+			expected := expectedVal.(map[string]string)
+			isEqual = (len(actual) == 0 && len(expected) == 0) ||
+				reflect.DeepEqual(actualVal, expectedVal)
+		default:
+			isEqual = actualVal == expectedVal
+		}
+
+		if !isEqual {
+			return fmt.Errorf("%s mismatch, expected: %v but got %v", k, actualVal, expectedVal)
+		}
 	}
 	return nil
 }
@@ -269,37 +493,13 @@ func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) e
 	if !policyutil.EquivalentPolicies(resp.Data["policies"].([]string), expectedVal.([]string)) {
 		return fmt.Errorf("policies mismatch, expected %v but got %v", expectedVal, resp.Data["policies"])
 	}
-
-	expectedVal, ok = expected["max_jwt_exp"]
-	if !ok {
-		expectedVal = int64(defaultMaxJwtExpMin * 60)
-	}
-	if resp.Data["max_jwt_exp"] != expectedVal.(int64) {
-		return fmt.Errorf("max_jwt_exp mismatch, expected %v but got %v", expectedVal, resp.Data["max_jwt_exp"])
-	}
-
-	expectedVal, ok = expected["ttl"]
-	if !ok {
-		expectedVal = int64(0)
-	}
-	if resp.Data["ttl"] != expectedVal {
-		return fmt.Errorf("ttl mismatch, expected %v but got %v", expectedVal, resp.Data["ttl"])
-	}
-
-	expectedVal, ok = expected["max_ttl"]
-	if !ok {
-		expectedVal = int64(0)
-	}
-	if resp.Data["max_ttl"] != expectedVal {
-		return fmt.Errorf("max_ttl mismatch, expected %v but got %v", expectedVal, resp.Data["max_ttl"])
-	}
-
-	expectedVal, ok = expected["period"]
-	if !ok {
-		expectedVal = int64(0)
-	}
-	if resp.Data["period"] != expectedVal {
-		return fmt.Errorf("period mismatch, expected %v but got %v", expectedVal, resp.Data["period"])
-	}
 	return nil
+}
+
+func createGceLabelsString(labels map[string]string) string {
+	labelList := []string{}
+	for k, v := range labels {
+		labelList = append(labelList, fmt.Sprintf("%s:%s", k, v))
+	}
+	return strings.Join(labelList, ",")
 }
