@@ -28,6 +28,12 @@ const (
 
 	// Other
 	serviceAccountsWildcard = "*"
+
+	// Default duration that JWT tokens must expire within to be accepted (currently only IAM)
+	defaultIamMaxJwtExpMinutes int = 15
+
+	// Max allowed duration that all JWT tokens must expire within to be accepted
+	maxJwtExpMaxMinutes int = 60
 )
 
 var baseRoleFieldSchema map[string]*framework.FieldSchema = map[string]*framework.FieldSchema{
@@ -80,7 +86,7 @@ var baseRoleFieldSchema map[string]*framework.FieldSchema = map[string]*framewor
 var iamOnlyFieldSchema map[string]*framework.FieldSchema = map[string]*framework.FieldSchema{
 	"max_jwt_exp": {
 		Type:        framework.TypeDurationSecond,
-		Default:     defaultMaxJwtExpMin * 60,
+		Default:     defaultIamMaxJwtExpMinutes * 60,
 		Description: `Currently enabled for 'iam' only. Duration in seconds from time of validation that a JWT must expire within.`,
 	},
 	"allow_gce_inference": {
@@ -639,7 +645,7 @@ func (role *gcpRole) updateIamFields(data *framework.FieldData, op logical.Opera
 	if ok {
 		role.MaxJwtExp = time.Duration(maxJwtExp.(int)) * time.Second
 	} else {
-		role.MaxJwtExp = time.Duration(defaultMaxJwtExpMin) * time.Minute
+		role.MaxJwtExp = time.Duration(defaultIamMaxJwtExpMinutes) * time.Minute
 	}
 
 	return nil
@@ -690,8 +696,9 @@ func (role *gcpRole) validateForIAM() (warnings []string, err error) {
 		return []string{}, fmt.Errorf("cannot provide IAM service account wildcard '%s' (for all service accounts) with other service accounts", serviceAccountsWildcard)
 	}
 
-	if role.MaxJwtExp > time.Hour {
-		return warnings, errors.New("max_jwt_exp cannot be more than one hour")
+	maxMaxJwtExp := time.Duration(maxJwtExpMaxMinutes) * time.Minute
+	if role.MaxJwtExp > maxMaxJwtExp {
+		return warnings, fmt.Errorf("max_jwt_exp cannot be more than %d minutes", maxJwtExpMaxMinutes)
 	}
 
 	return []string{}, nil

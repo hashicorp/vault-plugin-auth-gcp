@@ -75,13 +75,21 @@ func PublicKey(pemString string) (interface{}, error) {
 }
 
 // Oauth2RSAPublicKey returns the PEM key file string for Google Oauth2 public cert for the given 'kid' id.
-func Oauth2RSAPublicKey(kid string) (interface{}, error) {
+func Oauth2RSAPublicKey(kid, oauth2BasePath string) (interface{}, error) {
 	oauth2Client, err := googleoauth2.New(cleanhttp.DefaultClient())
 	if err != nil {
 		return "", err
 	}
 
+	if len(oauth2BasePath) > 0 {
+		oauth2Client.BasePath = oauth2BasePath
+	}
+
 	jwks, err := oauth2Client.GetCertForOpenIdConnect().Do()
+	if err != nil {
+		return nil, err
+	}
+
 	for _, key := range jwks.Keys {
 		if key.Kid == kid && jose.SignatureAlgorithm(key.Alg) == jose.RS256 {
 			// Trim extra '=' from key so it can be parsed.

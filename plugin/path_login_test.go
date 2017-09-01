@@ -1,20 +1,19 @@
 package gcpauth
 
 import (
-	"crypto/sha256"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
-	"os"
-	"strings"
-	"testing"
-	"time"
-
-	"github.com/SermoDigital/jose"
-	"github.com/SermoDigital/jose/crypto"
-	"github.com/SermoDigital/jose/jwt"
 	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/util"
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/logical"
 	"google.golang.org/api/iam/v1"
+	"gopkg.in/square/go-jose.v2"
+	"gopkg.in/square/go-jose.v2/jwt"
+	"os"
+	"strings"
+	"testing"
+	"time"
 )
 
 const (
@@ -45,7 +44,7 @@ func TestLoginIam(t *testing.T) {
 	})
 
 	// Have token expire within 5 minutes of max JWT exp
-	expDelta := time.Duration(defaultMaxJwtExpMin-5) * time.Minute
+	expDelta := time.Duration(defaultIamMaxJwtExpMinutes-5) * time.Minute
 	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
 	loginData := map[string]interface{}{
 		"role": roleName,
@@ -90,7 +89,7 @@ func TestLoginIamWildcard(t *testing.T) {
 	})
 
 	// Have token expire within 5 minutes of max JWT exp
-	expDelta := time.Duration(defaultMaxJwtExpMin-5) * time.Minute
+	expDelta := time.Duration(defaultIamMaxJwtExpMinutes-5) * time.Minute
 	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
 	loginData := map[string]interface{}{
 		"role": roleName,
@@ -137,7 +136,7 @@ func TestLoginIam_UnauthorizedRole(t *testing.T) {
 	})
 
 	// Have token expire within 5 minutes of max JWT exp
-	expDelta := time.Duration(defaultMaxJwtExpMin-5) * time.Minute
+	expDelta := time.Duration(defaultIamMaxJwtExpMinutes-5) * time.Minute
 	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
 	loginData := map[string]interface{}{
 		"role": roleName,
@@ -168,7 +167,7 @@ func TestLoginIam_MissingRole(t *testing.T) {
 	})
 
 	// Have token expire within 5 minutes of max JWT exp
-	expDelta := time.Duration(defaultMaxJwtExpMin-5) * time.Minute
+	expDelta := time.Duration(defaultIamMaxJwtExpMinutes-5) * time.Minute
 	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
 	loginData := map[string]interface{}{
 		"jwt": jwtVal,
@@ -206,14 +205,11 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 		"jwt":  jwtVal,
 	}
 
-	testLoginError(t, b, reqStorage, loginData, []string{
-		"invalid JWT",
-		"token is expired",
-	})
+	testLoginError(t, b, reqStorage, loginData, []string{"JWT is expired or does not have proper 'exp' claim"})
 }
 
 // TestLoginIam_JwtExpiresLate checks that we return an error response for an expired JWT.
-func TestLoginIam_JwtExpiresTime(t *testing.T) {
+func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
 	b, reqStorage := getTestBackend(t)
 
 	creds, err := getTestCredentials()
@@ -240,8 +236,7 @@ func TestLoginIam_JwtExpiresTime(t *testing.T) {
 	}
 
 	testLoginError(t, b, reqStorage, loginData, []string{
-		"invalid JWT",
-		fmt.Sprintf("expire within %v", time.Duration(maxJwtExpSeconds)*time.Second),
+		fmt.Sprintf("expire within %d seconds", maxJwtExpSeconds),
 	})
 
 	validExpDelta := time.Duration(maxJwtExpSeconds-1200) * time.Second
@@ -356,42 +351,37 @@ func getTestIamToken(t *testing.T, roleName string, creds *util.GcpCredentials, 
 }
 
 func createExpiredIamToken(t *testing.T, roleName string, creds *util.GcpCredentials) string {
+	block, _ := pem.Decode([]byte(creds.PrivateKey))
+	if block == nil {
+		t.Fatal("expected valid PEM block for test credentials private key")
+	}
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Create header.
-	header, err := jose.Protected{
-		"alg": crypto.SigningMethodRS256.Alg(),
-		"kid": creds.PrivateKeyId,
-		"typ": "JWT",
-	}.Base64()
+	signer, err := jose.NewSigner(jose.SigningKey{
+		Algorithm: jose.RS256,
+		Key:       key,
+	}, &jose.SignerOptions{
+		ExtraHeaders: map[jose.HeaderKey]interface{}{
+			jose.HeaderKey("kid"): creds.PrivateKeyId,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	builder := jwt.Signed(signer)
+	jwt, err := builder.Claims(
+		&jwt.Claims{
+			Subject:  creds.ClientId,
+			Audience: jwt.Audience([]string{fmt.Sprintf(expectedJwtAudTemplate, roleName)}),
+			Expiry:   jwt.NewNumericDate(time.Now().Add(-100 * time.Minute)),
+		}).CompactSerialize()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	claims := jwt.Claims{}
-	claims.SetAudience(fmt.Sprintf(expectedJwtAudTemplate, roleName))
-	claims.SetSubject(creds.ClientId)
-	claims.SetExpiration(time.Now().Add(-100 * time.Minute))
-	claimBytes, err := claims.Base64()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Create JWT signature.
-	toSign := fmt.Sprintf("%s.%s", string(header), string(claimBytes))
-	h := sha256.New()
-	h.Write([]byte(toSign))
-
-	key, err := crypto.ParseRSAPrivateKeyFromPEM([]byte(creds.PrivateKey))
-	if err != nil {
-		t.Fatal(err)
-	}
-	sig, err := crypto.SigningMethodRS256.Sign([]byte(toSign), key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sig64, err := sig.Base64()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return fmt.Sprintf("%s.%s", toSign, sig64)
+	return jwt
 }

@@ -29,23 +29,26 @@ func TestConfig(t *testing.T) {
 		"credentials": credJson,
 	})
 
-	expected := map[string]interface{}{}
+	expected := map[string]interface{}{
+		"google_certs_endpoint": "",
+	}
 	for k, v := range creds {
 		expected[k] = v
 	}
 
 	testConfigRead(t, b, reqStorage, expected)
-
 	creds["project_id"] = "newProjectId123"
 	credJson, err = jsonutil.EncodeJSON(creds)
 	if err != nil {
 		t.Fatal(err)
 	}
 	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
-		"credentials": credJson,
+		"credentials":           credJson,
+		"google_certs_endpoint": "https://www.fakecredsendpoint.com/",
 	})
 
 	expected["project_id"] = "newProjectId123"
+	expected["google_certs_endpoint"] = "https://www.fakecredsendpoint.com/"
 	testConfigRead(t, b, reqStorage, expected)
 }
 
