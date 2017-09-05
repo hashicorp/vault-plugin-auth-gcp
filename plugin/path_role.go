@@ -43,10 +43,10 @@ var baseRoleFieldSchema map[string]*framework.FieldSchema = map[string]*framewor
 	},
 	"type": {
 		Type:        framework.TypeString,
-		Description: "Type of the role. Currently supported: iam",
+		Description: "Type of the role. Currently supported: iam, gce",
 	},
 	"policies": {
-		Type:        framework.TypeString,
+		Type:        framework.TypeCommaStringSlice,
 		Description: "Policies to be set on tokens issued using this role.",
 	},
 	// Token Limits
@@ -75,7 +75,7 @@ var baseRoleFieldSchema map[string]*framework.FieldSchema = map[string]*framewor
 		Description: `The id of the project that authorized instances must belong to for this role.`,
 	},
 	"service_accounts": {
-		Type: framework.TypeString,
+		Type: framework.TypeCommaStringSlice,
 		Description: `
 	Can be set for both 'iam' and 'gce' roles (required for 'iam'). A comma-seperated list of authorized service accounts.
 	If the single value "*" is given, this is assumed to be all service accounts under the role's project. If this
@@ -192,7 +192,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 			HelpDescription: "Add or remove service accounts from the list bound to an existing `iam` role",
 		},
 
-		// Edit service accounts on an GCE role
+		// Edit labels on an GCE role
 		{
 			Pattern: fmt.Sprintf("role/%s/labels", framework.GenericNameRegex("name")),
 			Fields: map[string]*framework.FieldSchema{
@@ -451,7 +451,6 @@ func (b *GcpAuthBackend) storeRole(s logical.Storage, roleName string, role *gcp
 }
 
 type gcpRole struct {
-	// TODO(emilyyme): Make this consistent with input arg name ("type").
 	// Type of this role. See path_role constants for currently supported types.
 	RoleType string `json:"role_type" structs:"role_type" mapstructure:"role_type"`
 
@@ -516,9 +515,9 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 	// Update policies.
 	policies, ok := data.GetOk("policies")
 	if ok {
-		role.Policies = policyutil.ParsePolicies(policies.(string))
+		role.Policies = policyutil.ParsePolicies(policies)
 	} else if op == logical.CreateOperation {
-		role.Policies = policyutil.ParsePolicies(data.Get("policies").(string))
+		role.Policies = policyutil.ParsePolicies(data.Get("policies"))
 	}
 
 	// Update GCP project id.
@@ -555,7 +554,7 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 	// Update bound GCP service accounts.
 	serviceAccountsRaw, ok := data.GetOk("service_accounts")
 	if ok {
-		role.ServiceAccounts = strings.Split(serviceAccountsRaw.(string), ",")
+		role.ServiceAccounts = serviceAccountsRaw.([]string)
 	}
 
 	// Update fields specific to this type
@@ -644,7 +643,7 @@ func (role *gcpRole) updateIamFields(data *framework.FieldData, op logical.Opera
 	maxJwtExp, ok := data.GetOk("max_jwt_exp")
 	if ok {
 		role.MaxJwtExp = time.Duration(maxJwtExp.(int)) * time.Second
-	} else {
+	} else if op == logical.CreateOperation {
 		role.MaxJwtExp = time.Duration(defaultIamMaxJwtExpMinutes) * time.Minute
 	}
 
@@ -656,7 +655,7 @@ func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Opera
 	// Update service accounts.
 	serviceAccountsRaw, ok := data.GetOk("service_accounts")
 	if ok {
-		role.ServiceAccounts = strings.Split(serviceAccountsRaw.(string), ",")
+		role.ServiceAccounts = serviceAccountsRaw.([]string)
 	}
 
 	region, hasRegion := data.GetOk("region")

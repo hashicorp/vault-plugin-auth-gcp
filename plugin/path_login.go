@@ -209,7 +209,7 @@ func (b *GcpAuthBackend) getSigningKey(token *jwt.JSONWebToken, rawToken string,
 		}
 
 		return util.PublicKey(accountKey.PublicKeyData)
-	default:
+	case gceRoleType:
 		var certsEndpoint string
 		conf, err := b.config(s)
 		if err != nil {
@@ -219,18 +219,20 @@ func (b *GcpAuthBackend) getSigningKey(token *jwt.JSONWebToken, rawToken string,
 			certsEndpoint = conf.GoogleCertsEndpoint
 		}
 
-		key, err := util.Oauth2RSAPublicKey(keyId, certsEndpoint)
+		key, err := util.OAuth2RSAPublicKey(keyId, certsEndpoint)
 		if err != nil {
 			return nil, err
 		}
 		return key, nil
+	default:
+		return nil, fmt.Errorf("unexpected role type %s", role.RoleType)
 	}
 }
 
 func validateJWTClaims(c *jwt.Claims, roleName string) error {
 	exp := c.Expiry.Time()
 	if exp.IsZero() || exp.Before(time.Now()) {
-		return errors.New("JWT is expired or does not have proper 'exp' claim.")
+		return errors.New("JWT is expired or does not have proper 'exp' claim")
 	} else if exp.After(time.Now().Add(time.Minute * time.Duration(maxJwtExpMaxMinutes))) {
 		return fmt.Errorf("JWT must expire in %d minutes", maxJwtExpMaxMinutes)
 	}
@@ -243,7 +245,7 @@ func validateJWTClaims(c *jwt.Claims, roleName string) error {
 	expectedAudSuffix := fmt.Sprintf(expectedJwtAudTemplate, roleName)
 	for _, aud := range c.Audience {
 		if !strings.HasSuffix(aud, expectedAudSuffix) {
-			return fmt.Errorf("At least one of the JWT claim 'aud' must end in '%s'", expectedAudSuffix)
+			return fmt.Errorf("at least one of the JWT claim 'aud' must end in '%s'", expectedAudSuffix)
 		}
 	}
 

@@ -74,8 +74,8 @@ func PublicKey(pemString string) (interface{}, error) {
 	return cert.PublicKey, nil
 }
 
-// Oauth2RSAPublicKey returns the PEM key file string for Google Oauth2 public cert for the given 'kid' id.
-func Oauth2RSAPublicKey(kid, oauth2BasePath string) (interface{}, error) {
+// OAuth2RSAPublicKey returns the PEM key file string for Google Oauth2 public cert for the given 'kid' id.
+func OAuth2RSAPublicKey(kid, oauth2BasePath string) (interface{}, error) {
 	oauth2Client, err := googleoauth2.New(cleanhttp.DefaultClient())
 	if err != nil {
 		return "", err
