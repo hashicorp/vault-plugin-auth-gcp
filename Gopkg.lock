@@ -53,7 +53,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-hclog"
   packages = ["."]
-  revision = "b4e5765d1e5f00a0550911084f45f8214b5b83b9"
+  revision = "8105cc0a3736cc153a2025f5d0d91b80045fc9ff"
 
 [[projects]]
   branch = "master"
