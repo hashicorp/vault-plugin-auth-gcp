@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+type CustomJWTClaims struct {
+	Google *GoogleJWTClaims `json:"google,omitempty"`
+}
+
+type GoogleJWTClaims struct {
+	Compute *GCEIdentityMetadata `json:"compute_engine,omitempty"`
+}
+
 type GCEIdentityMetadata struct {
 	// ProjectId is the ID for the project where you created the instance.
 	ProjectId string `json:"project_id"  structs:"project_id" mapstructure:"project_id"`
@@ -25,7 +33,7 @@ type GCEIdentityMetadata struct {
 	InstanceName string `json:"instance_name" structs:"instance_name" mapstructure:"instance_name"`
 
 	// CreatedAt is a unix timestamp indicating when you created the instance.
-	CreatedAt string `json:"instance_creation_timestamp" structs:"instance_creation_timestamp" mapstructure:"instance_creation_timestamp"`
+	CreatedAt int64 `json:"instance_creation_timestamp" structs:"instance_creation_timestamp" mapstructure:"instance_creation_timestamp"`
 }
 
 // GetVerifiedInstance returns the Instance as described by the identity metadata or an error.
@@ -41,12 +49,8 @@ func (meta *GCEIdentityMetadata) GetVerifiedInstance(gceClient *compute.Service)
 		return nil, fmt.Errorf("authenticating instance %s found but has invalid status '%s'", instance.Name, instance.Status)
 	}
 
-	// Parse metadata CreatedAt into time.
-	unixSec, err := strconv.ParseInt(meta.CreatedAt, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("'instance_creation_timestamp' claim %s could not be parsed into int64", meta.CreatedAt)
-	}
-	metaTime := time.Unix(unixSec, 0)
+	// metadata CreatedAt into time.
+	metaTime := time.Unix(meta.CreatedAt, 0)
 
 	// Parse instance creationTimestamp into time.
 	actualTime, err := time.Parse(time.RFC3339Nano, instance.CreationTimestamp)
@@ -71,4 +75,34 @@ var validInstanceStates map[string]struct{} = map[string]struct{}{
 func IsValidInstanceStatus(status string) bool {
 	_, ok := validInstanceStates[status]
 	return ok
+}
+
+func ParseMetadataFromAuth(authMeta map[string]string) (*GCEIdentityMetadata, error) {
+	meta := &GCEIdentityMetadata{}
+	var err error
+
+	for k, v := range authMeta {
+		switch k {
+		case "project_id":
+			meta.ProjectId = v
+		case "zone":
+			meta.Zone = v
+		case "instance_id":
+			meta.InstanceId = v
+		case "instance_name":
+			meta.InstanceName = v
+		case "project_number":
+			if meta.ProjectNumber, err = strconv.ParseInt(v, 10, 64); err != nil {
+				return nil, err
+			}
+		case "instance_creation_timestamp":
+			if meta.CreatedAt, err = strconv.ParseInt(v, 10, 64); err != nil {
+				return nil, err
+			}
+		default:
+			continue
+		}
+	}
+
+	return meta, nil
 }

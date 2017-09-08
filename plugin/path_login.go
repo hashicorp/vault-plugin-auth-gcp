@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
-	"github.com/mitchellh/mapstructure"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
 	"gopkg.in/square/go-jose.v2/jwt"
@@ -153,28 +152,25 @@ func (b *GcpAuthBackend) parseAndValidateJwt(req *logical.Request, data *framewo
 	}
 
 	// Parse claims and verify signature.
-	claims := &jwt.Claims{}
-	gceMetadata := &util.GCEIdentityMetadata{}
-	if err != nil {
+	baseClaims := &jwt.Claims{}
+	customClaims := &util.CustomJWTClaims{}
+
+	if err = jwtVal.Claims(key, baseClaims, customClaims); err != nil {
 		return nil, err
 	}
 
-	if err = jwtVal.Claims(key, claims, gceMetadata); err != nil {
+	if err = validateBaseJWTClaims(baseClaims, loginInfo.RoleName); err != nil {
 		return nil, err
 	}
+	loginInfo.JWTClaims = baseClaims
 
-	if err = validateJWTClaims(claims, loginInfo.RoleName); err != nil {
-		return nil, err
-	}
-
-	loginInfo.JWTClaims = claims
-	if len(claims.Subject) == 0 {
+	if len(baseClaims.Subject) == 0 {
 		return nil, errors.New("expected JWT to have non-empty 'sub' claim")
 	}
-	loginInfo.ServiceAccountId = claims.Subject
+	loginInfo.ServiceAccountId = baseClaims.Subject
 
-	if len(gceMetadata.InstanceId) > 0 {
-		loginInfo.GceMetadata = gceMetadata
+	if customClaims.Google != nil && customClaims.Google.Compute != nil && len(customClaims.Google.Compute.InstanceId) > 0 {
+		loginInfo.GceMetadata = customClaims.Google.Compute
 	}
 
 	if loginInfo.Role.RoleType == gceRoleType && loginInfo.GceMetadata == nil {
@@ -229,7 +225,7 @@ func (b *GcpAuthBackend) getSigningKey(token *jwt.JSONWebToken, rawToken string,
 	}
 }
 
-func validateJWTClaims(c *jwt.Claims, roleName string) error {
+func validateBaseJWTClaims(c *jwt.Claims, roleName string) error {
 	exp := c.Expiry.Time()
 	if exp.IsZero() || exp.Before(time.Now()) {
 		return errors.New("JWT is expired or does not have proper 'exp' claim")
@@ -410,7 +406,7 @@ func (b *GcpAuthBackend) pathGceLogin(req *logical.Request, loginInfo *gcpLoginI
 				"zone":                        metadata.Zone,
 				"instance_id":                 metadata.InstanceId,
 				"instance_name":               metadata.InstanceName,
-				"instance_creation_timestamp": metadata.CreatedAt,
+				"instance_creation_timestamp": strconv.FormatInt(metadata.CreatedAt, 10),
 				"service_account_id":          loginInfo.ServiceAccountId,
 				"role":                        loginInfo.RoleName,
 			},
@@ -433,8 +429,8 @@ func (b *GcpAuthBackend) pathGceRenew(req *logical.Request, role *gcpRole) error
 		return fmt.Errorf(clientErrorTemplate, "GCE", err)
 	}
 
-	meta := &util.GCEIdentityMetadata{}
-	if err := mapstructure.WeakDecode(req.Auth.Metadata, meta); err != nil {
+	meta, err := util.ParseMetadataFromAuth(req.Auth.Metadata)
+	if err != nil {
 		return fmt.Errorf("invalid auth metadata: %v", err)
 	}
 
