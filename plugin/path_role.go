@@ -82,8 +82,9 @@ var baseRoleFieldSchema map[string]*framework.FieldSchema = map[string]*framewor
 	is set on a GCE role, the inferred service account from the instance metadata token will be used.`,
 	},
 	"service_accounts": {
-		Type: framework.TypeCommaStringSlice,
+		Type:        framework.TypeCommaStringSlice,
 		Description: `Deprecated, use bound_service_accounts instead.`,
+	},
 }
 
 var iamOnlyFieldSchema map[string]*framework.FieldSchema = map[string]*framework.FieldSchema{
