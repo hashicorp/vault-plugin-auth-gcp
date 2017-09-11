@@ -512,11 +512,11 @@ func (b *GcpAuthBackend) authorizeGCEInstance(instance *compute.Instance, s logi
 		}
 
 		// Verify instance group contains authenticating instance.
-		instanceIdFilter := fmt.Sprintf("%s eq %s", "id", instance.Id)
+		instanceIdFilter := fmt.Sprintf("id eq %s", strconv.FormatUint(instance.Id, 10))
 		listInstanceReq := &compute.InstanceGroupsListInstancesRequest{}
 		_, err = gceClient.InstanceGroups.ListInstances(role.ProjectId, role.Zone, group.Name, listInstanceReq).Filter(instanceIdFilter).Do()
 		if err != nil {
-			return fmt.Errorf("instance %s is not part of role instance group %s", instance.Name, role.InstanceGroup)
+			return fmt.Errorf("could not confirm instance %s is part of instance group %s: %s", instance.Name, role.InstanceGroup, err)
 		}
 	}
 
