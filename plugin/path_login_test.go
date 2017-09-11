@@ -34,13 +34,13 @@ func TestLoginIam(t *testing.T) {
 
 	roleName := "testrole"
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":             roleName,
-		"type":             "iam",
-		"policies":         "dev, prod",
-		"project_id":       creds.ProjectId,
-		"service_accounts": creds.ClientEmail,
-		"ttl":              1800,
-		"max_ttl":          1800,
+		"name":                   roleName,
+		"type":                   "iam",
+		"policies":               "dev, prod",
+		"project_id":             creds.ProjectId,
+		"bound_service_accounts": creds.ClientEmail,
+		"ttl":     1800,
+		"max_ttl": 1800,
 	})
 
 	// Have token expire within 5 minutes of max JWT exp
@@ -57,13 +57,13 @@ func TestLoginIam(t *testing.T) {
 		"role":                  roleName,
 	}
 	role := &gcpRole{
-		RoleType:        "iam",
-		ProjectId:       creds.ProjectId,
-		Policies:        []string{"default", "dev", "prod"},
-		TTL:             time.Duration(1800) * time.Second,
-		MaxTTL:          time.Duration(1800) * time.Second,
-		Period:          time.Duration(0),
-		ServiceAccounts: []string{creds.ClientEmail},
+		RoleType:             "iam",
+		ProjectId:            creds.ProjectId,
+		Policies:             []string{"default", "dev", "prod"},
+		TTL:                  time.Duration(1800) * time.Second,
+		MaxTTL:               time.Duration(1800) * time.Second,
+		Period:               time.Duration(0),
+		BoundServiceAccounts: []string{creds.ClientEmail},
 	}
 	testLoginIam(t, b, reqStorage, loginData, metadata, role, creds.ClientId)
 }
@@ -82,10 +82,10 @@ func TestLoginIamWildcard(t *testing.T) {
 
 	roleName := "testrole"
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":             roleName,
-		"type":             "iam",
-		"project_id":       creds.ProjectId,
-		"service_accounts": "*",
+		"name":                   roleName,
+		"type":                   "iam",
+		"project_id":             creds.ProjectId,
+		"bound_service_accounts": "*",
 	})
 
 	// Have token expire within 5 minutes of max JWT exp
@@ -102,13 +102,13 @@ func TestLoginIamWildcard(t *testing.T) {
 		"role":                  roleName,
 	}
 	role := &gcpRole{
-		RoleType:        "iam",
-		ProjectId:       creds.ProjectId,
-		Policies:        []string{"default"},
-		TTL:             time.Duration(0),
-		MaxTTL:          time.Duration(0),
-		Period:          time.Duration(0),
-		ServiceAccounts: []string{creds.ClientEmail},
+		RoleType:             "iam",
+		ProjectId:            creds.ProjectId,
+		Policies:             []string{"default"},
+		TTL:                  time.Duration(0),
+		MaxTTL:               time.Duration(0),
+		Period:               time.Duration(0),
+		BoundServiceAccounts: []string{creds.ClientEmail},
 	}
 	testLoginIam(t, b, reqStorage, loginData, metadata, role, creds.ClientId)
 }
@@ -129,10 +129,10 @@ func TestLoginIam_UnauthorizedRole(t *testing.T) {
 		"credentials": os.Getenv(googleCredentialsEnv),
 	})
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"type":             "iam",
-		"name":             roleName,
-		"project_id":       creds.ProjectId,
-		"service_accounts": "notarealserviceaccount",
+		"type":                   "iam",
+		"name":                   roleName,
+		"project_id":             creds.ProjectId,
+		"bound_service_accounts": "notarealserviceaccount",
 	})
 
 	// Have token expire within 5 minutes of max JWT exp
@@ -189,11 +189,11 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 
 	roleName := "testrole"
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":             roleName,
-		"type":             "iam",
-		"policies":         "dev, prod",
-		"project_id":       creds.ProjectId,
-		"service_accounts": creds.ClientEmail,
+		"name":                   roleName,
+		"type":                   "iam",
+		"policies":               "dev, prod",
+		"project_id":             creds.ProjectId,
+		"bound_service_accounts": creds.ClientEmail,
 	})
 
 	// Create fake self-signed JWT to test.
@@ -221,12 +221,12 @@ func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
 
 	maxJwtExpSeconds := 2400
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":             roleName,
-		"type":             "iam",
-		"policies":         "dev, prod",
-		"project_id":       creds.ProjectId,
-		"service_accounts": creds.ClientEmail,
-		"max_jwt_exp":      maxJwtExpSeconds,
+		"name":                   roleName,
+		"type":                   "iam",
+		"policies":               "dev, prod",
+		"project_id":             creds.ProjectId,
+		"bound_service_accounts": creds.ClientEmail,
+		"max_jwt_exp":            maxJwtExpSeconds,
 	})
 
 	badExpDelta := time.Duration(maxJwtExpSeconds+1200) * time.Second
@@ -247,10 +247,10 @@ func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
 		"role":                  roleName,
 	}
 	role := &gcpRole{
-		RoleType:        "iam",
-		ProjectId:       creds.ProjectId,
-		Policies:        []string{"default", "dev", "prod"},
-		ServiceAccounts: []string{creds.ClientEmail},
+		RoleType:             "iam",
+		ProjectId:            creds.ProjectId,
+		Policies:             []string{"default", "dev", "prod"},
+		BoundServiceAccounts: []string{creds.ClientEmail},
 	}
 	testLoginIam(t, b, reqStorage, loginData, metadata, role, creds.ClientId)
 

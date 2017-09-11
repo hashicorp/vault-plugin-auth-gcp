@@ -74,13 +74,16 @@ var baseRoleFieldSchema map[string]*framework.FieldSchema = map[string]*framewor
 		Type:        framework.TypeString,
 		Description: `The id of the project that authorized instances must belong to for this role.`,
 	},
-	"service_accounts": {
+	"bound_service_accounts": {
 		Type: framework.TypeCommaStringSlice,
 		Description: `
 	Can be set for both 'iam' and 'gce' roles (required for 'iam'). A comma-seperated list of authorized service accounts.
 	If the single value "*" is given, this is assumed to be all service accounts under the role's project. If this
 	is set on a GCE role, the inferred service account from the instance metadata token will be used.`,
 	},
+	"service_accounts": {
+		Type: framework.TypeCommaStringSlice,
+		Description: `Deprecated, use bound_service_accounts instead.`,
 }
 
 var iamOnlyFieldSchema map[string]*framework.FieldSchema = map[string]*framework.FieldSchema{
@@ -255,13 +258,13 @@ func (b *GcpAuthBackend) pathRoleRead(req *logical.Request, data *framework.Fiel
 	}
 
 	roleMap := map[string]interface{}{
-		"role_type":        role.RoleType,
-		"project_id":       role.ProjectId,
-		"policies":         role.Policies,
-		"ttl":              int64(role.TTL / time.Second),
-		"max_ttl":          int64(role.MaxTTL / time.Second),
-		"period":           int64(role.Period / time.Second),
-		"service_accounts": role.ServiceAccounts,
+		"role_type":              role.RoleType,
+		"project_id":             role.ProjectId,
+		"policies":               role.Policies,
+		"ttl":                    int64(role.TTL / time.Second),
+		"max_ttl":                int64(role.MaxTTL / time.Second),
+		"period":                 int64(role.Period / time.Second),
+		"bound_service_accounts": role.BoundServiceAccounts,
 	}
 
 	switch role.RoleType {
@@ -338,7 +341,7 @@ func (b *GcpAuthBackend) pathRoleEditIamServiceAccounts(req *logical.Request, da
 	if role.RoleType != iamRoleType {
 		return logical.ErrorResponse(fmt.Sprintf(errTemplateEditListWrongType, role.RoleType, iamRoleType)), nil
 	}
-	role.ServiceAccounts = editStringValues(role.ServiceAccounts, toAdd, toRemove)
+	role.BoundServiceAccounts = editStringValues(role.BoundServiceAccounts, toAdd, toRemove)
 
 	return b.storeRole(req.Storage, roleName, role)
 }
@@ -472,7 +475,7 @@ type gcpRole struct {
 	Period time.Duration `json:"period" structs:"period" mapstructure:"period"`
 
 	// Service accounts allowed to login under this role.
-	ServiceAccounts []string `json:"service_accounts" structs:"service_accounts" mapstructure:"service_accounts"`
+	BoundServiceAccounts []string `json:"bound_service_accounts" structs:"bound_service_accounts" mapstructure:"bound_service_accounts"`
 
 	// --| IAM-only attributes |--
 	// MaxJwtExp is the duration from time of authentication that a JWT used to authenticate to role must expire within.
@@ -552,9 +555,15 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 	}
 
 	// Update bound GCP service accounts.
-	serviceAccountsRaw, ok := data.GetOk("service_accounts")
+	serviceAccountsRaw, ok := data.GetOk("bound_service_accounts")
 	if ok {
-		role.ServiceAccounts = serviceAccountsRaw.([]string)
+		role.BoundServiceAccounts = serviceAccountsRaw.([]string)
+	} else {
+		// Check for older version of param name
+		serviceAccountsRaw, ok := data.GetOk("service_accounts")
+		if ok {
+			role.BoundServiceAccounts = serviceAccountsRaw.([]string)
+		}
 	}
 
 	// Update fields specific to this type
@@ -652,12 +661,6 @@ func (role *gcpRole) updateIamFields(data *framework.FieldData, op logical.Opera
 
 // updateGceFields updates GCE-only fields for a role.
 func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Operation) error {
-	// Update service accounts.
-	serviceAccountsRaw, ok := data.GetOk("service_accounts")
-	if ok {
-		role.ServiceAccounts = serviceAccountsRaw.([]string)
-	}
-
 	region, hasRegion := data.GetOk("bound_region")
 	if hasRegion {
 		role.BoundRegion = region.(string)
@@ -687,11 +690,11 @@ func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Opera
 
 // validateIamFields validates the IAM-only fields for a role.
 func (role *gcpRole) validateForIAM() (warnings []string, err error) {
-	if len(role.ServiceAccounts) == 0 {
+	if len(role.BoundServiceAccounts) == 0 {
 		return []string{}, errors.New(errEmptyIamServiceAccounts)
 	}
 
-	if len(role.ServiceAccounts) > 1 && strutil.StrListContains(role.ServiceAccounts, serviceAccountsWildcard) {
+	if len(role.BoundServiceAccounts) > 1 && strutil.StrListContains(role.BoundServiceAccounts, serviceAccountsWildcard) {
 		return []string{}, fmt.Errorf("cannot provide IAM service account wildcard '%s' (for all service accounts) with other service accounts", serviceAccountsWildcard)
 	}
 

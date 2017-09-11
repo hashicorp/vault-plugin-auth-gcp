@@ -19,10 +19,11 @@ const (
 // Defaults for verifying response data. If a value is not included here, it must be included in the
 // 'expected' map param for a test.
 var expectedDefaults map[string]interface{} = map[string]interface{}{
-	"policies": []string{"default"},
-	"ttl":      int64(baseRoleFieldSchema["ttl"].Default.(int)),
-	"max_ttl":  int64(baseRoleFieldSchema["ttl"].Default.(int)),
-	"period":   int64(baseRoleFieldSchema["ttl"].Default.(int)),
+	"policies":               []string{"default"},
+	"ttl":                    int64(baseRoleFieldSchema["ttl"].Default.(int)),
+	"max_ttl":                int64(baseRoleFieldSchema["ttl"].Default.(int)),
+	"period":                 int64(baseRoleFieldSchema["ttl"].Default.(int)),
+	"bound_service_accounts": []string{},
 	// IAM
 	"max_jwt_exp":         int64(iamOnlyFieldSchema["max_jwt_exp"].Default.(int)),
 	"allow_gce_inference": iamOnlyFieldSchema["allow_gce_inference"].Default.(bool),
@@ -31,7 +32,6 @@ var expectedDefaults map[string]interface{} = map[string]interface{}{
 	"bound_region":         "",
 	"bound_instance_group": "",
 	"bound_labels":         map[string]string{},
-	"service_accounts":     []string{},
 }
 
 //-- IAM ROLE TESTS --
@@ -42,40 +42,40 @@ func TestRoleUpdateIam(t *testing.T) {
 
 	// Bare minimum for iam roles
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":             defaultRoleName,
-		"type":             iamRoleType,
-		"project_id":       defaultProject,
-		"service_accounts": strings.Join(serviceAccounts, ","),
+		"name":                   defaultRoleName,
+		"type":                   iamRoleType,
+		"project_id":             defaultProject,
+		"bound_service_accounts": strings.Join(serviceAccounts, ","),
 	})
 	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
-		"name":             defaultRoleName,
-		"role_type":        iamRoleType,
-		"project_id":       defaultProject,
-		"service_accounts": serviceAccounts,
+		"name":                   defaultRoleName,
+		"role_type":              iamRoleType,
+		"project_id":             defaultProject,
+		"bound_service_accounts": serviceAccounts,
 	})
 
 	serviceAccounts = append(serviceAccounts, "testaccount@google.com")
 	testRoleUpdate(t, b, reqStorage, map[string]interface{}{
-		"name":                defaultRoleName,
-		"policies":            "dev",
-		"ttl":                 1000,
-		"max_ttl":             2000,
-		"period":              30,
-		"max_jwt_exp":         20 * 60, // 20 minutes
-		"allow_gce_inference": false,
-		"service_accounts":    strings.Join(serviceAccounts, ","),
+		"name":                   defaultRoleName,
+		"policies":               "dev",
+		"ttl":                    1000,
+		"max_ttl":                2000,
+		"period":                 30,
+		"max_jwt_exp":            20 * 60, // 20 minutes
+		"allow_gce_inference":    false,
+		"bound_service_accounts": strings.Join(serviceAccounts, ","),
 	})
 
 	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
-		"role_type":           iamRoleType,
-		"project_id":          defaultProject,
-		"policies":            []string{"dev"},
-		"ttl":                 int64(1000),
-		"max_ttl":             int64(2000),
-		"period":              int64(30),
-		"max_jwt_exp":         int64(20 * 60),
-		"allow_gce_inference": false,
-		"service_accounts":    serviceAccounts,
+		"role_type":              iamRoleType,
+		"project_id":             defaultProject,
+		"policies":               []string{"dev"},
+		"ttl":                    int64(1000),
+		"max_ttl":                int64(2000),
+		"period":                 int64(30),
+		"max_jwt_exp":            int64(20 * 60),
+		"allow_gce_inference":    false,
+		"bound_service_accounts": serviceAccounts,
 	})
 }
 
@@ -86,26 +86,26 @@ func TestRoleIam_Wildcard(t *testing.T) {
 	serviceAccounts := []string{"*", "dev1@project-123456.iam.gserviceaccounts.com", "aserviceaccountid"}
 
 	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
-		"name":             defaultRoleName,
-		"type":             iamRoleType,
-		"project_id":       defaultProject,
-		"service_accounts": strings.Join(serviceAccounts, ","),
+		"name":                   defaultRoleName,
+		"type":                   iamRoleType,
+		"project_id":             defaultProject,
+		"bound_service_accounts": strings.Join(serviceAccounts, ","),
 	}, []string{
 		fmt.Sprintf("cannot provide IAM service account wildcard '%s' (for all service accounts) with other service accounts", serviceAccountsWildcard),
 	})
 
 	serviceAccounts = []string{"*"}
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":             defaultRoleName,
-		"type":             iamRoleType,
-		"project_id":       defaultProject,
-		"service_accounts": strings.Join(serviceAccounts, ","),
+		"name":                   defaultRoleName,
+		"type":                   iamRoleType,
+		"project_id":             defaultProject,
+		"bound_service_accounts": strings.Join(serviceAccounts, ","),
 	})
 
 	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
-		"role_type":        iamRoleType,
-		"project_id":       defaultProject,
-		"service_accounts": serviceAccounts,
+		"role_type":              iamRoleType,
+		"project_id":             defaultProject,
+		"bound_service_accounts": serviceAccounts,
 	})
 }
 
@@ -114,16 +114,16 @@ func TestRoleIam_EditServiceAccounts(t *testing.T) {
 
 	initial := []string{"id1234", "test1@google.com"}
 	data := map[string]interface{}{
-		"name":             defaultRoleName,
-		"type":             iamRoleType,
-		"project_id":       defaultProject,
-		"service_accounts": strings.Join(initial, ","),
+		"name":                   defaultRoleName,
+		"type":                   iamRoleType,
+		"project_id":             defaultProject,
+		"bound_service_accounts": strings.Join(initial, ","),
 	}
 	expectedRole := map[string]interface{}{
-		"name":             defaultRoleName,
-		"role_type":        iamRoleType,
-		"project_id":       defaultProject,
-		"service_accounts": initial,
+		"name":                   defaultRoleName,
+		"role_type":              iamRoleType,
+		"project_id":             defaultProject,
+		"bound_service_accounts": initial,
 	}
 
 	testRoleCreate(t, b, reqStorage, data)
@@ -131,7 +131,7 @@ func TestRoleIam_EditServiceAccounts(t *testing.T) {
 
 	// Test add appends and de-duplicates values
 	toAdd := []string{"toAdd34567", "toremove@google.com", "test1@google.com"}
-	expectedRole["service_accounts"] = []string{
+	expectedRole["bound_service_accounts"] = []string{
 		// Initial
 		"id1234",
 		"test1@google.com",
@@ -148,7 +148,7 @@ func TestRoleIam_EditServiceAccounts(t *testing.T) {
 	// Test removal of values.
 	toAdd = []string{"toAdd2nd"}
 	toRemove := []string{"toremove12345", "toremove@google.com"}
-	expectedRole["service_accounts"] = []string{
+	expectedRole["bound_service_accounts"] = []string{
 		"toAdd2nd", "id1234", "test1@google.com", "toAdd34567",
 	}
 	testRoleEditServiceAccounts(t, b, reqStorage, map[string]interface{}{
@@ -164,9 +164,9 @@ func TestRoleIam_MissingRequiredArgs(t *testing.T) {
 
 	// empty type
 	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
-		"name":             defaultRoleName,
-		"project_id":       defaultProject,
-		"service_accounts": "aserviceaccountid",
+		"name":                   defaultRoleName,
+		"project_id":             defaultProject,
+		"bound_service_accounts": "aserviceaccountid",
 	}, []string{errEmptyRoleType})
 
 	// empty IAM service accounts
@@ -178,9 +178,9 @@ func TestRoleIam_MissingRequiredArgs(t *testing.T) {
 
 	// empty project
 	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
-		"name":             defaultRoleName,
-		"type":             iamRoleType,
-		"service_accounts": "aserviceaccountid",
+		"name": defaultRoleName,
+		"type": iamRoleType,
+		"bound_service_accounts": "aserviceaccountid",
 	}, []string{errEmptyProjectId})
 }
 
@@ -188,20 +188,20 @@ func TestRoleIam_HasGceArgs(t *testing.T) {
 	b, reqStorage := getTestBackend(t)
 
 	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
-		"name":             defaultRoleName,
-		"type":             iamRoleType,
-		"project_id":       defaultProject,
-		"service_accounts": "aserviceaccountid",
-		"bound_zone":       "us-central1-b",
-		"bound_labels":     "env:test",
+		"name":                   defaultRoleName,
+		"type":                   iamRoleType,
+		"project_id":             defaultProject,
+		"bound_service_accounts": "aserviceaccountid",
+		"bound_zone":             "us-central1-b",
+		"bound_labels":           "env:test",
 	}, []string{fmt.Sprintf(errTemplateInvalidRoleTypeArgs, iamRoleType, ""), "zone", "label"})
 
 	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
-		"name":             defaultRoleName,
-		"type":             iamRoleType,
-		"project_id":       defaultProject,
-		"service_accounts": "aserviceaccountid",
-		"bound_region":     "us-central",
+		"name":                   defaultRoleName,
+		"type":                   iamRoleType,
+		"project_id":             defaultProject,
+		"bound_service_accounts": "aserviceaccountid",
+		"bound_region":           "us-central",
 	}, []string{fmt.Sprintf(errTemplateInvalidRoleTypeArgs, iamRoleType, ""), "region"})
 }
 
@@ -217,24 +217,24 @@ func TestRoleGce(t *testing.T) {
 		"project_id": defaultProject,
 	})
 	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
-		"name":             defaultRoleName,
-		"role_type":        gceRoleType,
-		"project_id":       defaultProject,
-		"service_accounts": []string{},
+		"name":                   defaultRoleName,
+		"role_type":              gceRoleType,
+		"project_id":             defaultProject,
+		"bound_service_accounts": []string{},
 	})
 
 	serviceAccounts = []string{"aserviceaccountid", "testaccount@google.com"}
 	testRoleUpdate(t, b, reqStorage, map[string]interface{}{
-		"name":                 defaultRoleName,
-		"policies":             "dev",
-		"ttl":                  1000,
-		"max_ttl":              2000,
-		"period":               30,
-		"bound_zone":           "us-central-1b",
-		"bound_region":         "us-central",
-		"bound_instance_group": "devGroup",
-		"bound_labels":         "label1:foo,prod:true",
-		"service_accounts":     strings.Join(serviceAccounts, ","),
+		"name":                   defaultRoleName,
+		"policies":               "dev",
+		"ttl":                    1000,
+		"max_ttl":                2000,
+		"period":                 30,
+		"bound_zone":             "us-central-1b",
+		"bound_region":           "us-central",
+		"bound_instance_group":   "devGroup",
+		"bound_labels":           "label1:foo,prod:true",
+		"bound_service_accounts": strings.Join(serviceAccounts, ","),
 	})
 
 	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
@@ -250,8 +250,8 @@ func TestRoleGce(t *testing.T) {
 			"label1": "foo",
 			"prod":   "true",
 		},
-		"bound_instance_group": "devGroup",
-		"service_accounts":     serviceAccounts,
+		"bound_instance_group":   "devGroup",
+		"bound_service_accounts": serviceAccounts,
 	})
 }
 
@@ -323,9 +323,9 @@ func TestRole_MissingRequiredArgs(t *testing.T) {
 
 	// empty project
 	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
-		"name":             defaultRoleName,
-		"type":             iamRoleType,
-		"service_accounts": "aserviceaccountid",
+		"name": defaultRoleName,
+		"type": iamRoleType,
+		"bound_service_accounts": "aserviceaccountid",
 	}, []string{errEmptyProjectId})
 }
 

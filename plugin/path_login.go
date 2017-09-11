@@ -347,13 +347,13 @@ func (b *GcpAuthBackend) authorizeIAMServiceAccount(serviceAccount *iam.ServiceA
 	}
 
 	// Check if role has the wildcard as the only service account.
-	if len(role.ServiceAccounts) == 1 && role.ServiceAccounts[0] == serviceAccountsWildcard {
+	if len(role.BoundServiceAccounts) == 1 && role.BoundServiceAccounts[0] == serviceAccountsWildcard {
 		return nil
 	}
 
 	// Check for service account id/email.
-	if strutil.StrListContains(role.ServiceAccounts, serviceAccount.Email) ||
-		strutil.StrListContains(role.ServiceAccounts, serviceAccount.UniqueId) {
+	if strutil.StrListContains(role.BoundServiceAccounts, serviceAccount.Email) ||
+		strutil.StrListContains(role.BoundServiceAccounts, serviceAccount.UniqueId) {
 		return nil
 	}
 
@@ -521,7 +521,7 @@ func (b *GcpAuthBackend) authorizeGCEInstance(instance *compute.Instance, s logi
 	}
 
 	// Verify instance is running under one of the allowed service accounts.
-	if len(role.ServiceAccounts) > 0 {
+	if len(role.BoundServiceAccounts) > 0 {
 		iamClient, err := b.IAM(s)
 		if err != nil {
 			return err
@@ -532,10 +532,10 @@ func (b *GcpAuthBackend) authorizeGCEInstance(instance *compute.Instance, s logi
 			return fmt.Errorf("could not find service acocunt with id '%s': ")
 		}
 
-		if !(strutil.StrListContains(role.ServiceAccounts, serviceAccount.Email) ||
-			strutil.StrListContains(role.ServiceAccounts, serviceAccount.UniqueId)) {
+		if !(strutil.StrListContains(role.BoundServiceAccounts, serviceAccount.Email) ||
+			strutil.StrListContains(role.BoundServiceAccounts, serviceAccount.UniqueId)) {
 			return fmt.Errorf("GCE instance's service account email (%s) or id (%s) not found in role service accounts: %v",
-				serviceAccount.Email, serviceAccount.UniqueId, role.ServiceAccounts)
+				serviceAccount.Email, serviceAccount.UniqueId, role.BoundServiceAccounts)
 		}
 	}
 
