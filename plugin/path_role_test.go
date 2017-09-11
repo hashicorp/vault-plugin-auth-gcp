@@ -27,12 +27,11 @@ var expectedDefaults map[string]interface{} = map[string]interface{}{
 	"max_jwt_exp":         int64(iamOnlyFieldSchema["max_jwt_exp"].Default.(int)),
 	"allow_gce_inference": iamOnlyFieldSchema["allow_gce_inference"].Default.(bool),
 	// GCE
-	"zone":                   "",
-	"region":                 "",
-	"managed_instance_group": "",
-	"instance_group":         "",
-	"labels":                 map[string]string{},
-	"service_accounts":       []string{},
+	"bound_zone":           "",
+	"bound_region":         "",
+	"bound_instance_group": "",
+	"bound_labels":         map[string]string{},
+	"service_accounts":     []string{},
 }
 
 //-- IAM ROLE TESTS --
@@ -193,8 +192,8 @@ func TestRoleIam_HasGceArgs(t *testing.T) {
 		"type":             iamRoleType,
 		"project_id":       defaultProject,
 		"service_accounts": "aserviceaccountid",
-		"zone":             "us-central1-b",
-		"labels":           "env:test",
+		"bound_zone":       "us-central1-b",
+		"bound_labels":     "env:test",
 	}, []string{fmt.Sprintf(errTemplateInvalidRoleTypeArgs, iamRoleType, ""), "zone", "label"})
 
 	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
@@ -202,7 +201,7 @@ func TestRoleIam_HasGceArgs(t *testing.T) {
 		"type":             iamRoleType,
 		"project_id":       defaultProject,
 		"service_accounts": "aserviceaccountid",
-		"region":           "us-central",
+		"bound_region":     "us-central",
 	}, []string{fmt.Sprintf(errTemplateInvalidRoleTypeArgs, iamRoleType, ""), "region"})
 }
 
@@ -226,33 +225,33 @@ func TestRoleGce(t *testing.T) {
 
 	serviceAccounts = []string{"aserviceaccountid", "testaccount@google.com"}
 	testRoleUpdate(t, b, reqStorage, map[string]interface{}{
-		"name":                   defaultRoleName,
-		"policies":               "dev",
-		"ttl":                    1000,
-		"max_ttl":                2000,
-		"period":                 30,
-		"zone":                   "us-central-1b",
-		"region":                 "us-central",
-		"managed_instance_group": "devGroup",
-		"labels":                 "label1:foo,prod:true",
-		"service_accounts":       strings.Join(serviceAccounts, ","),
+		"name":                 defaultRoleName,
+		"policies":             "dev",
+		"ttl":                  1000,
+		"max_ttl":              2000,
+		"period":               30,
+		"bound_zone":           "us-central-1b",
+		"bound_region":         "us-central",
+		"bound_instance_group": "devGroup",
+		"bound_labels":         "label1:foo,prod:true",
+		"service_accounts":     strings.Join(serviceAccounts, ","),
 	})
 
 	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
-		"role_type":  gceRoleType,
-		"project_id": defaultProject,
-		"policies":   []string{"dev", "default"},
-		"ttl":        int64(1000),
-		"max_ttl":    int64(2000),
-		"period":     int64(30),
-		"zone":       "us-central-1b",
-		"region":     "us-central",
-		"labels": map[string]string{
+		"role_type":    gceRoleType,
+		"project_id":   defaultProject,
+		"policies":     []string{"dev", "default"},
+		"ttl":          int64(1000),
+		"max_ttl":      int64(2000),
+		"period":       int64(30),
+		"bound_zone":   "us-central-1b",
+		"bound_region": "us-central",
+		"bound_labels": map[string]string{
 			"label1": "foo",
 			"prod":   "true",
 		},
-		"managed_instance_group": "devGroup",
-		"service_accounts":       serviceAccounts,
+		"bound_instance_group": "devGroup",
+		"service_accounts":     serviceAccounts,
 	})
 }
 
@@ -264,16 +263,16 @@ func TestRoleGce_EditLabels(t *testing.T) {
 		"foo":    "bar",
 	}
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":       defaultRoleName,
-		"type":       gceRoleType,
-		"project_id": defaultProject,
-		"labels":     createGceLabelsString(labels),
+		"name":         defaultRoleName,
+		"type":         gceRoleType,
+		"project_id":   defaultProject,
+		"bound_labels": createGceLabelsString(labels),
 	})
 	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
-		"name":       defaultRoleName,
-		"role_type":  gceRoleType,
-		"project_id": defaultProject,
-		"labels":     labels,
+		"name":         defaultRoleName,
+		"role_type":    gceRoleType,
+		"project_id":   defaultProject,
+		"bound_labels": labels,
 	})
 
 	testRoleEditLabels(t, b, reqStorage, map[string]interface{}{
@@ -283,10 +282,10 @@ func TestRoleGce_EditLabels(t *testing.T) {
 	labels["label1"] = "replace"
 	labels["toAdd"] = "value"
 	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
-		"name":       defaultRoleName,
-		"role_type":  gceRoleType,
-		"project_id": defaultProject,
-		"labels":     labels,
+		"name":         defaultRoleName,
+		"role_type":    gceRoleType,
+		"project_id":   defaultProject,
+		"bound_labels": labels,
 	})
 
 	testRoleEditLabels(t, b, reqStorage, map[string]interface{}{
@@ -298,10 +297,10 @@ func TestRoleGce_EditLabels(t *testing.T) {
 	delete(labels, "foo")
 	delete(labels, "toAdd")
 	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
-		"name":       defaultRoleName,
-		"role_type":  gceRoleType,
-		"project_id": defaultProject,
-		"labels":     labels,
+		"name":         defaultRoleName,
+		"role_type":    gceRoleType,
+		"project_id":   defaultProject,
+		"bound_labels": labels,
 	})
 }
 

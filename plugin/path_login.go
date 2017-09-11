@@ -458,7 +458,7 @@ func (b *GcpAuthBackend) authorizeGCEInstance(instance *compute.Instance, s logi
 	}
 
 	// Verify instance has role labels if labels were set on role.
-	for k, expectedV := range role.Labels {
+	for k, expectedV := range role.BoundLabels {
 		actualV, ok := instance.Labels[k]
 		if !ok || actualV != expectedV {
 			return fmt.Errorf("role label '%s:%s' not found on GCE instance", k, expectedV)
@@ -466,7 +466,7 @@ func (b *GcpAuthBackend) authorizeGCEInstance(instance *compute.Instance, s logi
 	}
 
 	// Verify that instance is in zone or region if given.
-	if len(role.Zone) > 0 {
+	if len(role.BoundZone) > 0 {
 		var zone string
 		idx := strings.LastIndex(instance.Zone, "zones/")
 		if idx > 0 {
@@ -478,34 +478,34 @@ func (b *GcpAuthBackend) authorizeGCEInstance(instance *compute.Instance, s logi
 			zone = instance.Zone
 		}
 
-		if zone != role.Zone {
-			return fmt.Errorf("instance is not in role zone '%s'", role.Zone)
+		if zone != role.BoundZone {
+			return fmt.Errorf("instance is not in role zone '%s'", role.BoundZone)
 		}
-	} else if len(role.Region) > 0 {
+	} else if len(role.BoundRegion) > 0 {
 		zone, err := gceClient.Zones.Get(role.ProjectId, zone).Do()
 		if err != nil {
 			return fmt.Errorf("could not verify instance zone '%s' is available for project '%s': %v", role.ProjectId, zone, err)
 		}
-		if zone.Region != role.Region {
+		if zone.Region != role.BoundRegion {
 			return fmt.Errorf("zone '%s' is not in region '%s'", zone.Name, zone.Region)
 		}
 	}
 
 	// If instance group is given, verify group exists and that instance is in group.
-	if len(role.InstanceGroup) > 0 {
+	if len(role.BoundInstanceGroup) > 0 {
 		var group *compute.InstanceGroup
 		var err error
 
 		// Check if group should be zonal or regional.
-		if len(role.Zone) > 0 {
-			group, err = gceClient.InstanceGroups.Get(role.ProjectId, role.Zone, role.InstanceGroup).Do()
+		if len(role.BoundZone) > 0 {
+			group, err = gceClient.InstanceGroups.Get(role.ProjectId, role.BoundZone, role.BoundInstanceGroup).Do()
 			if err != nil {
-				return fmt.Errorf("could not find role instance group %s (project %s, zone %s)", role.InstanceGroup, role.ProjectId, role.Zone)
+				return fmt.Errorf("could not find role instance group %s (project %s, zone %s)", role.BoundInstanceGroup, role.ProjectId, role.BoundZone)
 			}
-		} else if len(role.Region) > 0 {
-			group, err = gceClient.RegionInstanceGroups.Get(role.ProjectId, role.Region, role.InstanceGroup).Do()
+		} else if len(role.BoundRegion) > 0 {
+			group, err = gceClient.RegionInstanceGroups.Get(role.ProjectId, role.BoundRegion, role.BoundInstanceGroup).Do()
 			if err != nil {
-				return fmt.Errorf("could not find role instance group %s (project %s, region %s)", role.InstanceGroup, role.ProjectId, role.Region)
+				return fmt.Errorf("could not find role instance group %s (project %s, region %s)", role.BoundInstanceGroup, role.ProjectId, role.BoundRegion)
 			}
 		} else {
 			return errors.New("expected zone or region to be set for GCE role '%s' with instance group")
@@ -514,9 +514,9 @@ func (b *GcpAuthBackend) authorizeGCEInstance(instance *compute.Instance, s logi
 		// Verify instance group contains authenticating instance.
 		instanceIdFilter := fmt.Sprintf("id eq %s", strconv.FormatUint(instance.Id, 10))
 		listInstanceReq := &compute.InstanceGroupsListInstancesRequest{}
-		_, err = gceClient.InstanceGroups.ListInstances(role.ProjectId, role.Zone, group.Name, listInstanceReq).Filter(instanceIdFilter).Do()
+		_, err = gceClient.InstanceGroups.ListInstances(role.ProjectId, role.BoundZone, group.Name, listInstanceReq).Filter(instanceIdFilter).Do()
 		if err != nil {
-			return fmt.Errorf("could not confirm instance %s is part of instance group %s: %s", instance.Name, role.InstanceGroup, err)
+			return fmt.Errorf("could not confirm instance %s is part of instance group %s: %s", instance.Name, role.BoundInstanceGroup, err)
 		}
 	}
 

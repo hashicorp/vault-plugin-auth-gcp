@@ -97,23 +97,23 @@ var iamOnlyFieldSchema map[string]*framework.FieldSchema = map[string]*framework
 }
 
 var gceOnlyFieldSchema map[string]*framework.FieldSchema = map[string]*framework.FieldSchema{
-	"zone": {
+	"bound_zone": {
 		Type: framework.TypeString,
 		Description: `
 "gce" roles only. If set, determines the zone that a GCE instance must belong to. If a group is provided, it is assumed
 to be a zonal group and the group must belong to this zone.`,
 	},
-	"region": {
+	"bound_region": {
 		Type: framework.TypeString,
 		Description: `
 "gce" roles only. If set, determines the region that a GCE instance must belong to. If a group is provided, it is
 assumed to be a regional group and the group must belong to this region. If zone is provided, region will be ignored`,
 	},
-	"instance_group": {
+	"bound_instance_group": {
 		Type:        framework.TypeString,
 		Description: `"gce" roles only. If set, determines the instance group that an authorized instance must belong to.`,
 	},
-	"labels": {
+	"bound_labels": {
 		Type: framework.TypeCommaStringSlice,
 		Description: `
 "gce" roles only. A comma-separated list of Google Cloud Platform labels formatted as "$key:$value" strings that are
@@ -202,7 +202,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 				},
 				"add": {
 					Type:        framework.TypeCommaStringSlice,
-					Description: "Labels to add (in $key:$value)",
+					Description: "BoundLabels to add (in $key:$value)",
 				},
 				"remove": {
 					Type:        framework.TypeCommaStringSlice,
@@ -269,10 +269,10 @@ func (b *GcpAuthBackend) pathRoleRead(req *logical.Request, data *framework.Fiel
 		roleMap["max_jwt_exp"] = int64(role.MaxJwtExp / time.Second)
 		roleMap["allow_gce_inference"] = role.AllowGCEInference
 	case gceRoleType:
-		roleMap["zone"] = role.Zone
-		roleMap["region"] = role.Region
-		roleMap["instance_group"] = role.InstanceGroup
-		roleMap["labels"] = role.Labels
+		roleMap["bound_zone"] = role.BoundZone
+		roleMap["bound_region"] = role.BoundRegion
+		roleMap["bound_instance_group"] = role.BoundInstanceGroup
+		roleMap["bound_labels"] = role.BoundLabels
 	}
 
 	return &logical.Response{
@@ -394,11 +394,11 @@ func (b *GcpAuthBackend) pathRoleEditGceLabels(req *logical.Request, data *frame
 		return logical.ErrorResponse(fmt.Sprintf("given invalid labels to add: %q", invalidLabels)), nil
 	}
 	for k, v := range labelsToAdd {
-		role.Labels[k] = v
+		role.BoundLabels[k] = v
 	}
 
 	for _, k := range toRemove {
-		delete(role.Labels, k)
+		delete(role.BoundLabels, k)
 	}
 
 	return b.storeRole(req.Storage, roleName, role)
@@ -484,17 +484,17 @@ type gcpRole struct {
 	AllowGCEInference bool `json:"allow_gce_inference" structs:"allow_gce_inference" mapstructure:"allow_gce_inference"`
 
 	// --| GCE-only attributes |--
-	// Region that instances must belong to in order to login under this role.
-	Region string `json:"region" structs:"region" mapstructure:"region"`
+	// BoundRegion that instances must belong to in order to login under this role.
+	BoundRegion string `json:"bound_region" structs:"bound_region" mapstructure:"bound_region"`
 
-	// Zone that instances must belong to in order to login under this role.
-	Zone string `json:"zone" structs:"zone" mapstructure:"zone"`
+	// BoundZone that instances must belong to in order to login under this role.
+	BoundZone string `json:"bound_zone" structs:"bound_zone" mapstructure:"bound_zone"`
 
 	// Instance group that instances must belong to in order to login under this role.
-	InstanceGroup string `json:"instance_group" structs:"instance_group" mapstructure:"instance_group"`
+	BoundInstanceGroup string `json:"bound_instance_group" structs:"bound_instance_group" mapstructure:"bound_instance_group"`
 
-	// Labels that instances must currently have set in order to login under this role.
-	Labels map[string]string `json:"labels" structs:"labels" mapstructure:"labels"`
+	// BoundLabels that instances must currently have set in order to login under this role.
+	BoundLabels map[string]string `json:"bound_labels" structs:"bound_labels" mapstructure:"bound_labels"`
 }
 
 // Update updates the given role with values parsed/validated from given FieldData.
@@ -658,25 +658,25 @@ func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Opera
 		role.ServiceAccounts = serviceAccountsRaw.([]string)
 	}
 
-	region, hasRegion := data.GetOk("region")
+	region, hasRegion := data.GetOk("bound_region")
 	if hasRegion {
-		role.Region = region.(string)
+		role.BoundRegion = region.(string)
 	}
 
-	zone, hasZone := data.GetOk("zone")
+	zone, hasZone := data.GetOk("bound_zone")
 	if hasZone {
-		role.Zone = zone.(string)
+		role.BoundZone = zone.(string)
 	}
 
-	instanceGroup, ok := data.GetOk("instance_group")
+	instanceGroup, ok := data.GetOk("bound_instance_group")
 	if ok {
-		role.InstanceGroup = instanceGroup.(string)
+		role.BoundInstanceGroup = instanceGroup.(string)
 	}
 
-	labels, ok := data.GetOk("labels")
+	labels, ok := data.GetOk("bound_labels")
 	if ok {
 		var invalidLabels []string
-		role.Labels, invalidLabels = util.ParseGcpLabels(labels.([]string))
+		role.BoundLabels, invalidLabels = util.ParseGcpLabels(labels.([]string))
 		if len(invalidLabels) > 0 {
 			return fmt.Errorf("invalid labels given: %q", invalidLabels)
 		}
@@ -707,11 +707,11 @@ func (role *gcpRole) validateForIAM() (warnings []string, err error) {
 func (role *gcpRole) validateForGCE() (warnings []string, err error) {
 	warnings = []string{}
 
-	hasRegion := len(role.Region) > 0
-	hasZone := len(role.Zone) > 0
+	hasRegion := len(role.BoundRegion) > 0
+	hasZone := len(role.BoundZone) > 0
 	hasRegionOrZone := hasRegion || hasZone
 
-	hasInstanceGroup := len(role.InstanceGroup) > 0
+	hasInstanceGroup := len(role.BoundInstanceGroup) > 0
 
 	if hasInstanceGroup && !hasRegionOrZone {
 		return warnings, errors.New(`region or zone information must be specified if a group is given`)
