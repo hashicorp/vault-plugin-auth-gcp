@@ -512,12 +512,17 @@ func (b *GcpAuthBackend) authorizeGCEInstance(instance *compute.Instance, s logi
 		}
 
 		// Verify instance group contains authenticating instance.
-		instanceIdFilter := fmt.Sprintf("id eq %s", strconv.FormatUint(instance.Id, 10))
+		instanceIdFilter := fmt.Sprintf("instance eq %s", instance.SelfLink)
 		listInstanceReq := &compute.InstanceGroupsListInstancesRequest{}
-		_, err = gceClient.InstanceGroups.ListInstances(role.ProjectId, role.BoundZone, group.Name, listInstanceReq).Filter(instanceIdFilter).Do()
+		listResp, err := gceClient.InstanceGroups.ListInstances(role.ProjectId, role.BoundZone, group.Name, listInstanceReq).Filter(instanceIdFilter).Do()
 		if err != nil {
 			return fmt.Errorf("could not confirm instance %s is part of instance group %s: %s", instance.Name, role.BoundInstanceGroup, err)
 		}
+
+		if len(listResp.Items) == 0 {
+			return fmt.Errorf("instance %s is not part of instance group %s", instance.Name, role.BoundInstanceGroup)
+		}
+
 	}
 
 	// Verify instance is running under one of the allowed service accounts.

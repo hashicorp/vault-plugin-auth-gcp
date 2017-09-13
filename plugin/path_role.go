@@ -340,7 +340,7 @@ func (b *GcpAuthBackend) pathRoleEditIamServiceAccounts(req *logical.Request, da
 	}
 
 	if role.RoleType != iamRoleType {
-		return logical.ErrorResponse(fmt.Sprintf(errTemplateEditListWrongType, role.RoleType, iamRoleType)), nil
+		return logical.ErrorResponse(fmt.Sprintf(errTemplateEditListWrongType, role.RoleType, "service_accounts", iamRoleType)), nil
 	}
 	role.BoundServiceAccounts = editStringValues(role.BoundServiceAccounts, toAdd, toRemove)
 
