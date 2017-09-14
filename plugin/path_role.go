@@ -276,11 +276,17 @@ func (b *GcpAuthBackend) pathRoleRead(req *logical.Request, data *framework.Fiel
 		roleMap["bound_zone"] = role.BoundZone
 		roleMap["bound_region"] = role.BoundRegion
 		roleMap["bound_instance_group"] = role.BoundInstanceGroup
-		roleMap["bound_labels"] = role.BoundLabels
+		// Ensure values are not nil to avoid errors during plugin RPC conversions.
+		if role.BoundLabels != nil && len(role.BoundLabels) > 0 {
+			roleMap["bound_labels"] = role.BoundLabels
+		} else {
+			roleMap["bound_labels"] = ""
+		}
 	}
 
 	return &logical.Response{
-		Data: roleMap}, nil
+		Data: roleMap,
+	}, nil
 }
 
 func (b *GcpAuthBackend) pathRoleCreateUpdate(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
