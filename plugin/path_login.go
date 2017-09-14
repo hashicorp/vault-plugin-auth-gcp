@@ -85,6 +85,10 @@ func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.Fi
 		if err := b.pathIamRenew(req, role); err != nil {
 			return logical.ErrorResponse(err.Error()), nil
 		}
+	case gceRoleType:
+		if err := b.pathGceRenew(req, role); err != nil {
+			return logical.ErrorResponse(err.Error()), nil
+		}
 	default:
 		return nil, fmt.Errorf("unexpected role type '%s' for login renewal", role.RoleType)
 	}
