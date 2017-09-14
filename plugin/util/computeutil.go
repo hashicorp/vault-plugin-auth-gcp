@@ -40,9 +40,9 @@ type GCEIdentityMetadata struct {
 // If the instance has an invalid status or its creation timestamp does not match the metadata value,
 // this  will return nil and an error.
 func (meta *GCEIdentityMetadata) GetVerifiedInstance(gceClient *compute.Service) (*compute.Instance, error) {
-	instance, err := gceClient.Instances.Get(meta.ProjectId, meta.Zone, meta.InstanceId).Do()
+	instance, err := gceClient.Instances.Get(meta.ProjectId, meta.Zone, meta.InstanceName).Do()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to find instance associated with token: %v", err)
 	}
 
 	if !IsValidInstanceStatus(instance.Status) {
