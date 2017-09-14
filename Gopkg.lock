@@ -4,8 +4,8 @@
 [[projects]]
   name = "cloud.google.com/go"
   packages = ["compute/metadata"]
-  revision = "0f0b8420cb699ac4ce059c63bac263f4301fe95b"
-  version = "v0.12.0"
+  revision = "5a9e19d4e1e41a734154e44a2132b358afb49a03"
+  version = "v0.13.0"
 
 [[projects]]
   name = "github.com/SermoDigital/jose"
@@ -83,13 +83,13 @@
   branch = "master"
   name = "github.com/hashicorp/hcl"
   packages = [".","hcl/ast","hcl/parser","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
-  revision = "8f6b1344a92ff8877cf24a5de9177bf7d0a2a187"
+  revision = "68e816d1c783414e79bc65b3994d9ab6b0a722ab"
 
 [[projects]]
-  branch = "master"
   name = "github.com/hashicorp/vault"
   packages = ["api","helper/certutil","helper/compressutil","helper/consts","helper/errutil","helper/jsonutil","helper/logformat","helper/mlock","helper/parseutil","helper/pluginutil","helper/policyutil","helper/salt","helper/strutil","helper/wrapping","logical","logical/framework","logical/plugin","version"]
-  revision = "7cd68af8f35ce21bdf26b20d0cbebcfb80a75d15"
+  revision = "9afe7330e06e486ee326621624f2077d88bc9511"
+  version = "v0.8.2"
 
 [[projects]]
   branch = "master"
@@ -149,31 +149,31 @@
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context","context/ctxhttp","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
-  revision = "66aacef3dd8a676686c7ae3716979581e8b03c47"
+  revision = "859d1a86bb617c0c20d154590c3c5d3fcb670b07"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/oauth2"
   packages = [".","google","internal","jws","jwt"]
-  revision = "d89af98d7c6bba047c5a2622f36bc14b8766df85"
+  revision = "13449ad91cb26cb47661c1b080790392170385fd"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "7ddbeae9ae08c6a06a59597f0c9edbc5ff2444ce"
+  revision = "062cd7e4e68206d8bab9b18396626e855c992658"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
-  packages = ["internal/gen","internal/triegen","internal/ucd","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
-  revision = "bd91bbf73e9a4a801adbfb97133c992678533126"
+  packages = ["collate","collate/build","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","language","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
+  revision = "ab5ac5f9a8deb4855a60fab02bc61a4ec770bd49"
 
 [[projects]]
   branch = "master"
   name = "google.golang.org/api"
   packages = ["gensupport","googleapi","googleapi/internal/uritemplates","iam/v1"]
-  revision = "519500316f39a9934d1d88615a1a047035a4bae5"
+  revision = "654f863362977d69086620b5f72f13e911da2410"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -196,6 +196,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1d1844e8ad0f0cedb4cce8d4aa400cd07b5b3c5b26cb80e473908bdf9879c175"
+  inputs-digest = "39ce59dbb95169394fbf9463eb7ce4fbfe51995bd39ecc1ab84fbd9a68120d7c"
   solver-name = "gps-cdcl"
   solver-version = 1
