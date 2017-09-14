@@ -370,14 +370,16 @@ func (b *GcpAuthBackend) authorizeIAMServiceAccount(serviceAccount *iam.ServiceA
 func (b *GcpAuthBackend) pathGceLogin(req *logical.Request, loginInfo *gcpLoginInfo) (*logical.Response, error) {
 	role := loginInfo.Role
 	metadata := loginInfo.GceMetadata
+	fmt.Printf("here\n")
+	fmt.Printf("metadata.CreatedAt \n")
 	if metadata == nil {
 		return logical.ErrorResponse("could not get GCE metadata from given JWT"), nil
 	}
 
-	if role.ProjectId != loginInfo.GceMetadata.ProjectId {
+	if role.ProjectId != metadata.ProjectId {
 		return logical.ErrorResponse(fmt.Sprintf(
 			"GCE instance must belong to project %s; metadata given has project %s",
-			role.ProjectId, loginInfo.GceMetadata.ProjectId)), nil
+			role.ProjectId, metadata.ProjectId)), nil
 	}
 
 	// Verify instance exists.
@@ -386,7 +388,7 @@ func (b *GcpAuthBackend) pathGceLogin(req *logical.Request, loginInfo *gcpLoginI
 		return logical.ErrorResponse(fmt.Sprintf(clientErrorTemplate, "GCE", err)), nil
 	}
 
-	instance, err := gceClient.Instances.Get(metadata.ProjectId, metadata.Zone, metadata.InstanceName).Do()
+	instance, err := metadata.GetVerifiedInstance(gceClient)
 	if err != nil {
 		return logical.ErrorResponse(fmt.Sprintf(
 			"error when attempting to find instance (project %s, zone: %s, instance: %s) :%v",
@@ -399,7 +401,8 @@ func (b *GcpAuthBackend) pathGceLogin(req *logical.Request, loginInfo *gcpLoginI
 
 	resp := &logical.Response{
 		Auth: &logical.Auth{
-			Period: role.Period,
+			InternalData: map[string]interface{}{},
+			Period:       role.Period,
 			Persona: &logical.Persona{
 				Name: fmt.Sprintf("gce-%s", strconv.FormatUint(instance.Id, 10)),
 			},
@@ -433,7 +436,7 @@ func (b *GcpAuthBackend) pathGceRenew(req *logical.Request, role *gcpRole) error
 		return fmt.Errorf(clientErrorTemplate, "GCE", err)
 	}
 
-	meta, err := util.ParseMetadataFromAuth(req.Auth.Metadata)
+	meta, err := util.GetInstanceMetadataFromAuth(req.Auth.Metadata)
 	if err != nil {
 		return fmt.Errorf("invalid auth metadata: %v", err)
 	}
