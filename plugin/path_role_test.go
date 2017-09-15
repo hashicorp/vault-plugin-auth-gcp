@@ -19,7 +19,7 @@ const (
 // Defaults for verifying response data. If a value is not included here, it must be included in the
 // 'expected' map param for a test.
 var expectedDefaults map[string]interface{} = map[string]interface{}{
-	"policies":               []string{"default"},
+	"policies":               []string{},
 	"ttl":                    int64(baseRoleFieldSchema["ttl"].Default.(int)),
 	"max_ttl":                int64(baseRoleFieldSchema["ttl"].Default.(int)),
 	"period":                 int64(baseRoleFieldSchema["ttl"].Default.(int)),
@@ -31,7 +31,7 @@ var expectedDefaults map[string]interface{} = map[string]interface{}{
 	"bound_zone":           "",
 	"bound_region":         "",
 	"bound_instance_group": "",
-	"bound_labels":         map[string]string{},
+	"bound_labels":         "",
 }
 
 //-- IAM ROLE TESTS --
@@ -240,7 +240,7 @@ func TestRoleGce(t *testing.T) {
 	testRoleRead(t, b, reqStorage, defaultRoleName, map[string]interface{}{
 		"role_type":    gceRoleType,
 		"project_id":   defaultProject,
-		"policies":     []string{"dev", "default"},
+		"policies":     []string{"dev"},
 		"ttl":          int64(1000),
 		"max_ttl":      int64(2000),
 		"period":       int64(30),

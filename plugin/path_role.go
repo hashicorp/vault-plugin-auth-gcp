@@ -612,10 +612,6 @@ func (role *gcpRole) validate(sys logical.SystemView) (warnings []string, err er
 		return warnings, fmt.Errorf("role type '%s' is invalid", role.RoleType)
 	}
 
-	if len(role.Policies) == 0 {
-		return warnings, errors.New("role must have at least one bound policy")
-	}
-
 	if role.ProjectId == "" {
 		return warnings, errors.New(errEmptyProjectId)
 	}
