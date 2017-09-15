@@ -23,17 +23,13 @@ dev: fmtcheck generate
 dev-dynamic: generate
 	@CGO_ENABLED=1 BUILD_TAGS='$(BUILD_TAGS)' VAULT_DEV_BUILD=1 sh -c "'$(CURDIR)/scripts/build.sh'"
 
-# test runs the unit tests and vets the code
-test: fmtcheck generate
-	CGO_ENABLED=0 VAULT_TOKEN= VAULT_ACC= go test -tags='$(BUILD_TAGS)' $(TEST) $(TESTARGS) -timeout=20m -parallel=4
-
 testcompile: fmtcheck generate
 	@for pkg in $(TEST) ; do \
 		go test -v -c -tags='$(BUILD_TAGS)' $$pkg -parallel=4 ; \
 	done
 
-# testacc runs acceptance tests
-testacc: fmtcheck generate
+# test runs all tests
+test: fmtcheck generate
 	@if [ "$(TEST)" = "./..." ]; then \
 		echo "ERROR: Set TEST to a specific package"; \
 		exit 1; \

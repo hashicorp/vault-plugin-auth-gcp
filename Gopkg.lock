@@ -172,8 +172,8 @@
 [[projects]]
   branch = "master"
   name = "google.golang.org/api"
-  packages = ["gensupport","googleapi","googleapi/internal/uritemplates","iam/v1"]
-  revision = "654f863362977d69086620b5f72f13e911da2410"
+  packages = ["compute/v1","gensupport","googleapi","googleapi/internal/uritemplates","iam/v1","oauth2/v2"]
+  revision = "519500316f39a9934d1d88615a1a047035a4bae5"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -193,9 +193,15 @@
   revision = "f92cdcd7dcdc69e81b2d7b338479a19a8723cfa3"
   version = "v1.6.0"
 
+[[projects]]
+  name = "gopkg.in/square/go-jose.v2"
+  packages = [".","cipher","json","jwt"]
+  revision = "b25e6cab129e4a54675b42ea49d38e9c33ade9e6"
+  version = "v2.1.2"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1d1844e8ad0f0cedb4cce8d4aa400cd07b5b3c5b26cb80e473908bdf9879c175"
+  inputs-digest = "f9ed330c7039eae92bba02edc9d8463bb8f3dd93229e287004acc600825f9e92"
   solver-name = "gps-cdcl"
   solver-version = 1
