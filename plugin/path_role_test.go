@@ -2,12 +2,13 @@ package gcpauth
 
 import (
 	"fmt"
-	"github.com/hashicorp/vault/helper/policyutil"
-	"github.com/hashicorp/vault/helper/strutil"
-	"github.com/hashicorp/vault/logical"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/hashicorp/vault/helper/policyutil"
+	"github.com/hashicorp/vault/helper/strutil"
+	"github.com/hashicorp/vault/logical"
 )
 
 func TestRoleIam(t *testing.T) {
@@ -47,7 +48,7 @@ func TestRoleIam(t *testing.T) {
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"role_type":                "iam",
 		"project_id":               os.Getenv("GOOGLE_PROJECT"),
-		"policies":                 []string{"dev", "default"},
+		"policies":                 []string{"dev"},
 		"disable_reauthentication": false,
 		"ttl":              int64(1000),
 		"max_ttl":          int64(2000),
@@ -263,7 +264,7 @@ func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) e
 
 	expectedVal, ok = expected["policies"]
 	if !ok {
-		expectedVal = []string{"default"}
+		expectedVal = []string{}
 	}
 	if !policyutil.EquivalentPolicies(resp.Data["policies"].([]string), expectedVal.([]string)) {
 		return fmt.Errorf("policies mismatch, expected %v but got %v", expectedVal, resp.Data["policies"])
