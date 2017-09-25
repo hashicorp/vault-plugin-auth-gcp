@@ -263,7 +263,7 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginI
 	role := loginInfo.Role
 	if !role.AllowGCEInference && loginInfo.GceMetadata != nil {
 		return logical.ErrorResponse(fmt.Sprintf(
-			"IAM role '%s' does not allow gce inference but GCE instance metadata token given", loginInfo.RoleName)), nil
+			"Got GCE token but IAM role '%s' does not allow GCE inference", loginInfo.RoleName)), nil
 	}
 
 	// TODO(emilymye): move to general JWT validation once custom expiry is supported for other JWT types.
@@ -301,12 +301,8 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginI
 			Persona: &logical.Persona{
 				Name: serviceAccount.UniqueId,
 			},
-			Policies: role.Policies,
-			Metadata: map[string]string{
-				"service_account_id":    serviceAccount.UniqueId,
-				"service_account_email": serviceAccount.Email,
-				"role":                  loginInfo.RoleName,
-			},
+			Policies:    role.Policies,
+			Metadata:    authMetadata(loginInfo, serviceAccount),
 			DisplayName: serviceAccount.Email,
 			LeaseOptions: logical.LeaseOptions{
 				Renewable: true,
@@ -326,6 +322,11 @@ func (b *GcpAuthBackend) pathIamRenew(req *logical.Request, role *gcpRole) error
 		return fmt.Errorf(clientErrorTemplate, "IAM", err)
 	}
 
+	roleName, ok := req.Auth.Metadata["role"]
+	if !ok {
+		return errors.New("role name not associated with auth token, invalid")
+	}
+
 	serviceAccountId, ok := req.Auth.Metadata["service_account_id"]
 	if !ok {
 		return errors.New("service account id metadata not associated with auth token, invalid")
@@ -336,8 +337,13 @@ func (b *GcpAuthBackend) pathIamRenew(req *logical.Request, role *gcpRole) error
 		return fmt.Errorf("cannot find service account %s", serviceAccountId)
 	}
 
+	_, isGceInferred := req.Auth.Metadata["instance_id"]
+	if isGceInferred && !role.AllowGCEInference {
+		return fmt.Errorf("GCE inferrence is no longer allowed for role %s", roleName)
+	}
+
 	if err := b.authorizeIAMServiceAccount(serviceAccount, role); err != nil {
-		return errors.New("service account is no longer authorized for role")
+		return fmt.Errorf("service account is no longer authorized for role %s", roleName)
 	}
 
 	return nil
@@ -399,6 +405,18 @@ func (b *GcpAuthBackend) pathGceLogin(req *logical.Request, loginInfo *gcpLoginI
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
+	iamClient, err := b.IAM(req.Storage)
+	if err != nil {
+		return logical.ErrorResponse(fmt.Sprintf(clientErrorTemplate, "IAM", err)), nil
+	}
+
+	serviceAccount, err := util.ServiceAccount(iamClient, loginInfo.ServiceAccountId, loginInfo.Role.ProjectId)
+	if err != nil {
+		return logical.ErrorResponse(fmt.Sprintf(
+			"Could not find service account '%s' used for GCE metadata token: %s",
+			loginInfo.ServiceAccountId, err)), nil
+	}
+
 	resp := &logical.Response{
 		Auth: &logical.Auth{
 			InternalData: map[string]interface{}{},
@@ -406,17 +424,8 @@ func (b *GcpAuthBackend) pathGceLogin(req *logical.Request, loginInfo *gcpLoginI
 			Persona: &logical.Persona{
 				Name: fmt.Sprintf("gce-%s", strconv.FormatUint(instance.Id, 10)),
 			},
-			Policies: role.Policies,
-			Metadata: map[string]string{
-				"project_id":                  metadata.ProjectId,
-				"project_number":              strconv.FormatInt(metadata.ProjectNumber, 10),
-				"zone":                        metadata.Zone,
-				"instance_id":                 metadata.InstanceId,
-				"instance_name":               metadata.InstanceName,
-				"instance_creation_timestamp": strconv.FormatInt(metadata.CreatedAt, 10),
-				"service_account_id":          loginInfo.ServiceAccountId,
-				"role":                        loginInfo.RoleName,
-			},
+			Policies:    role.Policies,
+			Metadata:    authMetadata(loginInfo, serviceAccount),
 			DisplayName: instance.Name,
 			LeaseOptions: logical.LeaseOptions{
 				Renewable: true,
@@ -426,6 +435,25 @@ func (b *GcpAuthBackend) pathGceLogin(req *logical.Request, loginInfo *gcpLoginI
 	}
 
 	return resp, nil
+}
+
+func authMetadata(loginInfo *gcpLoginInfo, serviceAccount *iam.ServiceAccount) map[string]string {
+	metadata := map[string]string{
+		"role":                  loginInfo.RoleName,
+		"service_account_id":    serviceAccount.UniqueId,
+		"service_account_email": serviceAccount.Email,
+	}
+
+	if loginInfo.GceMetadata != nil {
+		gceMetadata := loginInfo.GceMetadata
+		metadata["project_id"] = gceMetadata.ProjectId
+		metadata["project_number"] = strconv.FormatInt(gceMetadata.ProjectNumber, 10)
+		metadata["zone"] = gceMetadata.Zone
+		metadata["instance_id"] = gceMetadata.InstanceId
+		metadata["instance_name"] = gceMetadata.InstanceName
+		metadata["instance_creation_timestamp"] = strconv.FormatInt(gceMetadata.CreatedAt, 10)
+	}
+	return metadata
 }
 
 // pathGceRenew returns an error if the instance referenced in the auth token metadata cannot renew the
