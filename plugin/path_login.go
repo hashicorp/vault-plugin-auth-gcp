@@ -82,11 +82,11 @@ func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.Fi
 
 	switch role.RoleType {
 	case iamRoleType:
-		if err := b.pathIamRenew(req, role); err != nil {
+		if err := b.pathIamRenew(req, roleName, role); err != nil {
 			return logical.ErrorResponse(err.Error()), nil
 		}
 	case gceRoleType:
-		if err := b.pathGceRenew(req, role); err != nil {
+		if err := b.pathGceRenew(req, roleName, role); err != nil {
 			return logical.ErrorResponse(err.Error()), nil
 		}
 	default:
@@ -316,15 +316,10 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginI
 
 // pathIamRenew returns an error if the service account referenced in the auth token metadata cannot renew the
 // auth token for the given role.
-func (b *GcpAuthBackend) pathIamRenew(req *logical.Request, role *gcpRole) error {
+func (b *GcpAuthBackend) pathIamRenew(req *logical.Request, roleName string, role *gcpRole) error {
 	iamClient, err := b.IAM(req.Storage)
 	if err != nil {
 		return fmt.Errorf(clientErrorTemplate, "IAM", err)
-	}
-
-	roleName, ok := req.Auth.Metadata["role"]
-	if !ok {
-		return errors.New("role name not associated with auth token, invalid")
 	}
 
 	serviceAccountId, ok := req.Auth.Metadata["service_account_id"]
@@ -376,8 +371,6 @@ func (b *GcpAuthBackend) authorizeIAMServiceAccount(serviceAccount *iam.ServiceA
 func (b *GcpAuthBackend) pathGceLogin(req *logical.Request, loginInfo *gcpLoginInfo) (*logical.Response, error) {
 	role := loginInfo.Role
 	metadata := loginInfo.GceMetadata
-	fmt.Printf("here\n")
-	fmt.Printf("metadata.CreatedAt \n")
 	if metadata == nil {
 		return logical.ErrorResponse("could not get GCE metadata from given JWT"), nil
 	}
@@ -458,7 +451,7 @@ func authMetadata(loginInfo *gcpLoginInfo, serviceAccount *iam.ServiceAccount) m
 
 // pathGceRenew returns an error if the instance referenced in the auth token metadata cannot renew the
 // auth token for the given role.
-func (b *GcpAuthBackend) pathGceRenew(req *logical.Request, role *gcpRole) error {
+func (b *GcpAuthBackend) pathGceRenew(req *logical.Request, roleName string, role *gcpRole) error {
 	gceClient, err := b.GCE(req.Storage)
 	if err != nil {
 		return fmt.Errorf(clientErrorTemplate, "GCE", err)
@@ -479,7 +472,7 @@ func (b *GcpAuthBackend) pathGceRenew(req *logical.Request, role *gcpRole) error
 		return errors.New("invalid auth metadata: service_account_id not found")
 	}
 	if err := b.authorizeGCEInstance(instance, req.Storage, role, meta.Zone, serviceAccountId); err != nil {
-		return err
+		return fmt.Errorf("could not renew token for role %s: %v", roleName, err)
 	}
 
 	return nil
