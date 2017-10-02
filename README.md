@@ -1,17 +1,22 @@
 # Vault Plugin: Google Cloud Platform Auth Backend
 
 This is a standalone backend plugin for use with [Hashicorp Vault](https://www.github.com/hashicorp/vault).
-This plugin allows for various GCP entities to authenticate with Vault.
+This plugin allows for various GCP entities to authenticate with Vault. 
+This is currently included in Vault distributions.
 
 Currently, this plugin supports login for:
 - IAM service accounts
+- GCE Instances
 
 **Please note**: We take Vault's security and our users' trust very seriously. If you believe you have found a security issue in Vault, _please responsibly disclose_ by contacting us at [security@hashicorp.com](mailto:security@hashicorp.com).
 
 ## Quick Links
-    - Vault Website: https://www.vaultproject.io
-    - GCP Auth BE Docs: https://www.vaultproject.io/docs/auth/gcp.html
-    - Main Project Github: https://www.github.com/hashicorp/vault
+
+- [Vault Website](https://www.vaultproject.io)
+- [GCP Auth BE Docs](https://www.vaultproject.io/docs/auth/gcp.html)
+- [Vault Github](https://www.github.com/hashicorp/vault)
+- [General Announcement List](https://groups.google.com/forum/#!forum/hashicorp-announce)
+- [Discussion List](https://groups.google.com/forum/#!forum/vault-tool)
 
 
 ## Getting Started
