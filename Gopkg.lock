@@ -89,7 +89,7 @@
   branch = "master"
   name = "github.com/hashicorp/vault"
   packages = ["api","helper/certutil","helper/compressutil","helper/consts","helper/errutil","helper/jsonutil","helper/logformat","helper/mlock","helper/parseutil","helper/pluginutil","helper/policyutil","helper/salt","helper/strutil","helper/wrapping","logical","logical/framework","logical/plugin","version"]
-  revision = "2c6e64226c66b0b7ba751a0845dcfb4ee15e08db"
+  revision = "27197f728e7fc8bffc9eaa59e8af4e0766b81320"
 
 [[projects]]
   branch = "master"
