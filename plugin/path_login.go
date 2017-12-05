@@ -211,6 +211,7 @@ func (b *GcpAuthBackend) getSigningKey(token *jwt.JSONWebToken, rawToken string,
 			if err != nil {
 				return nil, errors.New("could not find service account key or Google Oauth cert with given 'kid' id")
 			}
+			return key, nil
 		}
 		return util.PublicKey(accountKey.PublicKeyData)
 	case gceRoleType:
