@@ -94,12 +94,14 @@ func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.Fi
 		return nil, fmt.Errorf("unexpected role type '%s' for login renewal", role.RoleType)
 	}
 
-	resp, err := framework.LeaseExtend(role.TTL, role.MaxTTL, b.System())(req, data)
-	if err != nil {
-		return nil, err
+	// If 'Period' is set on the Role, the token should never expire.
+	if role.Period > 0 {
+		// Replenish the TTL with current role's Period.
+		req.Auth.TTL = role.Period
+		return &logical.Response{Auth: req.Auth}, nil
+	} else {
+		return framework.LeaseExtend(role.TTL, role.MaxTTL, b.System())(req, data)
 	}
-	resp.Auth.Period = role.Period
-	return resp, nil
 }
 
 // gcpLoginInfo represents the data given to Vault for logging in using the IAM method.
