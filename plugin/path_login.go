@@ -320,6 +320,20 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginI
 		},
 	}
 
+	if role.MaxTTL > time.Duration(0) {
+		// Cap maxTTL to the sysview's max TTL
+		maxTTL := role.MaxTTL
+		if maxTTL > b.System().MaxLeaseTTL() {
+			maxTTL = b.System().MaxLeaseTTL()
+		}
+
+		// Cap TTL to MaxTTL
+		if resp.Auth.TTL > maxTTL {
+			resp.AddWarning(fmt.Sprintf("Effective TTL of '%s' exceeded the effective max_ttl of '%s'; TTL value is capped accordingly", (resp.Auth.TTL / time.Second), (maxTTL / time.Second)))
+			resp.Auth.TTL = maxTTL
+		}
+	}
+
 	return resp, nil
 }
 
@@ -434,6 +448,20 @@ func (b *GcpAuthBackend) pathGceLogin(req *logical.Request, loginInfo *gcpLoginI
 				TTL:       role.TTL,
 			},
 		},
+	}
+
+	if role.MaxTTL > time.Duration(0) {
+		// Cap maxTTL to the sysview's max TTL
+		maxTTL := role.MaxTTL
+		if maxTTL > b.System().MaxLeaseTTL() {
+			maxTTL = b.System().MaxLeaseTTL()
+		}
+
+		// Cap TTL to MaxTTL
+		if resp.Auth.TTL > maxTTL {
+			resp.AddWarning(fmt.Sprintf("Effective TTL of '%s' exceeded the effective max_ttl of '%s'; TTL value is capped accordingly", (resp.Auth.TTL / time.Second), (maxTTL / time.Second)))
+			resp.Auth.TTL = maxTTL
+		}
 	}
 
 	return resp, nil
