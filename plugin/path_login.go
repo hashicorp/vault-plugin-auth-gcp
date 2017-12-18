@@ -94,14 +94,12 @@ func (b *GcpAuthBackend) pathLoginRenew(req *logical.Request, data *framework.Fi
 		return nil, fmt.Errorf("unexpected role type '%s' for login renewal", role.RoleType)
 	}
 
-	// If 'Period' is set on the Role, the token should never expire.
-	if role.Period > 0 {
-		// Replenish the TTL with current role's Period.
-		req.Auth.TTL = role.Period
-		return &logical.Response{Auth: req.Auth}, nil
-	} else {
-		return framework.LeaseExtend(role.TTL, role.MaxTTL, b.System())(req, data)
+	resp, err := framework.LeaseExtend(role.TTL, role.MaxTTL, b.System())(req, data)
+	if err != nil {
+		return nil, err
 	}
+	resp.Auth.Period = role.Period
+	return resp, nil
 }
 
 // gcpLoginInfo represents the data given to Vault for logging in using the IAM method.
@@ -320,6 +318,20 @@ func (b *GcpAuthBackend) pathIamLogin(req *logical.Request, loginInfo *gcpLoginI
 		},
 	}
 
+	if role.MaxTTL > time.Duration(0) {
+		// Cap maxTTL to the sysview's max TTL
+		maxTTL := role.MaxTTL
+		if maxTTL > b.System().MaxLeaseTTL() {
+			maxTTL = b.System().MaxLeaseTTL()
+		}
+
+		// Cap TTL to MaxTTL
+		if resp.Auth.TTL > maxTTL {
+			resp.AddWarning(fmt.Sprintf("Effective TTL of '%s' exceeded the effective max_ttl of '%s'; TTL value is capped accordingly", (resp.Auth.TTL / time.Second), (maxTTL / time.Second)))
+			resp.Auth.TTL = maxTTL
+		}
+	}
+
 	return resp, nil
 }
 
@@ -434,6 +446,20 @@ func (b *GcpAuthBackend) pathGceLogin(req *logical.Request, loginInfo *gcpLoginI
 				TTL:       role.TTL,
 			},
 		},
+	}
+
+	if role.MaxTTL > time.Duration(0) {
+		// Cap maxTTL to the sysview's max TTL
+		maxTTL := role.MaxTTL
+		if maxTTL > b.System().MaxLeaseTTL() {
+			maxTTL = b.System().MaxLeaseTTL()
+		}
+
+		// Cap TTL to MaxTTL
+		if resp.Auth.TTL > maxTTL {
+			resp.AddWarning(fmt.Sprintf("Effective TTL of '%s' exceeded the effective max_ttl of '%s'; TTL value is capped accordingly", (resp.Auth.TTL / time.Second), (maxTTL / time.Second)))
+			resp.Auth.TTL = maxTTL
+		}
 	}
 
 	return resp, nil
