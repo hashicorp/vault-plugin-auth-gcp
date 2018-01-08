@@ -23,8 +23,7 @@ if [ "$1" = "-install" ]; then
     golang.org/x/tools/cmd/goimports \
     honnef.co/go/tools/cmd/staticcheck \
     github.com/client9/misspell/cmd/misspell \
-    github.com/golang/protobuf/protoc-gen-go \
-    golang.org/x/tools/cmd/stringer
+    github.com/golang/protobuf/protoc-gen-go
   if [[ "$check_proto" = "true" ]]; then
     if [[ "$TRAVIS" = "true" ]]; then
       PROTOBUF_VERSION=3.3.0
@@ -52,7 +51,7 @@ fi
 git ls-files "*.go" | xargs grep -L "\(Copyright [0-9]\{4,\} gRPC authors\)\|DO NOT EDIT" 2>&1 | tee /dev/stderr | (! read)
 gofmt -s -d -l . 2>&1 | tee /dev/stderr | (! read)
 goimports -l . 2>&1 | tee /dev/stderr | (! read)
-golint ./... 2>&1 | (grep -vE "(_mock|_string|\.pb)\.go:" || true) | tee /dev/stderr | (! read)
+golint ./... 2>&1 | (grep -vE "(_mock|\.pb)\.go:" || true) | tee /dev/stderr | (! read)
 
 # Undo any edits made by this script.
 cleanup() {
