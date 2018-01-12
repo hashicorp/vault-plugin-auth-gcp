@@ -516,10 +516,11 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 	// Set role type
 	roleTypeRaw, ok := data.GetOk("type")
 	if ok {
-		if op == logical.UpdateOperation {
+		roleType := roleTypeRaw.(string)
+		if role.RoleType != roleType && op == logical.UpdateOperation {
 			return errors.New("role type cannot be changed for an existing role")
 		}
-		role.RoleType = roleTypeRaw.(string)
+		role.RoleType = roleType
 	} else if op == logical.CreateOperation {
 		return errors.New(errEmptyRoleType)
 	}
