@@ -1,14 +1,16 @@
 package gcpauth
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 
+	"reflect"
+
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/logical"
-	"reflect"
 )
 
 const (
@@ -343,7 +345,7 @@ func TestRole_InvalidRoleType(t *testing.T) {
 
 //-- Utils --
 func testRoleCreate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
-	resp, err := b.HandleRequest(&logical.Request{
+	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.CreateOperation,
 		Path:      fmt.Sprintf("role/%s", d["name"]),
 		Data:      d,
@@ -358,7 +360,7 @@ func testRoleCreate(t *testing.T, b logical.Backend, s logical.Storage, d map[st
 }
 
 func testRoleUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
-	resp, err := b.HandleRequest(&logical.Request{
+	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      fmt.Sprintf("role/%s", d["name"]),
 		Data:      d,
@@ -373,7 +375,7 @@ func testRoleUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[st
 }
 
 func testRoleEditServiceAccounts(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
-	resp, err := b.HandleRequest(&logical.Request{
+	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      fmt.Sprintf("role/%s/service-accounts", d["name"]),
 		Data:      d,
@@ -388,7 +390,7 @@ func testRoleEditServiceAccounts(t *testing.T, b logical.Backend, s logical.Stor
 }
 
 func testRoleEditLabels(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
-	resp, err := b.HandleRequest(&logical.Request{
+	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      fmt.Sprintf("role/%s/labels", d["name"]),
 		Data:      d,
@@ -403,7 +405,7 @@ func testRoleEditLabels(t *testing.T, b logical.Backend, s logical.Storage, d ma
 }
 
 func testRoleCreateError(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, expected []string) {
-	resp, err := b.HandleRequest(&logical.Request{
+	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.CreateOperation,
 		Path:      fmt.Sprintf("role/%s", d["name"]),
 		Data:      d,
@@ -424,7 +426,7 @@ func testRoleCreateError(t *testing.T, b logical.Backend, s logical.Storage, d m
 }
 
 func testRoleRead(t *testing.T, b logical.Backend, s logical.Storage, roleName string, expected map[string]interface{}) {
-	resp, err := b.HandleRequest(&logical.Request{
+	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.ReadOperation,
 		Path:      fmt.Sprintf("role/%s", roleName),
 		Storage:   s,

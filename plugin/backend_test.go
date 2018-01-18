@@ -1,6 +1,7 @@
 package gcpauth
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -27,7 +28,7 @@ func getTestBackend(t *testing.T) (logical.Backend, logical.Storage) {
 		},
 		StorageView: &logical.InmemStorage{},
 	}
-	err := b.Setup(config)
+	err := b.Setup(context.Background(), config)
 	if err != nil {
 		t.Fatalf("unable to create backend: %v", err)
 	}

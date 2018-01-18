@@ -1,19 +1,21 @@
 package gcpauth
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/util"
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/logical"
 	"google.golang.org/api/iam/v1"
 	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
-	"os"
-	"strings"
-	"testing"
-	"time"
 )
 
 const (
@@ -258,8 +260,8 @@ func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
 
 func testLoginIam(
 	t *testing.T, b logical.Backend, s logical.Storage,
-	d map[string]interface{}, expectedMetadata map[string]string, role *gcpRole, personaName string) {
-	resp, err := b.HandleRequest(&logical.Request{
+	d map[string]interface{}, expectedMetadata map[string]string, role *gcpRole, aliasName string) {
+	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "login",
 		Data:      d,
@@ -292,8 +294,8 @@ func testLoginIam(
 		}
 	}
 
-	if resp.Auth.Persona.Name != personaName {
-		t.Fatalf("expected persona with name %s, got %s", personaName, resp.Auth.Persona.Name)
+	if resp.Auth.Alias.Name != aliasName {
+		t.Fatalf("expected persona with name %s, got %s", aliasName, resp.Auth.Alias.Name)
 	}
 
 	// Check lease options
@@ -306,7 +308,7 @@ func testLoginIam(
 }
 
 func testLoginError(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, errorSubstrings []string) {
-	resp, err := b.HandleRequest(&logical.Request{
+	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "login",
 		Data:      d,
