@@ -58,7 +58,7 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 		return nil, err
 	}
 
-	if err := req.Storage.Put(entry); err != nil {
+	if err := req.Storage.Put(ctx, entry); err != nil {
 		return nil, err
 	}
 	return nil, nil

@@ -241,7 +241,7 @@ func (b *GcpAuthBackend) pathRoleDelete(ctx context.Context, req *logical.Reques
 		return logical.ErrorResponse(errEmptyRoleName), nil
 	}
 
-	if err := req.Storage.Delete(fmt.Sprintf("role/%s", name)); err != nil {
+	if err := req.Storage.Delete(ctx, fmt.Sprintf("role/%s", name)); err != nil {
 		return nil, err
 	}
 	return nil, nil
@@ -312,7 +312,7 @@ func (b *GcpAuthBackend) pathRoleCreateUpdate(ctx context.Context, req *logical.
 }
 
 func (b *GcpAuthBackend) pathRoleList(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	roles, err := req.Storage.List("role/")
+	roles, err := req.Storage.List(ctx, "role/")
 	if err != nil {
 		return nil, err
 	}

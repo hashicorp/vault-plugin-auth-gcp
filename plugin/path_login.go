@@ -73,7 +73,7 @@ func (b *GcpAuthBackend) pathLoginRenew(ctx context.Context, req *logical.Reques
 	if roleName == "" {
 		return logical.ErrorResponse("role name metadata not associated with auth token, invalid"), nil
 	}
-	role, err := b.role(req.Storage, roleName)
+	role, err := b.role(ctx, req.Storage, roleName)
 	if err != nil {
 		return nil, err
 	} else if role == nil {
@@ -132,7 +132,7 @@ func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, req *logical.R
 		return nil, errors.New("role is required")
 	}
 
-	loginInfo.Role, err = b.role(req.Storage, loginInfo.RoleName)
+	loginInfo.Role, err = b.role(ctx, req.Storage, loginInfo.RoleName)
 	if err != nil {
 		return nil, err
 	}
