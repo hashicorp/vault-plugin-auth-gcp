@@ -144,7 +144,7 @@ func (b *GcpAuthBackend) initClients(ctx context.Context, s logical.Storage) (er
 	var httpClient *http.Client
 	if config == nil || config.Credentials == nil {
 		// Use Application Default Credentials
-		reqCtx := context.WithValue(context.Background(), oauth2.HTTPClient, cleanhttp.DefaultClient())
+		reqCtx := context.WithValue(ctx, oauth2.HTTPClient, cleanhttp.DefaultClient())
 
 		httpClient, err = google.DefaultClient(reqCtx, b.oauthScopes...)
 		if err != nil {
