@@ -131,7 +131,7 @@
     "logical/plugin/pb",
     "version"
   ]
-  revision = "048a35d903f964376e04b3509a8817af5e712e2e"
+  revision = "ca2306860b836a2727a3f36619a3a628b450552f"
 
 [[projects]]
   branch = "master"
@@ -206,7 +206,7 @@
     "ed25519",
     "ed25519/internal/edwards25519"
   ]
-  revision = "13931e22f9e72ea58bb73048bc752b48c6d4d4ac"
+  revision = "ee41a25c63fb5b74abf2213abb6dee3751e6ac4a"
 
 [[projects]]
   branch = "master"
@@ -233,13 +233,13 @@
     "jws",
     "jwt"
   ]
-  revision = "30785a2c434e431ef7c507b54617d6a951d5f2b4"
+  revision = "b28fcf2b08a19742b43084fb40ab78ac6c3d8067"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "fff93fa7cd278d84afc205751523809c464168ab"
+  revision = "2c42eef0765b9837fbdab12011af7830f55f88f0"
 
 [[projects]]
   branch = "master"
@@ -273,7 +273,7 @@
     "iam/v1",
     "oauth2/v2"
   ]
-  revision = "373a4c220f5c90e5b7ff7101779c5be385d171be"
+  revision = "db3b6348f7ea599ee2baacceab2d04633d3bb2eb"
 
 [[projects]]
   name = "google.golang.org/appengine"
