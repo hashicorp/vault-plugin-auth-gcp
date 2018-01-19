@@ -1,10 +1,12 @@
 package gcpauth
 
 import (
-	"github.com/hashicorp/vault/helper/jsonutil"
-	"github.com/hashicorp/vault/logical"
+	"context"
 	"reflect"
 	"testing"
+
+	"github.com/hashicorp/vault/helper/jsonutil"
+	"github.com/hashicorp/vault/logical"
 )
 
 func TestConfig(t *testing.T) {
@@ -53,7 +55,7 @@ func TestConfig(t *testing.T) {
 }
 
 func testConfigUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
-	resp, err := b.HandleRequest(&logical.Request{
+	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "config",
 		Data:      d,
@@ -68,7 +70,7 @@ func testConfigUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[
 }
 
 func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected map[string]interface{}) {
-	resp, err := b.HandleRequest(&logical.Request{
+	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.ReadOperation,
 		Path:      "config",
 		Storage:   s,
