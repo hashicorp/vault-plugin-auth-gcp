@@ -4,8 +4,8 @@
 [[projects]]
   name = "cloud.google.com/go"
   packages = ["compute/metadata"]
-  revision = "050b16d2314d5fc3d4c9a51e4cd5c7468e77f162"
-  version = "v0.17.0"
+  revision = "767c40d6a2e058483c25fa193e963a22da17236d"
+  version = "v0.18.0"
 
 [[projects]]
   name = "github.com/SermoDigital/jose"
@@ -40,7 +40,7 @@
     "ptypes/duration",
     "ptypes/timestamp"
   ]
-  revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
+  revision = "c65a0412e71e8b9b3bfd22925720d23c0f054237"
 
 [[projects]]
   branch = "master"
@@ -64,7 +64,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-hclog"
   packages = ["."]
-  revision = "ca137eb4b4389c9bc6f1a6d887f056bf16c00510"
+  revision = "5bcb0f17e36442247290887cc914a6e507afa5c4"
 
 [[projects]]
   branch = "master"
@@ -76,7 +76,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-plugin"
   packages = ["."]
-  revision = "1fc09c47b843b73705f51ffb0520e3ac1bfecf99"
+  revision = "4812fde368935ee7d8bf9866bdca3d98ecddd30a"
 
 [[projects]]
   branch = "master"
@@ -89,6 +89,12 @@
   name = "github.com/hashicorp/go-uuid"
   packages = ["."]
   revision = "64130c7a86d732268a38cb04cfbaf0cc987fda98"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/go-version"
+  packages = ["."]
+  revision = "4fe82ae3040f80a03d04d2cccb5606a626b8e1ee"
 
 [[projects]]
   branch = "master"
@@ -131,7 +137,7 @@
     "logical/plugin/pb",
     "version"
   ]
-  revision = "ca2306860b836a2727a3f36619a3a628b450552f"
+  revision = "0ffbf4018611e5da0f2095cdf233defd55e0ff8d"
 
 [[projects]]
   branch = "master"
@@ -206,7 +212,7 @@
     "ed25519",
     "ed25519/internal/edwards25519"
   ]
-  revision = "ee41a25c63fb5b74abf2213abb6dee3751e6ac4a"
+  revision = "3d37316aaa6bd9929127ac9a527abf408178ea7b"
 
 [[projects]]
   branch = "master"
@@ -221,7 +227,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec"
+  revision = "0ed95abb35c445290478a5348a7b38bb154135fd"
 
 [[projects]]
   branch = "master"
@@ -239,7 +245,7 @@
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "2c42eef0765b9837fbdab12011af7830f55f88f0"
+  revision = "af9a21289d0040306ecc55fa668c95246f1f8425"
 
 [[projects]]
   branch = "master"
@@ -273,7 +279,7 @@
     "iam/v1",
     "oauth2/v2"
   ]
-  revision = "db3b6348f7ea599ee2baacceab2d04633d3bb2eb"
+  revision = "a27ddaf5ce0ce688be462071a9e55566e60bb59e"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -296,7 +302,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "a8101f21cf983e773d0c1133ebc5424792003214"
+  revision = "14790a1795ea4c3387aaf24aed670ddb51f18292"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -326,8 +332,8 @@
     "tap",
     "transport"
   ]
-  revision = "7cea4cc846bcf00cbb27595b07da5de875ef7de9"
-  version = "v1.9.1"
+  revision = "6b51017f791ae1cfbec89c52efdf444b13b550ef"
+  version = "v1.9.2"
 
 [[projects]]
   name = "gopkg.in/square/go-jose.v2"
