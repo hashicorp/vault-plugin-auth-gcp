@@ -78,7 +78,6 @@ func (b *GcpAuthBackend) pathConfigRead(ctx context.Context, req *logical.Reques
 			"client_email":          config.Credentials.ClientEmail,
 			"client_id":             config.Credentials.ClientId,
 			"private_key_id":        config.Credentials.PrivateKeyId,
-			"private_key":           config.Credentials.PrivateKey,
 			"project_id":            config.Credentials.ProjectId,
 			"google_certs_endpoint": config.GoogleCertsEndpoint,
 		},
