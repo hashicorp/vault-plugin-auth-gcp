@@ -4,8 +4,8 @@
 [[projects]]
   name = "cloud.google.com/go"
   packages = ["compute/metadata"]
-  revision = "767c40d6a2e058483c25fa193e963a22da17236d"
-  version = "v0.18.0"
+  revision = "4b98a6370e36d7a85192e7bad08a4ebd82eac2a8"
+  version = "v0.20.0"
 
 [[projects]]
   name = "github.com/SermoDigital/jose"
@@ -64,7 +64,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-hclog"
   packages = ["."]
-  revision = "5bcb0f17e36442247290887cc914a6e507afa5c4"
+  revision = "69ff559dc25f3b435631604f573a5fa1efdb6433"
 
 [[projects]]
   branch = "master"
@@ -76,7 +76,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-plugin"
   packages = ["."]
-  revision = "baa83ead6ff956b3f99bcd609ae3499c028e019e"
+  revision = "e8d22c780116115ae5624720c9af0c97afe4f551"
 
 [[projects]]
   branch = "master"
@@ -88,13 +88,13 @@
   branch = "master"
   name = "github.com/hashicorp/go-uuid"
   packages = ["."]
-  revision = "64130c7a86d732268a38cb04cfbaf0cc987fda98"
+  revision = "27454136f0364f2d44b1276c552d69105cf8c498"
 
 [[projects]]
   branch = "master"
   name = "github.com/hashicorp/go-version"
   packages = ["."]
-  revision = "4fe82ae3040f80a03d04d2cccb5606a626b8e1ee"
+  revision = "23480c0665776210b5fbbac6eaaee40e3e6a96b7"
 
 [[projects]]
   branch = "master"
@@ -119,7 +119,7 @@
     "json/scanner",
     "json/token"
   ]
-  revision = "23c074d0eceb2b8a5bfdbb271ab780cde70f05a8"
+  revision = "061bf373e402ebb186988085a71ac748949594a9"
 
 [[projects]]
   branch = "master"
@@ -132,8 +132,7 @@
     "helper/errutil",
     "helper/jsonutil",
     "helper/locksutil",
-    "helper/logbridge",
-    "helper/logformat",
+    "helper/logging",
     "helper/mlock",
     "helper/parseutil",
     "helper/pluginutil",
@@ -149,13 +148,13 @@
     "physical/inmem",
     "version"
   ]
-  revision = "e296886cb6531a8283920cf3d7f30018d59d662d"
+  revision = "ae80c7ea4794bf844a28341e0cd7eb7689b67bc3"
 
 [[projects]]
   branch = "master"
   name = "github.com/hashicorp/yamux"
   packages = ["."]
-  revision = "683f49123a33db61abfb241b7ac5e4af4dc54d55"
+  revision = "2658be15c5f05e76244154714161f17e3e77de2e"
 
 [[projects]]
   name = "github.com/mattn/go-colorable"
@@ -215,7 +214,7 @@
   branch = "master"
   name = "github.com/sethgrid/pester"
   packages = ["."]
-  revision = "b18953f5db2922a73aaf89652abf7b5ee95cb516"
+  revision = "ed9870dad3170c0b25ab9b11830cc57c3a7798fb"
 
 [[projects]]
   branch = "master"
@@ -224,7 +223,7 @@
     "ed25519",
     "ed25519/internal/edwards25519"
   ]
-  revision = "beaf6a35706e5032ae4c3fcf342c663c069f44d2"
+  revision = "b2aa35443fbc700ab74c586ae79b81c171851023"
 
 [[projects]]
   branch = "master"
@@ -239,7 +238,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "cbe0f9307d0156177f9dd5dc85da1a31abc5f2fb"
+  revision = "b68f30494add4df6bd8ef5e82803f308e7f7c59c"
 
 [[projects]]
   branch = "master"
@@ -251,13 +250,13 @@
     "jws",
     "jwt"
   ]
-  revision = "543e37812f10c46c622c9575afd7ad22f22a12ba"
+  revision = "921ae394b9430ed4fb549668d7b087601bd60a81"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "f6cff0780e542efa0c8e864dc8fa522808f6a598"
+  revision = "378d26f46672a356c46195c28f61bdb4c0a781dd"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -291,7 +290,7 @@
     "iam/v1",
     "oauth2/v2"
   ]
-  revision = "ab90adb3efa287b869ecb698db42f923cc734972"
+  revision = "3072d9cd7f79a11909b84fdb7c9c8b9e60a57fbd"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -314,7 +313,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "2b5a72b8730b0b16380010cfe5286c42108d88e7"
+  revision = "35de2414665fc36f56b72d982c5af480d86de5ab"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -345,8 +344,8 @@
     "tap",
     "transport"
   ]
-  revision = "8e4536a86ab602859c20df5ebfd0bd4228d08655"
-  version = "v1.10.0"
+  revision = "1e2570b1b19ade82d8dbb31bba4e65e9f9ef5b34"
+  version = "v1.11.1"
 
 [[projects]]
   name = "gopkg.in/square/go-jose.v2"
@@ -356,12 +355,12 @@
     "json",
     "jwt"
   ]
-  revision = "f8f38de21b4dcd69d0413faf231983f5fd6634b1"
-  version = "v2.1.3"
+  revision = "76dd09796242edb5b897103a75df2645c028c960"
+  version = "v2.1.6"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4b6ee7b5ef7acd7a21b42987532249aa8d2e77cab03c9c81563bb07fbdf07004"
+  inputs-digest = "447033682eae1bbb9659e65bb1b058210cf462fd8b5e2c95d351ee2b167af430"
   solver-name = "gps-cdcl"
   solver-version = 1
