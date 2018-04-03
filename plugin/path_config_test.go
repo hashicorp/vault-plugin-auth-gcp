@@ -91,8 +91,4 @@ func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected
 	if !reflect.DeepEqual(resp.Data, expected) {
 		t.Fatalf("config mismatch, expected %v but actually %v", expected, resp.Data)
 	}
-
-	if len(resp.Warnings) != 1 || resp.Warnings[0] != warningACLReadAccess {
-		t.Fatal("expected read access warning on response")
-	}
 }
