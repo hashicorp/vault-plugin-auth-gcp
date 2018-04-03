@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/util"
-	"github.com/hashicorp/vault/helper/logformat"
+	"github.com/hashicorp/vault/helper/logging"
 	"github.com/hashicorp/vault/logical"
 	"github.com/mgutz/logxi/v1"
 )
@@ -21,7 +21,7 @@ func getTestBackend(t *testing.T) (logical.Backend, logical.Storage) {
 	b := Backend()
 
 	config := &logical.BackendConfig{
-		Logger: logformat.NewVaultLogger(log.LevelTrace),
+		Logger: logging.NewVaultLogger(log.LevelTrace),
 		System: &logical.StaticSystemView{
 			DefaultLeaseTTLVal: defaultLeaseTTLVal,
 			MaxLeaseTTLVal:     maxLeaseTTLVal,
