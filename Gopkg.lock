@@ -62,6 +62,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/hashicorp/go-gcp-common"
+  packages = ["gcputil"]
+  revision = "4b38f46ac60aebc9c67f2548aec1ff5bc1e9a4eb"
+
+[[projects]]
+  branch = "master"
   name = "github.com/hashicorp/go-hclog"
   packages = ["."]
   revision = "69ff559dc25f3b435631604f573a5fa1efdb6433"
@@ -337,6 +343,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c132fbb8f46432478d1f43e2aa84f0815aee0e6d3bc83e3220965f8a940a4880"
+  inputs-digest = "c28176af527986db415f162e5316b7729afd359d48a2cf6ade5ee6dd143e40b7"
   solver-name = "gps-cdcl"
   solver-version = 1
