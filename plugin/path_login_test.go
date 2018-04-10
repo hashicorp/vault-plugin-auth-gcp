@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/util"
+	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/logical"
 	"google.golang.org/api/iam/v1"
@@ -331,9 +331,9 @@ func testLoginError(t *testing.T, b logical.Backend, s logical.Storage, d map[st
 	}
 }
 
-func getTestIamToken(t *testing.T, roleName string, creds *util.GcpCredentials, expDelta time.Duration) string {
+func getTestIamToken(t *testing.T, roleName string, creds *gcputil.GcpCredentials, expDelta time.Duration) string {
 	// Generate signed JWT to login with.
-	httpClient, err := util.GetHttpClient(creds, iam.CloudPlatformScope)
+	httpClient, err := gcputil.GetHttpClient(creds, iam.CloudPlatformScope)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,7 +344,7 @@ func getTestIamToken(t *testing.T, roleName string, creds *util.GcpCredentials, 
 
 	expectedJwtAud := fmt.Sprintf(expectedJwtAudTemplate, roleName)
 	exp := time.Now().Add(expDelta)
-	signedJwtResp, err := util.ServiceAccountLoginJwt(iamClient, exp, expectedJwtAud, creds.ProjectId, creds.ClientEmail)
+	signedJwtResp, err := ServiceAccountLoginJwt(iamClient, exp, expectedJwtAud, creds.ProjectId, creds.ClientEmail)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +352,7 @@ func getTestIamToken(t *testing.T, roleName string, creds *util.GcpCredentials, 
 	return signedJwtResp.SignedJwt
 }
 
-func createExpiredIamToken(t *testing.T, roleName string, creds *util.GcpCredentials) string {
+func createExpiredIamToken(t *testing.T, roleName string, creds *gcputil.GcpCredentials) string {
 	block, _ := pem.Decode([]byte(creds.PrivateKey))
 	if block == nil {
 		t.Fatal("expected valid PEM block for test credentials private key")

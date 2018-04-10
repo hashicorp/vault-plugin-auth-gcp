@@ -8,7 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/util"
+	"github.com/SermoDigital/jose/jws"
+	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/logical"
@@ -117,7 +118,7 @@ type gcpLoginInfo struct {
 	JWTClaims *jwt.Claims
 
 	// Metadata from a GCE instance identity token.
-	GceMetadata *util.GCEIdentityMetadata
+	GceMetadata *gcputil.GCEIdentityMetadata
 }
 
 func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, req *logical.Request, data *framework.FieldData) (*gcpLoginInfo, error) {
@@ -156,7 +157,7 @@ func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, req *logical.R
 
 	// Parse claims and verify signature.
 	baseClaims := &jwt.Claims{}
-	customClaims := &util.CustomJWTClaims{}
+	customClaims := &gcputil.CustomJWTClaims{}
 
 	if err = jwtVal.Claims(key, baseClaims, customClaims); err != nil {
 		return nil, err
@@ -197,12 +198,16 @@ func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebTo
 			return nil, err
 		}
 
-		serviceAccountId, err := util.ParseServiceAccountFromIAMJWT(rawToken)
+		serviceAccountId, err := parseServiceAccountFromIAMJWT(rawToken)
 		if err != nil {
 			return nil, err
 		}
 
-		accountKey, err := util.ServiceAccountKey(iamClient, keyId, serviceAccountId, role.ProjectId)
+		accountKey, err := gcputil.ServiceAccountKey(iamClient, &gcputil.ServiceAccountKeyId{
+			Project:   role.ProjectId,
+			EmailOrId: serviceAccountId,
+			Key:       keyId,
+		})
 		if err != nil {
 			// Attempt to get a normal Google Oauth cert in case of GCE inferrence.
 			key, err := b.getGoogleOauthCert(ctx, keyId, s)
@@ -211,12 +216,25 @@ func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebTo
 			}
 			return key, nil
 		}
-		return util.PublicKey(accountKey.PublicKeyData)
+		return gcputil.PublicKey(accountKey.PublicKeyData)
 	case gceRoleType:
 		return b.getGoogleOauthCert(ctx, keyId, s)
 	default:
 		return nil, fmt.Errorf("unexpected role type %s", role.RoleType)
 	}
+}
+
+// ParseServiceAccountFromIAMJWT parses the service account from the 'sub' claim given a serialized signed JWT.
+func parseServiceAccountFromIAMJWT(signedJwt string) (string, error) {
+	jwtVal, err := jws.ParseJWT([]byte(signedJwt))
+	if err != nil {
+		return "", fmt.Errorf("could not parse service account from JWT 'sub' claim: %v", err)
+	}
+	accountId, ok := jwtVal.Claims().Subject()
+	if !ok {
+		return "", errors.New("expected 'sub' claim with service account ID or name")
+	}
+	return accountId, nil
 }
 
 func (b *GcpAuthBackend) getGoogleOauthCert(ctx context.Context, keyId string, s logical.Storage) (interface{}, error) {
@@ -229,7 +247,7 @@ func (b *GcpAuthBackend) getGoogleOauthCert(ctx context.Context, keyId string, s
 		certsEndpoint = conf.GoogleCertsEndpoint
 	}
 
-	key, err := util.OAuth2RSAPublicKey(keyId, certsEndpoint)
+	key, err := gcputil.OAuth2RSAPublicKey(keyId, certsEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +297,11 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 	}
 
 	// Get service account and make sure it still exists.
-	serviceAccount, err := util.ServiceAccount(iamClient, loginInfo.ServiceAccountId, role.ProjectId)
+	accountId := &gcputil.ServiceAccountId{
+		Project:   role.ProjectId,
+		EmailOrId: loginInfo.ServiceAccountId,
+	}
+	serviceAccount, err := gcputil.ServiceAccount(iamClient, accountId)
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +357,10 @@ func (b *GcpAuthBackend) pathIamRenew(ctx context.Context, req *logical.Request,
 		return errors.New("service account id metadata not associated with auth token, invalid")
 	}
 
-	serviceAccount, err := util.ServiceAccount(iamClient, serviceAccountId, role.ProjectId)
+	serviceAccount, err := gcputil.ServiceAccount(iamClient, &gcputil.ServiceAccountId{
+		Project:   role.ProjectId,
+		EmailOrId: serviceAccountId,
+	})
 	if err != nil {
 		return fmt.Errorf("cannot find service account %s", serviceAccountId)
 	}
@@ -411,7 +436,10 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		return logical.ErrorResponse(fmt.Sprintf(clientErrorTemplate, "IAM", err)), nil
 	}
 
-	serviceAccount, err := util.ServiceAccount(iamClient, loginInfo.ServiceAccountId, loginInfo.Role.ProjectId)
+	serviceAccount, err := gcputil.ServiceAccount(iamClient, &gcputil.ServiceAccountId{
+		Project:   loginInfo.Role.ProjectId,
+		EmailOrId: loginInfo.ServiceAccountId,
+	})
 	if err != nil {
 		return logical.ErrorResponse(fmt.Sprintf(
 			"Could not find service account '%s' used for GCE metadata token: %s",
@@ -466,7 +494,7 @@ func (b *GcpAuthBackend) pathGceRenew(ctx context.Context, req *logical.Request,
 		return fmt.Errorf(clientErrorTemplate, "GCE", err)
 	}
 
-	meta, err := util.GetInstanceMetadataFromAuth(req.Auth.Metadata)
+	meta, err := getInstanceMetadataFromAuth(req.Auth.Metadata)
 	if err != nil {
 		return fmt.Errorf("invalid auth metadata: %v", err)
 	}
@@ -485,6 +513,53 @@ func (b *GcpAuthBackend) pathGceRenew(ctx context.Context, req *logical.Request,
 	}
 
 	return nil
+}
+
+func getInstanceMetadataFromAuth(authMetadata map[string]string) (*gcputil.GCEIdentityMetadata, error) {
+	meta := &gcputil.GCEIdentityMetadata{}
+	var ok bool
+	var err error
+
+	meta.ProjectId, ok = authMetadata["project_id"]
+	if !ok {
+		return nil, errors.New("expected 'project_id' field")
+	}
+
+	meta.Zone, ok = authMetadata["zone"]
+	if !ok {
+		return nil, errors.New("expected 'zone' field")
+	}
+
+	meta.InstanceId, ok = authMetadata["instance_id"]
+	if !ok {
+		return nil, errors.New("expected 'instance_id' field")
+	}
+
+	meta.InstanceName, ok = authMetadata["instance_name"]
+	if !ok {
+		return nil, errors.New("expected 'instance_name' field")
+	}
+
+	// Parse numbers back into int values.
+	projectNumber, ok := authMetadata["project_number"]
+	if !ok {
+		return nil, errors.New("expected 'project_number' field, got %v")
+	}
+	meta.ProjectNumber, err = strconv.ParseInt(projectNumber, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("expected 'project_number' value '%s' to be a int64", projectNumber)
+	}
+
+	createdAt, ok := authMetadata["instance_creation_timestamp"]
+	if !ok {
+		return nil, errors.New("expected 'instance_creation_timestamp' field")
+	}
+	meta.CreatedAt, err = strconv.ParseInt(createdAt, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("expected 'instance_creation_timestamp' value '%s' to be int64", createdAt)
+	}
+
+	return meta, nil
 }
 
 // validateGCEInstance returns an error if the given GCE instance is not authorized for the role.
@@ -569,7 +644,10 @@ func (b *GcpAuthBackend) authorizeGCEInstance(ctx context.Context, instance *com
 			return err
 		}
 
-		serviceAccount, err := util.ServiceAccount(iamClient, serviceAccountId, role.ProjectId)
+		serviceAccount, err := gcputil.ServiceAccount(iamClient, &gcputil.ServiceAccountId{
+			Project:   role.ProjectId,
+			EmailOrId: serviceAccountId,
+		})
 		if err != nil {
 			return fmt.Errorf("could not find service account with id '%s': %v", serviceAccountId, err)
 		}
