@@ -32,10 +32,11 @@ func TestConfig(t *testing.T) {
 	})
 
 	expected := map[string]interface{}{
+		"client_email":          creds["client_email"],
+		"client_id":             creds["client_id"],
+		"private_key_id":        creds["private_key_id"],
+		"project_id":            creds["project_id"],
 		"google_certs_endpoint": "",
-	}
-	for k, v := range creds {
-		expected[k] = v
 	}
 
 	testConfigRead(t, b, reqStorage, expected)
