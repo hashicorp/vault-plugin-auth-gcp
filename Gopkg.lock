@@ -64,7 +64,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-gcp-common"
   packages = ["gcputil"]
-  revision = "4b38f46ac60aebc9c67f2548aec1ff5bc1e9a4eb"
+  revision = "763e39302965f115fba738b409b320563267b8df"
 
 [[projects]]
   branch = "master"
