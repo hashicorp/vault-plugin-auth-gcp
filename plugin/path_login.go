@@ -579,12 +579,9 @@ func compareResourceNameOrSelfLink(expected, actual, collectionId string) bool {
 		return expected == actual
 	}
 
-	expTkns := strings.SplitAfter(expected, sep)
-	expectedName := expTkns[len(expTkns)-1]
-
 	actTkns := strings.SplitAfter(actual, sep)
 	actualName := actTkns[len(actTkns)-1]
-	return expectedName == actualName
+	return expected == actualName
 }
 
 const pathLoginHelpSyn = `Authenticates Google Cloud Platform entities with Vault.`
