@@ -504,27 +504,16 @@ func (b *GcpAuthBackend) authorizeGCEInstance(ctx context.Context, instance *com
 
 	// Verify that instance is in zone or region if given.
 	if len(role.BoundZone) > 0 {
-		var zone string
-		idx := strings.LastIndex(instance.Zone, "zones/")
-		if idx > 0 {
-			// Parse zone name from full zone self-link URL.
-			idx += len("zones/")
-			zone = instance.Zone[idx:len(instance.Zone)]
-		} else {
-			// Expect full zone name to be set as instance zone.
-			zone = instance.Zone
-		}
-
-		if zone != role.BoundZone {
-			return fmt.Errorf("instance is not in role zone '%s'", role.BoundZone)
+		if !compareResourceNameOrSelfLink(role.BoundZone, instance.Zone, "zones") {
+			return fmt.Errorf("instance zone %s is not role zone '%s'", instance.Zone, role.BoundZone)
 		}
 	} else if len(role.BoundRegion) > 0 {
 		zone, err := gceClient.Zones.Get(role.ProjectId, zone).Do()
 		if err != nil {
 			return fmt.Errorf("could not verify instance zone '%s' is available for project '%s': %v", zone.Name, role.ProjectId, err)
 		}
-		if zone.Region != role.BoundRegion {
-			return fmt.Errorf("zone '%s' is not in region '%s'", zone.Name, zone.Region)
+		if !compareResourceNameOrSelfLink(role.BoundRegion, zone.Region, "regions") {
+			return fmt.Errorf("instance zone %s is not in role region '%s'", zone.Name, role.BoundRegion)
 		}
 	}
 
@@ -582,6 +571,20 @@ func (b *GcpAuthBackend) authorizeGCEInstance(ctx context.Context, instance *com
 	}
 
 	return nil
+}
+
+func compareResourceNameOrSelfLink(expected, actual, collectionId string) bool {
+	sep := fmt.Sprintf("%s/", collectionId)
+	if strings.Contains(expected, sep) {
+		return expected == actual
+	}
+
+	expTkns := strings.SplitAfter(expected, sep)
+	expectedName := expTkns[len(expTkns)-1]
+
+	actTkns := strings.SplitAfter(actual, sep)
+	actualName := actTkns[len(actTkns)-1]
+	return expectedName == actualName
 }
 
 const pathLoginHelpSyn = `Authenticates Google Cloud Platform entities with Vault.`
