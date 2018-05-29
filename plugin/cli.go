@@ -52,7 +52,7 @@ func getSignedJwt(role string, m map[string]string) (string, error) {
 			return "", fmt.Errorf("could not parse jwt_exp '%s' into integer value", jwtExpStr)
 		}
 	} else {
-		ttlMin = 15
+		ttlMin = int64(defaultIamMaxJwtExpMinutes)
 	}
 	ttl := time.Minute * time.Duration(ttlMin)
 
