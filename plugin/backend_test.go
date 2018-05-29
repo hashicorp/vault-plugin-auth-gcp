@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-gcp-common/gcputil"
 	log "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/util"
 	"github.com/hashicorp/vault/helper/logging"
 	"github.com/hashicorp/vault/logical"
 )
@@ -42,13 +42,13 @@ func testAccPreCheck(t *testing.T) {
 	}
 }
 
-func getTestCredentials() (*util.GcpCredentials, error) {
+func getTestCredentials() (*gcputil.GcpCredentials, error) {
 	credentialsJSON := os.Getenv(googleCredentialsEnv)
 	if credentialsJSON == "" {
 		return nil, fmt.Errorf("%s must be set to JSON string of valid Google credentials file", googleCredentialsEnv)
 	}
 
-	credentials, err := util.Credentials(credentialsJSON)
+	credentials, err := gcputil.Credentials(credentialsJSON)
 	if err != nil {
 		return nil, fmt.Errorf("valid Google credentials JSON could not be read from %s env variable: %v", googleCredentialsEnv, err)
 	}

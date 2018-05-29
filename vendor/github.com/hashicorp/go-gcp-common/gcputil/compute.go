@@ -1,12 +1,44 @@
-package util
+package gcputil
 
 import (
-	"errors"
 	"fmt"
 	"google.golang.org/api/compute/v1"
-	"strconv"
+	"regexp"
 	"time"
 )
+
+func ParseGcpLabels(labels []string) (parsed map[string]string, invalid []string) {
+	parsed = map[string]string{}
+	invalid = []string{}
+
+	re := regexp.MustCompile(labelRegex)
+	for _, labelStr := range labels {
+		matches := re.FindStringSubmatch(labelStr)
+		if len(matches) == 0 {
+			invalid = append(invalid, labelStr)
+			continue
+		}
+
+		captureNames := re.SubexpNames()
+		var keyPtr, valPtr *string
+		for i, name := range captureNames {
+			if name == "key" {
+				keyPtr = &matches[i]
+			} else if name == "value" {
+				valPtr = &matches[i]
+			}
+		}
+
+		if keyPtr == nil || valPtr == nil || len(*keyPtr) < 1 {
+			invalid = append(invalid, labelStr)
+			continue
+		} else {
+			parsed[*keyPtr] = *valPtr
+		}
+	}
+
+	return parsed, invalid
+}
 
 type CustomJWTClaims struct {
 	Google *GoogleJWTClaims `json:"google,omitempty"`
@@ -76,51 +108,4 @@ var validInstanceStates map[string]struct{} = map[string]struct{}{
 func IsValidInstanceStatus(status string) bool {
 	_, ok := validInstanceStates[status]
 	return ok
-}
-
-func GetInstanceMetadataFromAuth(authMetadata map[string]string) (*GCEIdentityMetadata, error) {
-	meta := &GCEIdentityMetadata{}
-	var ok bool
-	var err error
-
-	meta.ProjectId, ok = authMetadata["project_id"]
-	if !ok {
-		return nil, errors.New("expected 'project_id' field")
-	}
-
-	meta.Zone, ok = authMetadata["zone"]
-	if !ok {
-		return nil, errors.New("expected 'zone' field")
-	}
-
-	meta.InstanceId, ok = authMetadata["instance_id"]
-	if !ok {
-		return nil, errors.New("expected 'instance_id' field")
-	}
-
-	meta.InstanceName, ok = authMetadata["instance_name"]
-	if !ok {
-		return nil, errors.New("expected 'instance_name' field")
-	}
-
-	// Parse numbers back into int values.
-	projectNumber, ok := authMetadata["project_number"]
-	if !ok {
-		return nil, errors.New("expected 'project_number' field, got %v")
-	}
-	meta.ProjectNumber, err = strconv.ParseInt(projectNumber, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("expected 'project_number' value '%s' to be a int64", projectNumber)
-	}
-
-	createdAt, ok := authMetadata["instance_creation_timestamp"]
-	if !ok {
-		return nil, errors.New("expected 'instance_creation_timestamp' field")
-	}
-	meta.CreatedAt, err = strconv.ParseInt(createdAt, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("expected 'instance_creation_timestamp' value '%s' to be int64", createdAt)
-	}
-
-	return meta, nil
 }

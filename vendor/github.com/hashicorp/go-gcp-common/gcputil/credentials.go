@@ -1,4 +1,4 @@
-package util
+package gcputil
 
 import (
 	"context"
@@ -9,17 +9,22 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-cleanhttp"
+	"github.com/mitchellh/go-homedir"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	googleoauth2 "google.golang.org/api/oauth2/v2"
 	"gopkg.in/square/go-jose.v2"
+	"io/ioutil"
 	"net/http"
-	"regexp"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
 const (
-	labelRegex string = "^(?P<key>[a-z]([\\w-]+)?):(?P<value>[\\w-]*)$"
+	labelRegex                 string = "^(?P<key>[a-z]([\\w-]+)?):(?P<value>[\\w-]*)$"
+	defaultHomeCredentialsFile        = ".gcp/credentials"
 )
 
 // GcpCredentials represents a simplified version of the Google Cloud Platform credentials file format.
@@ -29,6 +34,68 @@ type GcpCredentials struct {
 	PrivateKeyId string `json:"private_key_id" structs:"private_key_id" mapstructure:"private_key_id"`
 	PrivateKey   string `json:"private_key" structs:"private_key" mapstructure:"private_key"`
 	ProjectId    string `json:"project_id" structs:"project_id" mapstructure:"project_id"`
+}
+
+// FindCredentials attempts to obtain GCP credentials in the
+// following ways:
+// * Parse JSON from provided credentialsJson
+// * Parse JSON from the environment variables GOOGLE_CREDENTIALS or GOOGLE_CLOUD_KEYFILE_JSON
+// * Parse JSON file ~/.gcp/credentials
+// * Google Application Default Credentials (see https://developers.google.com/identity/protocols/application-default-credentials)
+func FindCredentials(credsJson string, ctx context.Context, scopes ...string) (*GcpCredentials, oauth2.TokenSource, error) {
+	var creds *GcpCredentials
+	var err error
+	// 1. Parse JSON from provided credentialsJson
+	if credsJson == "" {
+		// 2. JSON from env var GOOGLE_CREDENTIALS
+		credsJson = os.Getenv("GOOGLE_CREDENTIALS")
+	}
+
+	if credsJson == "" {
+		// 3. JSON from env var GOOGLE_CLOUD_KEYFILE_JSON
+		credsJson = os.Getenv("GOOGLE_CLOUD_KEYFILE_JSON")
+	}
+
+	if credsJson == "" {
+		// 4. JSON from ~/.gcp/credentials
+		home, err := homedir.Dir()
+		if err != nil {
+			return nil, nil, errors.New("could not find home directory")
+		}
+		credBytes, err := ioutil.ReadFile(filepath.Join(home, defaultHomeCredentialsFile))
+		if err == nil {
+			credsJson = string(credBytes)
+		}
+	}
+
+	// Parse JSON into credentials.
+	if credsJson != "" {
+		creds, err = Credentials(credsJson)
+		if err == nil {
+			conf := jwt.Config{
+				Email:      creds.ClientEmail,
+				PrivateKey: []byte(creds.PrivateKey),
+				Scopes:     scopes,
+				TokenURL:   "https://accounts.google.com/o/oauth2/token",
+			}
+			return creds, conf.TokenSource(ctx), nil
+		}
+	}
+
+	// 5. Use Application default credentials.
+	defaultCreds, err := google.FindDefaultCredentials(ctx, scopes...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if defaultCreds.JSON != nil {
+		creds, err = Credentials(string(defaultCreds.JSON))
+		if err != nil {
+			return nil, nil, errors.New("could not read credentials from application default credential JSON")
+		}
+	}
+
+	return creds, defaultCreds.TokenSource, nil
 }
 
 // Credentials attempts to parse GcpCredentials from a JSON string.
@@ -108,37 +175,4 @@ func OAuth2RSAPublicKey(kid, oauth2BasePath string) (interface{}, error) {
 	}
 
 	return nil, fmt.Errorf("could not find public key with kid '%s'", kid)
-}
-
-func ParseGcpLabels(labels []string) (parsed map[string]string, invalid []string) {
-	parsed = map[string]string{}
-	invalid = []string{}
-
-	re := regexp.MustCompile(labelRegex)
-	for _, labelStr := range labels {
-		matches := re.FindStringSubmatch(labelStr)
-		if len(matches) == 0 {
-			invalid = append(invalid, labelStr)
-			continue
-		}
-
-		captureNames := re.SubexpNames()
-		var keyPtr, valPtr *string
-		for i, name := range captureNames {
-			if name == "key" {
-				keyPtr = &matches[i]
-			} else if name == "value" {
-				valPtr = &matches[i]
-			}
-		}
-
-		if keyPtr == nil || valPtr == nil || len(*keyPtr) < 1 {
-			invalid = append(invalid, labelStr)
-			continue
-		} else {
-			parsed[*keyPtr] = *valPtr
-		}
-	}
-
-	return parsed, invalid
 }

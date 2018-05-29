@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/util"
+	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/logical"
@@ -402,7 +402,7 @@ func (b *GcpAuthBackend) pathRoleEditGceLabels(ctx context.Context, req *logical
 		return logical.ErrorResponse(fmt.Sprintf(errTemplateEditListWrongType, role.RoleType, "labels", gceRoleType)), nil
 	}
 
-	labelsToAdd, invalidLabels := util.ParseGcpLabels(toAdd)
+	labelsToAdd, invalidLabels := gcputil.ParseGcpLabels(toAdd)
 	if len(invalidLabels) > 0 {
 		return logical.ErrorResponse(fmt.Sprintf("given invalid labels to add: %q", invalidLabels)), nil
 	}
@@ -686,7 +686,7 @@ func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Opera
 	labels, ok := data.GetOk("bound_labels")
 	if ok {
 		var invalidLabels []string
-		role.BoundLabels, invalidLabels = util.ParseGcpLabels(labels.([]string))
+		role.BoundLabels, invalidLabels = gcputil.ParseGcpLabels(labels.([]string))
 		if len(invalidLabels) > 0 {
 			return fmt.Errorf("invalid labels given: %q", invalidLabels)
 		}
