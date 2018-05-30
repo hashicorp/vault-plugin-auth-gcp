@@ -167,7 +167,7 @@
     "physical/inmem",
     "version"
   ]
-  revision = "9535f0704ba8814e1c467f3316795d6baea148df"
+  revision = "da2bb1c8a7b2ac56a3448eb460fe4b558f1da116"
 
 [[projects]]
   branch = "master"
@@ -239,7 +239,7 @@
     "jws",
     "jwt"
   ]
-  revision = "bee4e0a411689812867582f9dbc2521dc706251f"
+  revision = "ec22f46f877b4505e0117eeaab541714644fdd28"
 
 [[projects]]
   branch = "master"
@@ -357,6 +357,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c28176af527986db415f162e5316b7729afd359d48a2cf6ade5ee6dd143e40b7"
+  inputs-digest = "fe6f25d54029b8ca95377d84781d073c8110353cb7345b7af8892757562982ff"
   solver-name = "gps-cdcl"
   solver-version = 1
