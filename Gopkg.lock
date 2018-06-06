@@ -8,6 +8,7 @@
   version = "v0.23.0"
 
 [[projects]]
+  branch = "master"
   name = "github.com/SermoDigital/jose"
   packages = [
     ".",
@@ -15,8 +16,7 @@
     "jws",
     "jwt"
   ]
-  revision = "f6df55f235c24f236d11dbcf665249a59ac2021f"
-  version = "1.1"
+  revision = "803625baeddc3526d01d321b5066029f53eafc81"
 
 [[projects]]
   branch = "master"
@@ -88,7 +88,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-retryablehttp"
   packages = ["."]
-  revision = "763e4b5d05f5534071213c67c335aad6b0d318a7"
+  revision = "3b087ef2d313afe6c55b2f511d20db04ca767075"
 
 [[projects]]
   branch = "master"
@@ -167,13 +167,13 @@
     "physical/inmem",
     "version"
   ]
-  revision = "da2bb1c8a7b2ac56a3448eb460fe4b558f1da116"
+  revision = "74e1134a91bc9c801dab2c846f49551a99ce1fb6"
 
 [[projects]]
   branch = "master"
   name = "github.com/hashicorp/yamux"
   packages = ["."]
-  revision = "2658be15c5f05e76244154714161f17e3e77de2e"
+  revision = "3520598351bb3500a49ae9563f5539666ae0a27c"
 
 [[projects]]
   branch = "master"
@@ -212,7 +212,7 @@
     "ed25519",
     "ed25519/internal/edwards25519"
   ]
-  revision = "ab813273cd59e1333f7ae7bff5d027d4aadf528c"
+  revision = "b47b1587369238182299fe4dad77d05b8b461e06"
 
 [[projects]]
   branch = "master"
@@ -227,7 +227,7 @@
     "internal/timeseries",
     "trace"
   ]
-  revision = "dfa909b99c79129e1100513e5cd36307665e5723"
+  revision = "1e491301e022f8f977054da4c2d852decd59571f"
 
 [[projects]]
   branch = "master"
@@ -239,7 +239,7 @@
     "jws",
     "jwt"
   ]
-  revision = "ec22f46f877b4505e0117eeaab541714644fdd28"
+  revision = "1e0a3fa8ba9a5c9eb35c271780101fdaf1b205d7"
 
 [[projects]]
   branch = "master"
@@ -285,7 +285,7 @@
     "iam/v1",
     "oauth2/v2"
   ]
-  revision = "de6fadef861e6dbf0af2a8d98d6c1389aaa28ca5"
+  revision = "00e3bb8d04691e25ee2fccf98c866bcb7925c3ec"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -308,7 +308,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "694d95ba50e67b2e363f3483057db5d4910c18f9"
+  revision = "81158efcc9f219c511e4d3c0d61a0e6e49c01a24"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -357,6 +357,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "fe6f25d54029b8ca95377d84781d073c8110353cb7345b7af8892757562982ff"
+  inputs-digest = "62cc418463a372387d57758708d96199f69d50dd6f5fe4d3dde3e93836b3178c"
   solver-name = "gps-cdcl"
   solver-version = 1
