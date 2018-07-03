@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-gcp-common/gcputil"
+	log "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"github.com/hashicorp/vault/version"
@@ -18,6 +19,7 @@ import (
 
 type GcpAuthBackend struct {
 	*framework.Backend
+	logger log.Logger
 
 	// OAuth scopes for generating HTTP and GCP service clients.
 	oauthScopes []string
@@ -31,21 +33,23 @@ type GcpAuthBackend struct {
 }
 
 // Factory returns a new backend as logical.Backend.
-func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
-	b := Backend()
-	if err := b.Setup(ctx, conf); err != nil {
+func Factory(ctx context.Context, c *logical.BackendConfig) (logical.Backend, error) {
+	b := Backend(c)
+	if err := b.Setup(ctx, c); err != nil {
 		return nil, err
 	}
 	return b, nil
 }
 
-func Backend() *GcpAuthBackend {
+func Backend(c *logical.BackendConfig) *GcpAuthBackend {
 	b := &GcpAuthBackend{
 		oauthScopes: []string{
 			iam.CloudPlatformScope,
 			compute.ComputeReadonlyScope,
 		},
 	}
+
+	b.logger = c.Logger
 
 	b.Backend = &framework.Backend{
 		AuthRenew:   b.pathLoginRenew,
