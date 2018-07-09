@@ -583,9 +583,8 @@ type gcpRole struct {
 // This method does not validate the role. Validation is done before storage.
 func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, data *framework.FieldData) (warnings []string, err error) {
 	// Set role type
-	roleTypeRaw, ok := data.GetOk("type")
-	if ok {
-		roleType := roleTypeRaw.(string)
+	if rt, ok := data.GetOk("type"); ok {
+		roleType := rt.(string)
 		if role.RoleType != roleType && op == logical.UpdateOperation {
 			err = errors.New("role type cannot be changed for an existing role")
 			return
@@ -635,6 +634,11 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 				`field will be removed in a later release, so please update accordingly.`)
 			role.BoundServiceAccounts = sa.([]string)
 		}
+	}
+
+	if len(role.BoundServiceAccounts) > 0 {
+		role.BoundServiceAccounts = strutil.TrimStrings(role.BoundServiceAccounts)
+		role.BoundServiceAccounts = strutil.RemoveDuplicates(role.BoundServiceAccounts, false)
 	}
 
 	// Update fields specific to this type
@@ -727,19 +731,19 @@ func (role *gcpRole) updateIamFields(data *framework.FieldData, op logical.Opera
 // updateGceFields updates GCE-only fields for a role.
 func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Operation) (warnings []string, err error) {
 	if regions, ok := data.GetOk("bound_regions"); ok {
-		role.BoundRegions = strutil.TrimStrings(regions.([]string))
+		role.BoundRegions = regions.([]string)
 	}
 
 	if zones, ok := data.GetOk("bound_zones"); ok {
-		role.BoundZones = strutil.TrimStrings(zones.([]string))
+		role.BoundZones = zones.([]string)
 	}
 
 	if instanceGroups, ok := data.GetOk("bound_instance_groups"); ok {
-		role.BoundInstanceGroups = strutil.TrimStrings(instanceGroups.([]string))
+		role.BoundInstanceGroups = instanceGroups.([]string)
 	}
 
 	if boundRegion, ok := data.GetOk("bound_region"); ok {
-		if len(role.BoundRegions) > 0 {
+		if _, ok := data.GetOk("bound_regions"); ok {
 			err = fmt.Errorf(`cannot specify both "bound_region" and "bound_regions"`)
 			return
 		}
@@ -749,11 +753,11 @@ func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Opera
 			`single region, but multiple regions are also now supported. The `+
 			`"bound_region" field will be removed in a later release, so please `+
 			`update accordingly.`)
-		role.BoundRegions = []string{strings.TrimSpace(boundRegion.(string))}
+		role.BoundRegions = append(role.BoundRegions, boundRegion.(string))
 	}
 
 	if boundZone, ok := data.GetOk("bound_zone"); ok {
-		if len(role.BoundZones) > 0 {
+		if _, ok := data.GetOk("bound_zones"); ok {
 			err = fmt.Errorf(`cannot specify both "bound_zone" and "bound_zones"`)
 			return
 		}
@@ -763,11 +767,11 @@ func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Opera
 			`single zone, but multiple zones are also now supported. The `+
 			`"bound_zone" field will be removed in a later release, so please `+
 			`update accordingly.`)
-		role.BoundZones = []string{strings.TrimSpace(boundZone.(string))}
+		role.BoundZones = append(role.BoundZones, boundZone.(string))
 	}
 
 	if boundInstanceGroup, ok := data.GetOk("bound_instance_group"); ok {
-		if len(role.BoundInstanceGroups) > 0 {
+		if _, ok := data.GetOk("bound_instance_groups"); ok {
 			err = fmt.Errorf(`cannot specify both "bound_instance_group" and "bound_instance_groups"`)
 			return
 		}
@@ -777,7 +781,7 @@ func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Opera
 			`single instance group, but multiple instance groups are also now supported. The `+
 			`"bound_instance_group" field will be removed in a later release, so please `+
 			`update accordingly.`)
-		role.BoundInstanceGroups = []string{strings.TrimSpace(boundInstanceGroup.(string))}
+		role.BoundInstanceGroups = append(role.BoundInstanceGroups, boundInstanceGroup.(string))
 	}
 
 	if labelsRaw, ok := data.GetOk("bound_labels"); ok {
@@ -787,6 +791,26 @@ func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Opera
 			return
 		}
 		role.BoundLabels = labels
+	}
+
+	if len(role.Policies) > 0 {
+		role.Policies = strutil.TrimStrings(role.Policies)
+		role.Policies = strutil.RemoveDuplicates(role.Policies, false)
+	}
+
+	if len(role.BoundRegions) > 0 {
+		role.BoundRegions = strutil.TrimStrings(role.BoundRegions)
+		role.BoundRegions = strutil.RemoveDuplicates(role.BoundRegions, false)
+	}
+
+	if len(role.BoundZones) > 0 {
+		role.BoundZones = strutil.TrimStrings(role.BoundZones)
+		role.BoundZones = strutil.RemoveDuplicates(role.BoundZones, false)
+	}
+
+	if len(role.BoundInstanceGroups) > 0 {
+		role.BoundInstanceGroups = strutil.TrimStrings(role.BoundInstanceGroups)
+		role.BoundInstanceGroups = strutil.RemoveDuplicates(role.BoundInstanceGroups, false)
 	}
 
 	return
@@ -825,7 +849,10 @@ func (role *gcpRole) validateForGCE() (warnings []string, err error) {
 	}
 
 	if hasRegion && hasZone {
-		warnings = append(warnings, "Given both region and zone for role of type 'gce' - region will be ignored.")
+		warnings = append(warnings, `Given both "bound_regions" and "bound_zones" `+
+			`fields for role type "gce", "bound_regions" will be ignored in favor `+
+			`of the more specific "bound_zones" field. To fix this warning, update `+
+			`the role to remove either the "bound_regions" or "bound_zones" field.`)
 	}
 
 	return warnings, nil
