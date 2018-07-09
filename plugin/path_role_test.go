@@ -3,8 +3,10 @@ package gcpauth
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 	"testing"
+	"time"
 
 	"reflect"
 
@@ -16,19 +18,19 @@ import (
 // Defaults for verifying response data. If a value is not included here, it must be included in the
 // 'expected' map param for a test.
 var expectedDefaults map[string]interface{} = map[string]interface{}{
-	"policies":               []string{},
-	"ttl":                    int64(baseRoleFieldSchema["ttl"].Default.(int)),
-	"max_ttl":                int64(baseRoleFieldSchema["ttl"].Default.(int)),
-	"period":                 int64(baseRoleFieldSchema["ttl"].Default.(int)),
+	"policies":               []string{"default"},
+	"ttl":                    time.Duration(baseRoleFieldSchema["ttl"].Default.(int)),
+	"max_ttl":                time.Duration(baseRoleFieldSchema["ttl"].Default.(int)),
+	"period":                 time.Duration(baseRoleFieldSchema["ttl"].Default.(int)),
 	"bound_service_accounts": []string{},
 	// IAM
-	"max_jwt_exp":         int64(iamOnlyFieldSchema["max_jwt_exp"].Default.(int)),
+	"max_jwt_exp":         time.Duration(iamOnlyFieldSchema["max_jwt_exp"].Default.(int)),
 	"allow_gce_inference": iamOnlyFieldSchema["allow_gce_inference"].Default.(bool),
 	// GCE
-	"bound_zone":           "",
-	"bound_region":         "",
-	"bound_instance_group": "",
-	"bound_labels":         "",
+	"bound_zones":           []string{},
+	"bound_regions":         []string{},
+	"bound_instance_groups": []string{},
+	"bound_labels":          map[string]string{},
 }
 
 //-- IAM ROLE TESTS --
@@ -62,7 +64,7 @@ func TestRoleUpdateIam(t *testing.T) {
 		"ttl":                    1000,
 		"max_ttl":                2000,
 		"period":                 30,
-		"max_jwt_exp":            20 * 60, // 20 minutes
+		"max_jwt_exp":            20 * 60,
 		"allow_gce_inference":    false,
 		"bound_service_accounts": strings.Join(serviceAccounts, ","),
 	})
@@ -71,10 +73,10 @@ func TestRoleUpdateIam(t *testing.T) {
 		"role_type":              iamRoleType,
 		"project_id":             projectId,
 		"policies":               []string{"dev"},
-		"ttl":                    int64(1000),
-		"max_ttl":                int64(2000),
-		"period":                 int64(30),
-		"max_jwt_exp":            int64(20 * 60),
+		"ttl":                    time.Duration(1000),
+		"max_ttl":                time.Duration(2000),
+		"period":                 time.Duration(30),
+		"max_jwt_exp":            time.Duration(20 * 60),
 		"allow_gce_inference":    false,
 		"bound_service_accounts": serviceAccounts,
 	})
@@ -248,27 +250,27 @@ func TestRoleGce(t *testing.T) {
 		"ttl":                    1000,
 		"max_ttl":                2000,
 		"period":                 30,
-		"bound_zone":             "us-central-1b",
-		"bound_region":           "us-central",
-		"bound_instance_group":   "devGroup",
+		"bound_zones":            "us-central-1b",
+		"bound_regions":          "us-central",
+		"bound_instance_groups":  "devGroup",
 		"bound_labels":           "label1:foo,prod:true",
 		"bound_service_accounts": strings.Join(serviceAccounts, ","),
 	})
 
-		"role_type":    gceRoleType,
-		"policies":     []string{"dev"},
-		"ttl":          int64(1000),
-		"max_ttl":      int64(2000),
-		"period":       int64(30),
-		"bound_zone":   "us-central-1b",
-		"bound_region": "us-central",
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
+		"role_type":     gceRoleType,
 		"project_id":    projectId,
+		"policies":      []string{"dev"},
+		"ttl":           time.Duration(1000),
+		"max_ttl":       time.Duration(2000),
+		"period":        time.Duration(30),
+		"bound_zones":   []string{"us-central-1b"},
+		"bound_regions": []string{"us-central"},
 		"bound_labels": map[string]string{
 			"label1": "foo",
 			"prod":   "true",
 		},
-		"bound_instance_group":   "devGroup",
+		"bound_instance_groups":  []string{"devGroup"},
 		"bound_service_accounts": serviceAccounts,
 	})
 }
@@ -323,6 +325,95 @@ func TestRoleGce_EditLabels(t *testing.T) {
 		"role_type":    gceRoleType,
 		"project_id":   projectId,
 		"bound_labels": labels,
+	})
+}
+
+func TestRoleGce_DeprecatedFields(t *testing.T) {
+	t.Parallel()
+
+	t.Run("deprecated_fields_upgraded", func(t *testing.T) {
+		t.Parallel()
+
+		b, storage := getTestBackend(t)
+
+		roleName, projectId := testRoleAndProject(t)
+
+		// Send the old fields
+		testRoleCreate(t, b, storage, map[string]interface{}{
+			"name":                 roleName,
+			"type":                 gceRoleType,
+			"project_id":           projectId,
+			"bound_region":         "us-east1",
+			"bound_zone":           "us-east1-a",
+			"bound_instance_group": "my-ig",
+		})
+
+		// Ensure it's the new fields
+		testRoleRead(t, b, storage, roleName, map[string]interface{}{
+			"name":                  roleName,
+			"role_type":             gceRoleType,
+			"project_id":            projectId,
+			"bound_regions":         []string{"us-east1"},
+			"bound_zones":           []string{"us-east1-a"},
+			"bound_instance_groups": []string{"my-ig"},
+		})
+	})
+
+	t.Run("existing_storage_upgraded", func(t *testing.T) {
+		t.Parallel()
+
+		b, storage := getTestBackend(t)
+
+		roleName, projectId := testRoleAndProject(t)
+
+		// Direct write to storage to simulate an existing installation with the
+		// old data structure
+		if err := storage.Put(context.Background(), &logical.StorageEntry{
+			Key: "role/" + roleName,
+			Value: []byte(`{
+				"bound_region": "us-east1",
+				"bound_zone": "us-east1-a",
+				"bound_instance_group": "my-ig"
+			}`),
+		}); err != nil {
+			t.Fatal(err)
+		}
+
+		// Read the data force an upgrade
+		testRoleRead(t, b, storage, roleName, map[string]interface{}{
+			"name":                  roleName,
+			"role_type":             gceRoleType,
+			"project_id":            projectId,
+			"bound_regions":         []string{"us-east1"},
+			"bound_zones":           []string{"us-east1-a"},
+			"bound_instance_groups": []string{"my-ig"},
+		})
+
+		// Double-check the raw storage has been updated
+		entry, err := storage.Get(context.Background(), "role/"+roleName)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var m map[string][]string
+		if err := entry.DecodeJSON(&m); err != nil {
+			t.Fatal(err)
+		}
+
+		exp := []string{"us-east1"}
+		if v, ok := m["bound_regions"]; !ok || !reflect.DeepEqual(v, exp) {
+			t.Errorf("expected %q to be %q", v, exp)
+		}
+
+		exp = []string{"us-east1-a"}
+		if v, ok := m["bound_zones"]; !ok || !reflect.DeepEqual(v, exp) {
+			t.Errorf("expected %q to be %q", v, exp)
+		}
+
+		exp = []string{"my-ig"}
+		if v, ok := m["bound_instance_groups"]; !ok || !reflect.DeepEqual(v, exp) {
+			t.Errorf("expected %q to be %q", v, exp)
+		}
 	})
 }
 

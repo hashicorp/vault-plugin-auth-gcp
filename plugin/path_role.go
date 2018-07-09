@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/structs"
 	"github.com/hashicorp/go-gcp-common/gcputil"
+	vaultconsts "github.com/hashicorp/vault/helper/consts"
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/logical"
@@ -103,28 +105,47 @@ var iamOnlyFieldSchema = map[string]*framework.FieldSchema{
 }
 
 var gceOnlyFieldSchema = map[string]*framework.FieldSchema{
+	"bound_zones": {
+		Type: framework.TypeCommaStringSlice,
+		Description: "Comma-separated list of permitted zones to which the GCE " +
+			"instance must belong. If a group is provided, it is assumed to be a " +
+			"zonal group. This can be a self-link or zone name. This option only " +
+			"applies to \"gce\" roles.",
+	},
+
+	"bound_regions": {
+		Type: framework.TypeCommaStringSlice,
+		Description: "Comma-separated list of permitted regions to which the GCE " +
+			"instance must belong. If a group is provided, it is assumed to be a " +
+			"regional group. If \"zone\" is provided, this option is ignored. This " +
+			"can be a self-link or region name. This option only applies to \"gce\" roles.",
+	},
+
+	"bound_instance_groups": {
+		Type: framework.TypeCommaStringSlice,
+		Description: "Comma-separated list of permitted instance groups to which " +
+			"the GCE instance must belong. This option only applies to \"gce\" roles.",
+	},
+
+	"bound_labels": {
+		Type: framework.TypeCommaStringSlice,
+		Description: "Comma-separated list of GCP labels formatted as" +
+			"\"key:value\" strings that must be present on the GCE instance " +
+			"in order to authenticate. This option only applies to \"gce\" roles.",
+	},
+
+	// Deprecated roles
 	"bound_zone": {
-		Type: framework.TypeString,
-		Description: `
-"gce" roles only. If set, determines the zone that a GCE instance must belong to. If a group is provided, it is assumed
-to be a zonal group and the group must belong to this zone. Accepts self-link or zone name.`,
+		Type:        framework.TypeString,
+		Description: "Deprecated: use \"bound_zones\" instead.",
 	},
 	"bound_region": {
-		Type: framework.TypeString,
-		Description: `
-"gce" roles only. If set, determines the region that a GCE instance must belong to. If a group is provided, it is
-assumed to be a regional group and the group must belong to this region. If zone is provided, region will be ignored.
-Either self-link or region name are accepted.`,
+		Type:        framework.TypeString,
+		Description: "Deprecated: use \"bound_regions\" instead.",
 	},
 	"bound_instance_group": {
 		Type:        framework.TypeString,
-		Description: `"gce" roles only. If set, determines the instance group that an authorized instance must belong to.`,
-	},
-	"bound_labels": {
-		Type: framework.TypeCommaStringSlice,
-		Description: `
-"gce" roles only. A comma-separated list of Google Cloud Platform labels formatted as "$key:$value" strings that are
-required for authorized GCE instances.`,
+		Description: "Deprecated: use \"bound_instance_groups\" instead.",
 	},
 }
 
@@ -437,6 +458,43 @@ func (b *GcpAuthBackend) role(ctx context.Context, s logical.Storage, name strin
 		return nil, err
 	}
 
+	// Keep track of whether we do an in-place upgrade of old fields
+	modified := false
+
+	// Move old bindings to new fields.
+	if role.BoundRegion != "" && len(role.BoundRegions) == 0 {
+		role.BoundRegions = []string{role.BoundRegion}
+		role.BoundRegion = ""
+		modified = true
+	}
+	if role.BoundZone != "" && len(role.BoundZones) == 0 {
+		role.BoundZones = []string{role.BoundZone}
+		role.BoundZone = ""
+		modified = true
+	}
+	if role.BoundInstanceGroup != "" && len(role.BoundInstanceGroups) == 0 {
+		role.BoundInstanceGroups = []string{role.BoundInstanceGroup}
+		role.BoundInstanceGroup = ""
+		modified = true
+	}
+
+	if modified && (b.System().LocalMount() || !b.System().ReplicationState().HasState(vaultconsts.ReplicationPerformanceSecondary)) {
+		b.Logger().Info("upgrading role to new schema",
+			"role", name)
+
+		updatedRole, err := logical.StorageEntryJSON("role/"+name, &role)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.Put(ctx, updatedRole); err != nil {
+			// Only perform upgrades on replication primary
+			if !strings.Contains(err.Error(), logical.ErrReadOnly.Error()) {
+				return nil, err
+			}
+		}
+	}
+
+	return &role, nil
 }
 
 // storeRole saves the gcpRole to storage.
@@ -501,17 +559,23 @@ type gcpRole struct {
 	AllowGCEInference bool `json:"allow_gce_inference,omitempty" structs:"allow_gce_inference,omitempty"`
 
 	// --| GCE-only attributes |--
-	// BoundRegion that instances must belong to in order to login under this role.
-	BoundRegion string `json:"bound_region" structs:"bound_region" mapstructure:"bound_region"`
+	// BoundRegions that instances must belong to in order to login under this role.
+	BoundRegions []string `json:"bound_regions,omitempty" structs:"bound_regions,omitempty"`
 
-	// BoundZone that instances must belong to in order to login under this role.
-	BoundZone string `json:"bound_zone" structs:"bound_zone" mapstructure:"bound_zone"`
+	// BoundZones that instances must belong to in order to login under this role.
+	BoundZones []string `json:"bound_zones,omitempty" structs:"bound_zones,omitempty"`
 
-	// Instance group that instances must belong to in order to login under this role.
-	BoundInstanceGroup string `json:"bound_instance_group" structs:"bound_instance_group" mapstructure:"bound_instance_group"`
+	// BoundInstanceGroups are the instance group that instances must belong to in order to login under this role.
+	BoundInstanceGroups []string `json:"bound_instance_groups,omitempty" structs:"bound_instance_groups,omitempty"`
 
 	// BoundLabels that instances must currently have set in order to login under this role.
-	BoundLabels map[string]string `json:"bound_labels" structs:"bound_labels" mapstructure:"bound_labels"`
+	BoundLabels map[string]string `json:"bound_labels,omitempty" structs:"bound_labels,omitempty"`
+
+	// Deprecated fields
+	// TODO: Remove in 0.5.0+
+	BoundRegion        string `json:"bound_region,omitempty" structs:"-"`
+	BoundZone          string `json:"bound_zone,omitempty" structs:"-"`
+	BoundInstanceGroup string `json:"bound_instance_group,omitempty" structs:"-"`
 }
 
 // Update updates the given role with values parsed/validated from given FieldData.
@@ -673,8 +737,48 @@ func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Opera
 	if instanceGroups, ok := data.GetOk("bound_instance_groups"); ok {
 		role.BoundInstanceGroups = strutil.TrimStrings(instanceGroups.([]string))
 	}
+
+	if boundRegion, ok := data.GetOk("bound_region"); ok {
+		if len(role.BoundRegions) > 0 {
+			err = fmt.Errorf(`cannot specify both "bound_region" and "bound_regions"`)
+			return
+		}
+
+		warnings = append(warnings, `The "bound_region" field is deprecated. `+
+			`Please use "bound_regions" (plural) instead. You can still specify a `+
+			`single region, but multiple regions are also now supported. The `+
+			`"bound_region" field will be removed in a later release, so please `+
+			`update accordingly.`)
+		role.BoundRegions = []string{strings.TrimSpace(boundRegion.(string))}
 	}
 
+	if boundZone, ok := data.GetOk("bound_zone"); ok {
+		if len(role.BoundZones) > 0 {
+			err = fmt.Errorf(`cannot specify both "bound_zone" and "bound_zones"`)
+			return
+		}
+
+		warnings = append(warnings, `The "bound_zone" field is deprecated. `+
+			`Please use "bound_zones" (plural) instead. You can still specify a `+
+			`single zone, but multiple zones are also now supported. The `+
+			`"bound_zone" field will be removed in a later release, so please `+
+			`update accordingly.`)
+		role.BoundZones = []string{strings.TrimSpace(boundZone.(string))}
+	}
+
+	if boundInstanceGroup, ok := data.GetOk("bound_instance_group"); ok {
+		if len(role.BoundInstanceGroups) > 0 {
+			err = fmt.Errorf(`cannot specify both "bound_instance_group" and "bound_instance_groups"`)
+			return
+		}
+
+		warnings = append(warnings, `The "bound_instance_group" field is deprecated. `+
+			`Please use "bound_instance_groups" (plural) instead. You can still specify a `+
+			`single instance group, but multiple instance groups are also now supported. The `+
+			`"bound_instance_group" field will be removed in a later release, so please `+
+			`update accordingly.`)
+		role.BoundInstanceGroups = []string{strings.TrimSpace(boundInstanceGroup.(string))}
+	}
 
 	if labelsRaw, ok := data.GetOk("bound_labels"); ok {
 		labels, invalidLabels := gcputil.ParseGcpLabels(labelsRaw.([]string))
@@ -710,14 +814,14 @@ func (role *gcpRole) validateForIAM() (warnings []string, err error) {
 func (role *gcpRole) validateForGCE() (warnings []string, err error) {
 	warnings = []string{}
 
-	hasRegion := len(role.BoundRegion) > 0
-	hasZone := len(role.BoundZone) > 0
+	hasRegion := len(role.BoundRegions) > 0
+	hasZone := len(role.BoundZones) > 0
 	hasRegionOrZone := hasRegion || hasZone
 
-	hasInstanceGroup := len(role.BoundInstanceGroup) > 0
+	hasInstanceGroup := len(role.BoundInstanceGroups) > 0
 
 	if hasInstanceGroup && !hasRegionOrZone {
-		return warnings, errors.New(`region or zone information must be specified if a group is given`)
+		return warnings, errors.New(`region or zone information must be specified if an instance group is given`)
 	}
 
 	if hasRegion && hasZone {
