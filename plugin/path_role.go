@@ -38,7 +38,7 @@ const (
 	maxJwtExpMaxMinutes int = 60
 )
 
-var baseRoleFieldSchema map[string]*framework.FieldSchema = map[string]*framework.FieldSchema{
+var baseRoleFieldSchema = map[string]*framework.FieldSchema{
 	"name": {
 		Type:        framework.TypeString,
 		Description: "Name of the role.",
@@ -89,7 +89,7 @@ var baseRoleFieldSchema map[string]*framework.FieldSchema = map[string]*framewor
 	},
 }
 
-var iamOnlyFieldSchema map[string]*framework.FieldSchema = map[string]*framework.FieldSchema{
+var iamOnlyFieldSchema = map[string]*framework.FieldSchema{
 	"max_jwt_exp": {
 		Type:        framework.TypeDurationSecond,
 		Default:     defaultIamMaxJwtExpMinutes * 60,
@@ -102,7 +102,7 @@ var iamOnlyFieldSchema map[string]*framework.FieldSchema = map[string]*framework
 	},
 }
 
-var gceOnlyFieldSchema map[string]*framework.FieldSchema = map[string]*framework.FieldSchema{
+var gceOnlyFieldSchema = map[string]*framework.FieldSchema{
 	"bound_zone": {
 		Type: framework.TypeString,
 		Description: `
