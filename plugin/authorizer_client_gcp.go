@@ -3,7 +3,6 @@ package gcpauth
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/hashicorp/vault/helper/strutil"
 	"google.golang.org/api/compute/v1"
@@ -58,8 +57,6 @@ func (c *gcpClient) InstanceGroupContainsInstance(ctx context.Context, project, 
 	if err != nil {
 		return false, err
 	}
-
-	log.Printf("%#v", resp.Items)
 
 	if resp != nil && len(resp.Items) > 0 {
 		return true, nil
