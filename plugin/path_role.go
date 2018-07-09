@@ -606,21 +606,50 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 	// Update GCP project id.
 	if projectId, ok := data.GetOk("project_id"); ok {
 		role.ProjectId = projectId.(string)
+	} else if op == logical.CreateOperation {
+		role.ProjectId = data.Get("project_id").(string)
 	}
 
 	// Update token TTL.
 	if ttl, ok := data.GetOk("ttl"); ok {
 		role.TTL = time.Duration(ttl.(int)) * time.Second
+
+		def := sys.DefaultLeaseTTL()
+		if role.TTL > def {
+			warnings = append(warnings, fmt.Sprintf(`Given "ttl" of %q is greater `+
+				`than the maximum system/mount TTL of %q. The TTL will be capped at `+
+				`%q during login.`, role.TTL, def, def))
+		}
+	} else if op == logical.CreateOperation {
+		role.TTL = time.Duration(data.Get("ttl").(int)) * time.Second
 	}
 
 	// Update token Max TTL.
 	if maxTTL, ok := data.GetOk("max_ttl"); ok {
 		role.MaxTTL = time.Duration(maxTTL.(int)) * time.Second
+
+		def := sys.MaxLeaseTTL()
+		if role.MaxTTL > def {
+			warnings = append(warnings, fmt.Sprintf(`Given "max_ttl" of %q is greater `+
+				`than the maximum system/mount MaxTTL of %q. The MaxTTL will be `+
+				`capped at %q during login.`, role.MaxTTL, def, def))
+		}
+	} else if op == logical.CreateOperation {
+		role.MaxTTL = time.Duration(data.Get("max_ttl").(int)) * time.Second
 	}
 
 	// Update token period.
 	if period, ok := data.GetOk("period"); ok {
 		role.Period = time.Duration(period.(int)) * time.Second
+
+		def := sys.MaxLeaseTTL()
+		if role.Period > def {
+			warnings = append(warnings, fmt.Sprintf(`Given "period" of %q is greater `+
+				`than the maximum system/mount period of %q. The period will be `+
+				`capped at %q during login.`, role.Period, def, def))
+		}
+	} else if op == logical.CreateOperation {
+		role.Period = time.Duration(data.Get("period").(int)) * time.Second
 	}
 
 	// Update bound GCP service accounts.
@@ -732,14 +761,20 @@ func (role *gcpRole) updateIamFields(data *framework.FieldData, op logical.Opera
 func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Operation) (warnings []string, err error) {
 	if regions, ok := data.GetOk("bound_regions"); ok {
 		role.BoundRegions = regions.([]string)
+	} else if op == logical.CreateOperation {
+		role.BoundRegions = data.Get("bound_regions").([]string)
 	}
 
 	if zones, ok := data.GetOk("bound_zones"); ok {
 		role.BoundZones = zones.([]string)
+	} else if op == logical.CreateOperation {
+		role.BoundZones = data.Get("bound_zones").([]string)
 	}
 
 	if instanceGroups, ok := data.GetOk("bound_instance_groups"); ok {
 		role.BoundInstanceGroups = instanceGroups.([]string)
+	} else if op == logical.CreateOperation {
+		role.BoundInstanceGroups = data.Get("bound_instance_groups").([]string)
 	}
 
 	if boundRegion, ok := data.GetOk("bound_region"); ok {
