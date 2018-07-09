@@ -370,7 +370,9 @@ func TestRole_InvalidRoleType(t *testing.T) {
 }
 
 //-- Utils --
-func testRoleCreate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+func testRoleCreate(tb testing.TB, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+	tb.Helper()
+
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.CreateOperation,
 		Path:      fmt.Sprintf("role/%s", d["name"]),
@@ -378,14 +380,16 @@ func testRoleCreate(t *testing.T, b logical.Backend, s logical.Storage, d map[st
 		Storage:   s,
 	})
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	if resp != nil && resp.IsError() {
-		t.Fatal(resp.Error())
+		tb.Fatal(resp.Error())
 	}
 }
 
-func testRoleUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+func testRoleUpdate(tb testing.TB, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+	tb.Helper()
+
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      fmt.Sprintf("role/%s", d["name"]),
@@ -393,14 +397,16 @@ func testRoleUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[st
 		Storage:   s,
 	})
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	if resp != nil && resp.IsError() {
-		t.Fatal(resp.Error())
+		tb.Fatal(resp.Error())
 	}
 }
 
-func testRoleEditServiceAccounts(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+func testRoleEditServiceAccounts(tb testing.TB, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+	tb.Helper()
+
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      fmt.Sprintf("role/%s/service-accounts", d["name"]),
@@ -408,14 +414,16 @@ func testRoleEditServiceAccounts(t *testing.T, b logical.Backend, s logical.Stor
 		Storage:   s,
 	})
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	if resp != nil && resp.IsError() {
-		t.Fatal(resp.Error())
+		tb.Fatal(resp.Error())
 	}
 }
 
-func testRoleEditLabels(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+func testRoleEditLabels(tb testing.TB, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+	tb.Helper()
+
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      fmt.Sprintf("role/%s/labels", d["name"]),
@@ -423,14 +431,16 @@ func testRoleEditLabels(t *testing.T, b logical.Backend, s logical.Storage, d ma
 		Storage:   s,
 	})
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	if resp != nil && resp.IsError() {
-		t.Fatal(resp.Error())
+		tb.Fatal(resp.Error())
 	}
 }
 
-func testRoleCreateError(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, expected []string) {
+func testRoleCreateError(tb testing.TB, b logical.Backend, s logical.Storage, d map[string]interface{}, expected []string) {
+	tb.Helper()
+
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.CreateOperation,
 		Path:      fmt.Sprintf("role/%s", d["name"]),
@@ -438,34 +448,36 @@ func testRoleCreateError(t *testing.T, b logical.Backend, s logical.Storage, d m
 		Storage:   s,
 	})
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	if resp == nil || !resp.IsError() {
-		t.Fatalf("expected error containing: %s", strings.Join(expected, ", "))
+		tb.Fatalf("expected error containing: %s", strings.Join(expected, ", "))
 	}
 
 	for _, str := range expected {
 		if !strings.Contains(resp.Error().Error(), str) {
-			t.Fatalf("expected %s to be in error %v", str, resp.Error())
+			tb.Fatalf("expected %s to be in error %v", str, resp.Error())
 		}
 	}
 }
 
-func testRoleRead(t *testing.T, b logical.Backend, s logical.Storage, roleName string, expected map[string]interface{}) {
+func testRoleRead(tb testing.TB, b logical.Backend, s logical.Storage, roleName string, expected map[string]interface{}) {
+	tb.Helper()
+
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.ReadOperation,
 		Path:      fmt.Sprintf("role/%s", roleName),
 		Storage:   s,
 	})
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	if resp != nil && resp.IsError() {
-		t.Fatal(resp.Error())
+		tb.Fatal(resp.Error())
 	}
 
 	if err := checkData(resp, expected, expectedDefaults); err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 }
 
@@ -475,7 +487,7 @@ func checkData(resp *logical.Response, expected map[string]interface{}, expected
 		if !ok {
 			expectedVal, ok = expectedDefault[k]
 			if !ok {
-				return fmt.Errorf("must provide expected value for '%s' for test", k)
+				return fmt.Errorf("must provide expected value for %q for test", k)
 			}
 		}
 
@@ -483,12 +495,18 @@ func checkData(resp *logical.Response, expected map[string]interface{}, expected
 		switch actualVal.(type) {
 		case []string:
 			actual := actualVal.([]string)
-			expected := expectedVal.([]string)
+			expected, ok := expectedVal.([]string)
+			if !ok {
+				return fmt.Errorf("%s type mismatch: expected type %T, actual type %T", k, expectedVal, actualVal)
+			}
 			isEqual = (len(actual) == 0 && len(expected) == 0) ||
 				strutil.EquivalentSlices(actual, expected)
 		case map[string]string:
 			actual := actualVal.(map[string]string)
-			expected := expectedVal.(map[string]string)
+			expected, ok := expectedVal.(map[string]string)
+			if !ok {
+				return fmt.Errorf("%s type mismatch: expected type %T, actual type %T", k, expectedVal, actualVal)
+			}
 			isEqual = (len(actual) == 0 && len(expected) == 0) ||
 				reflect.DeepEqual(actualVal, expectedVal)
 		default:
@@ -496,7 +514,7 @@ func checkData(resp *logical.Response, expected map[string]interface{}, expected
 		}
 
 		if !isEqual {
-			return fmt.Errorf("%s mismatch, expected: %v but got %v", k, actualVal, expectedVal)
+			return fmt.Errorf("%s mismatch, expected: %v but got %v", k, expectedVal, actualVal)
 		}
 	}
 	return nil

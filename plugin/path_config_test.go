@@ -57,7 +57,7 @@ func TestConfig(t *testing.T) {
 	testConfigRead(t, b, reqStorage, expected)
 }
 
-func testConfigUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+func testConfigUpdate(tb testing.TB, b logical.Backend, s logical.Storage, d map[string]interface{}) {
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "config",
@@ -65,14 +65,14 @@ func testConfigUpdate(t *testing.T, b logical.Backend, s logical.Storage, d map[
 		Storage:   s,
 	})
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	if resp != nil && resp.IsError() {
-		t.Fatal(resp.Error())
+		tb.Fatal(resp.Error())
 	}
 }
 
-func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected map[string]interface{}) {
+func testConfigRead(tb testing.TB, b logical.Backend, s logical.Storage, expected map[string]interface{}) {
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.ReadOperation,
 		Path:      "config",
@@ -80,7 +80,7 @@ func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected
 	})
 
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 
 	if resp == nil && expected == nil {
@@ -88,10 +88,10 @@ func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected
 	}
 
 	if resp.IsError() {
-		t.Fatal(resp.Error())
+		tb.Fatal(resp.Error())
 	}
 
 	if !reflect.DeepEqual(resp.Data, expected) {
-		t.Fatalf("config mismatch, expected %v but actually %v", expected, resp.Data)
+		tb.Fatalf("config mismatch, expected %v but actually %v", expected, resp.Data)
 	}
 }

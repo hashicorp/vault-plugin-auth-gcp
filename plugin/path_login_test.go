@@ -27,10 +27,7 @@ func TestLoginIam(t *testing.T) {
 
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
+	creds := getTestCredentials(t)
 
 	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
 		"credentials": os.Getenv(googleCredentialsEnv),
@@ -77,10 +74,7 @@ func TestLoginIamWildcard(t *testing.T) {
 
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
+	creds := getTestCredentials(t)
 
 	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
 		"credentials": os.Getenv(googleCredentialsEnv),
@@ -126,10 +120,7 @@ func TestLoginIam_UnauthorizedRole(t *testing.T) {
 
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
+	creds := getTestCredentials(t)
 
 	roleName := "testrolenologin"
 
@@ -165,10 +156,7 @@ func TestLoginIam_MissingRole(t *testing.T) {
 
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
+	creds := getTestCredentials(t)
 
 	roleName := "doesnotexist"
 
@@ -194,10 +182,7 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
+	creds := getTestCredentials(t)
 
 	roleName := "testrole"
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
@@ -226,10 +211,7 @@ func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
 
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
+	creds := getTestCredentials(t)
 
 	roleName := "testrole"
 
