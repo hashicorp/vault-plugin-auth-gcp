@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fatih/structs"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	vaultconsts "github.com/hashicorp/vault/helper/consts"
 	"github.com/hashicorp/vault/helper/policyutil"
@@ -287,8 +286,53 @@ func (b *GcpAuthBackend) pathRoleRead(ctx context.Context, req *logical.Request,
 	role.MaxTTL /= time.Second
 	role.MaxJwtExp /= time.Second
 
+	resp := make(map[string]interface{})
+
+	if role.RoleType != "" {
+		resp["role_type"] = role.RoleType
+	}
+	if role.ProjectId != "" {
+		resp["project_id"] = role.ProjectId
+	}
+	if len(role.Policies) > 0 {
+		resp["policies"] = role.Policies
+	}
+	if role.TTL != 0 {
+		resp["ttl"] = role.TTL
+	}
+	if role.MaxTTL != 0 {
+		resp["max_ttl"] = role.MaxTTL
+	}
+	if role.Period != 0 {
+		resp["period"] = role.Period
+	}
+	if len(role.BoundServiceAccounts) > 0 {
+		resp["bound_service_accounts"] = role.BoundServiceAccounts
+	}
+
+	switch role.RoleType {
+	case iamRoleType:
+		if role.MaxJwtExp != 0 {
+			resp["max_jwt_exp"] = role.MaxJwtExp
+		}
+		resp["allow_gce_inference"] = role.AllowGCEInference
+	case gceRoleType:
+		if len(role.BoundRegions) > 0 {
+			resp["bound_regions"] = role.BoundRegions
+		}
+		if len(role.BoundZones) > 0 {
+			resp["bound_zones"] = role.BoundZones
+		}
+		if len(role.BoundInstanceGroups) > 0 {
+			resp["bound_instance_groups"] = role.BoundInstanceGroups
+		}
+		if len(role.BoundLabels) > 0 {
+			resp["bound_labels"] = role.BoundLabels
+		}
+	}
+
 	return &logical.Response{
-		Data: structs.New(role).Map(),
+		Data: resp,
 	}, nil
 }
 
@@ -527,55 +571,55 @@ func (b *GcpAuthBackend) storeRole(ctx context.Context, s logical.Storage, roleN
 
 type gcpRole struct {
 	// Type of this role. See path_role constants for currently supported types.
-	RoleType string `json:"role_type,omitempty" structs:"role_type,omitempty"`
+	RoleType string `json:"role_type,omitempty"`
 
 	// Project ID in GCP for authorized entities.
-	ProjectId string `json:"project_id,omitempty" structs:"project_id,omitempty"`
+	ProjectId string `json:"project_id,omitempty"`
 
 	// Policies for Vault to assign to authorized entities.
-	Policies []string `json:"policies,omitempty" structs:"policies,omitempty"`
+	Policies []string `json:"policies,omitempty"`
 
 	// TTL of Vault auth leases under this role.
-	TTL time.Duration `json:"ttl,omitempty" structs:"ttl,omitempty"`
+	TTL time.Duration `json:"ttl,omitempty"`
 
 	// Max total TTL including renewals, of Vault auth leases under this role.
-	MaxTTL time.Duration `json:"max_ttl,omitempty" structs:"max_ttl,omitempty"`
+	MaxTTL time.Duration `json:"max_ttl,omitempty"`
 
 	// Period, If set, indicates that this token should not expire and
 	// should be automatically renewed within this time period
 	// with TTL equal to this value.
-	Period time.Duration `json:"period,omitempty" structs:"period,omitempty"`
+	Period time.Duration `json:"period,omitempty"`
 
 	// Service accounts allowed to login under this role.
-	BoundServiceAccounts []string `json:"bound_service_accounts,omitempty" structs:"bound_service_accounts,omitempty"`
+	BoundServiceAccounts []string `json:"bound_service_accounts,omitempty"`
 
 	// --| IAM-only attributes |--
 	// MaxJwtExp is the duration from time of authentication that a JWT used to authenticate to role must expire within.
 	// TODO(emilymye): Allow this to be updated for GCE roles once 'exp' parameter has been allowed for GCE metadata.
-	MaxJwtExp time.Duration `json:"max_jwt_exp,omitempty" structs:"max_jwt_exp,omitempty"`
+	MaxJwtExp time.Duration `json:"max_jwt_exp,omitempty"`
 
 	// AllowGCEInference, if false, does not allow a GCE instance to login under this 'iam' role. If true (default),
 	// a service account is inferred from the instance metadata and used as the authenticating instance.
-	AllowGCEInference bool `json:"allow_gce_inference,omitempty" structs:"allow_gce_inference,omitempty"`
+	AllowGCEInference bool `json:"allow_gce_inference,omitempty"`
 
 	// --| GCE-only attributes |--
 	// BoundRegions that instances must belong to in order to login under this role.
-	BoundRegions []string `json:"bound_regions,omitempty" structs:"bound_regions,omitempty"`
+	BoundRegions []string `json:"bound_regions,omitempty"`
 
 	// BoundZones that instances must belong to in order to login under this role.
-	BoundZones []string `json:"bound_zones,omitempty" structs:"bound_zones,omitempty"`
+	BoundZones []string `json:"bound_zones,omitempty"`
 
 	// BoundInstanceGroups are the instance group that instances must belong to in order to login under this role.
-	BoundInstanceGroups []string `json:"bound_instance_groups,omitempty" structs:"bound_instance_groups,omitempty"`
+	BoundInstanceGroups []string `json:"bound_instance_groups,omitempty"`
 
 	// BoundLabels that instances must currently have set in order to login under this role.
-	BoundLabels map[string]string `json:"bound_labels,omitempty" structs:"bound_labels,omitempty"`
+	BoundLabels map[string]string `json:"bound_labels,omitempty"`
 
 	// Deprecated fields
 	// TODO: Remove in 0.5.0+
-	BoundRegion        string `json:"bound_region,omitempty" structs:"-"`
-	BoundZone          string `json:"bound_zone,omitempty" structs:"-"`
-	BoundInstanceGroup string `json:"bound_instance_group,omitempty" structs:"-"`
+	BoundRegion        string `json:"bound_region,omitempty"`
+	BoundZone          string `json:"bound_zone,omitempty"`
+	BoundInstanceGroup string `json:"bound_instance_group,omitempty"`
 }
 
 // Update updates the given role with values parsed/validated from given FieldData.
