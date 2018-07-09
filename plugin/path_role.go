@@ -293,6 +293,11 @@ func (b *GcpAuthBackend) pathRoleRead(ctx context.Context, req *logical.Request,
 }
 
 func (b *GcpAuthBackend) pathRoleCreateUpdate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	// Validate we didn't get extraneous fields
+	if err := validateFields(req, data); err != nil {
+		return nil, logical.CodedError(422, err.Error())
+	}
+
 	name := strings.ToLower(data.Get("name").(string))
 	if name == "" {
 		return logical.ErrorResponse(errEmptyRoleName), nil
@@ -332,6 +337,11 @@ const pathListRolesHelpSyn = `Lists all the roles that are registered with Vault
 const pathListRolesHelpDesc = `Lists all roles under the GCP backends by name.`
 
 func (b *GcpAuthBackend) pathRoleEditIamServiceAccounts(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	// Validate we didn't get extraneous fields
+	if err := validateFields(req, data); err != nil {
+		return nil, logical.CodedError(422, err.Error())
+	}
+
 	roleName := data.Get("name").(string)
 	if roleName == "" {
 		return logical.ErrorResponse(errEmptyRoleName), nil
@@ -382,6 +392,11 @@ func editStringValues(initial []string, toAdd []string, toRemove []string) []str
 }
 
 func (b *GcpAuthBackend) pathRoleEditGceLabels(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	// Validate we didn't get extraneous fields
+	if err := validateFields(req, data); err != nil {
+		return nil, logical.CodedError(422, err.Error())
+	}
+
 	roleName := data.Get("name").(string)
 	if roleName == "" {
 		return logical.ErrorResponse(errEmptyRoleName), nil

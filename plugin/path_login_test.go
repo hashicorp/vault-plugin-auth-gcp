@@ -198,7 +198,6 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 	jwtVal := createExpiredIamToken(t, roleName, creds)
 	loginData := map[string]interface{}{
 		"role": roleName,
-		"kid":  creds.PrivateKeyId,
 		"jwt":  jwtVal,
 	}
 

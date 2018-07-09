@@ -38,6 +38,11 @@ If not specified, will use the OAuth2 library default. Useful for testing.`,
 }
 
 func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	// Validate we didn't get extraneous fields
+	if err := validateFields(req, data); err != nil {
+		return nil, logical.CodedError(422, err.Error())
+	}
+
 	config, err := b.config(ctx, req.Storage)
 
 	if err != nil {
