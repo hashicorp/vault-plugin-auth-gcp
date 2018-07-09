@@ -311,10 +311,15 @@ func (b *GcpAuthBackend) pathRoleCreateUpdate(ctx context.Context, req *logical.
 		role = &gcpRole{}
 	}
 
-	if err := role.updateRole(b.System(), req.Operation, data); err != nil {
-		return logical.ErrorResponse(err.Error()), nil
+	warnings, err := role.updateRole(b.System(), req.Operation, data)
+	if err != nil {
+		resp := logical.ErrorResponse(err.Error())
+		for _, w := range warnings {
+			resp.AddWarning(w)
+		}
+		return resp, nil
 	}
-	return b.storeRole(ctx, req.Storage, name, role)
+	return b.storeRole(ctx, req.Storage, name, role, warnings)
 }
 
 func (b *GcpAuthBackend) pathRoleList(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -342,6 +347,8 @@ func (b *GcpAuthBackend) pathRoleEditIamServiceAccounts(ctx context.Context, req
 		return nil, logical.CodedError(422, err.Error())
 	}
 
+	var warnings []string
+
 	roleName := data.Get("name").(string)
 	if roleName == "" {
 		return logical.ErrorResponse(errEmptyRoleName), nil
@@ -363,7 +370,7 @@ func (b *GcpAuthBackend) pathRoleEditIamServiceAccounts(ctx context.Context, req
 	}
 	role.BoundServiceAccounts = editStringValues(role.BoundServiceAccounts, toAdd, toRemove)
 
-	return b.storeRole(ctx, req.Storage, roleName, role)
+	return b.storeRole(ctx, req.Storage, roleName, role, warnings)
 }
 
 func editStringValues(initial []string, toAdd []string, toRemove []string) []string {
@@ -397,6 +404,8 @@ func (b *GcpAuthBackend) pathRoleEditGceLabels(ctx context.Context, req *logical
 		return nil, logical.CodedError(422, err.Error())
 	}
 
+	var warnings []string
+
 	roleName := data.Get("name").(string)
 	if roleName == "" {
 		return logical.ErrorResponse(errEmptyRoleName), nil
@@ -429,7 +438,7 @@ func (b *GcpAuthBackend) pathRoleEditGceLabels(ctx context.Context, req *logical
 		delete(role.BoundLabels, k)
 	}
 
-	return b.storeRole(ctx, req.Storage, roleName, role)
+	return b.storeRole(ctx, req.Storage, roleName, role, warnings)
 }
 
 // role reads a gcpRole from storage. This assumes the caller has already obtained the role lock.
@@ -454,28 +463,29 @@ func (b *GcpAuthBackend) role(ctx context.Context, s logical.Storage, name strin
 // storeRole saves the gcpRole to storage.
 // The returned response may contain either warnings or an error response,
 // but will be nil if error is not nil
-func (b *GcpAuthBackend) storeRole(ctx context.Context, s logical.Storage, roleName string, role *gcpRole) (*logical.Response, error) {
-	var resp *logical.Response
-	warnings, err := role.validate(b.System())
+func (b *GcpAuthBackend) storeRole(ctx context.Context, s logical.Storage, roleName string, role *gcpRole, warnings []string) (*logical.Response, error) {
+	var resp logical.Response
+	for _, w := range warnings {
+		resp.AddWarning(w)
+	}
 
+	validateWarnings, err := role.validate(b.System())
+	for _, w := range validateWarnings {
+		resp.AddWarning(w)
+	}
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
-	} else if len(warnings) > 0 {
-		resp = &logical.Response{
-			Warnings: warnings,
-		}
 	}
 
 	entry, err := logical.StorageEntryJSON(fmt.Sprintf("role/%s", roleName), role)
 	if err != nil {
 		return nil, err
 	}
-
 	if err := s.Put(ctx, entry); err != nil {
 		return nil, err
 	}
 
-	return resp, nil
+	return &resp, nil
 }
 
 type gcpRole struct {
@@ -528,89 +538,81 @@ type gcpRole struct {
 // Update updates the given role with values parsed/validated from given FieldData.
 // Exactly one of the response and error will be nil. The response is only used to pass back warnings.
 // This method does not validate the role. Validation is done before storage.
-func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, data *framework.FieldData) error {
+func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, data *framework.FieldData) (warnings []string, err error) {
 	// Set role type
 	roleTypeRaw, ok := data.GetOk("type")
 	if ok {
 		roleType := roleTypeRaw.(string)
 		if role.RoleType != roleType && op == logical.UpdateOperation {
-			return errors.New("role type cannot be changed for an existing role")
+			err = errors.New("role type cannot be changed for an existing role")
+			return
 		}
 		role.RoleType = roleType
 	} else if op == logical.CreateOperation {
-		return errors.New(errEmptyRoleType)
+		err = errors.New(errEmptyRoleType)
+		return
 	}
 
-	// Update policies.
-	policies, ok := data.GetOk("policies")
-	if ok {
+	// Update policies
+	if policies, ok := data.GetOk("policies"); ok {
 		role.Policies = policyutil.ParsePolicies(policies)
 	} else if op == logical.CreateOperation {
-		role.Policies = policyutil.ParsePolicies(data.Get("policies"))
+		// Force default policy
+		role.Policies = policyutil.ParsePolicies(nil)
 	}
 
 	// Update GCP project id.
-	projectIdRaw, ok := data.GetOk("project_id")
-	if ok {
-		role.ProjectId = projectIdRaw.(string)
+	if projectId, ok := data.GetOk("project_id"); ok {
+		role.ProjectId = projectId.(string)
 	}
 
 	// Update token TTL.
-	ttlRaw, ok := data.GetOk("ttl")
-	if ok {
-		role.TTL = time.Duration(ttlRaw.(int)) * time.Second
-
-	} else if op == logical.CreateOperation {
-		role.TTL = time.Duration(data.Get("ttl").(int)) * time.Second
+	if ttl, ok := data.GetOk("ttl"); ok {
+		role.TTL = time.Duration(ttl.(int)) * time.Second
 	}
 
 	// Update token Max TTL.
-	maxTTLRaw, ok := data.GetOk("max_ttl")
-	if ok {
-		role.MaxTTL = time.Duration(maxTTLRaw.(int)) * time.Second
-	} else if op == logical.CreateOperation {
-		role.MaxTTL = time.Duration(data.Get("max_ttl").(int)) * time.Second
+	if maxTTL, ok := data.GetOk("max_ttl"); ok {
+		role.MaxTTL = time.Duration(maxTTL.(int)) * time.Second
 	}
 
 	// Update token period.
-	periodRaw, ok := data.GetOk("period")
-	if ok {
-		role.Period = time.Second * time.Duration(periodRaw.(int))
-	} else if op == logical.CreateOperation {
-		role.Period = time.Second * time.Duration(data.Get("period").(int))
+	if period, ok := data.GetOk("period"); ok {
+		role.Period = time.Duration(period.(int)) * time.Second
 	}
 
 	// Update bound GCP service accounts.
-	serviceAccountsRaw, ok := data.GetOk("bound_service_accounts")
-	if ok {
-		role.BoundServiceAccounts = serviceAccountsRaw.([]string)
+	if sa, ok := data.GetOk("bound_service_accounts"); ok {
+		role.BoundServiceAccounts = sa.([]string)
 	} else {
 		// Check for older version of param name
-		serviceAccountsRaw, ok := data.GetOk("service_accounts")
-		if ok {
-			role.BoundServiceAccounts = serviceAccountsRaw.([]string)
+		if sa, ok := data.GetOk("service_accounts"); ok {
+			warnings = append(warnings, `The "service_accounts" field is deprecated. `+
+				`Please use "bound_service_accounts" instead. The "service_accounts" `+
+				`field will be removed in a later release, so please update accordingly.`)
+			role.BoundServiceAccounts = sa.([]string)
 		}
 	}
 
 	// Update fields specific to this type
 	switch role.RoleType {
 	case iamRoleType:
-		if err := checkInvalidRoleTypeArgs(data, gceOnlyFieldSchema); err != nil {
-			return err
+		if err = checkInvalidRoleTypeArgs(data, gceOnlyFieldSchema); err != nil {
+			return
 		}
-		if err := role.updateIamFields(data, op); err != nil {
-			return err
+		if warnings, err = role.updateIamFields(data, op); err != nil {
+			return
 		}
 	case gceRoleType:
-		if err := checkInvalidRoleTypeArgs(data, iamOnlyFieldSchema); err != nil {
-			return err
+		if err = checkInvalidRoleTypeArgs(data, iamOnlyFieldSchema); err != nil {
+			return
 		}
-		if err := role.updateGceFields(data, op); err != nil {
-			return err
+		if warnings, err = role.updateGceFields(data, op); err != nil {
+			return
 		}
 	}
 
-	return nil
+	return
 }
 
 func (role *gcpRole) validate(sys logical.SystemView) (warnings []string, err error) {
@@ -663,51 +665,48 @@ func (role *gcpRole) validate(sys logical.SystemView) (warnings []string, err er
 }
 
 // updateIamFields updates IAM-only fields for a role.
-func (role *gcpRole) updateIamFields(data *framework.FieldData, op logical.Operation) error {
-	allowGCEInference, ok := data.GetOk("allow_gce_inference")
-	if ok {
+func (role *gcpRole) updateIamFields(data *framework.FieldData, op logical.Operation) (warnings []string, err error) {
+	if allowGCEInference, ok := data.GetOk("allow_gce_inference"); ok {
 		role.AllowGCEInference = allowGCEInference.(bool)
 	} else if op == logical.CreateOperation {
 		role.AllowGCEInference = data.Get("allow_gce_inference").(bool)
 	}
 
-	maxJwtExp, ok := data.GetOk("max_jwt_exp")
-	if ok {
+	if maxJwtExp, ok := data.GetOk("max_jwt_exp"); ok {
 		role.MaxJwtExp = time.Duration(maxJwtExp.(int)) * time.Second
 	} else if op == logical.CreateOperation {
 		role.MaxJwtExp = time.Duration(defaultIamMaxJwtExpMinutes) * time.Minute
 	}
 
-	return nil
+	return
 }
 
 // updateGceFields updates GCE-only fields for a role.
-func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Operation) error {
-	region, hasRegion := data.GetOk("bound_region")
-	if hasRegion {
-		role.BoundRegion = strings.TrimSpace(region.(string))
+func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Operation) (warnings []string, err error) {
+	if regions, ok := data.GetOk("bound_regions"); ok {
+		role.BoundRegions = strutil.TrimStrings(regions.([]string))
 	}
 
-	zone, hasZone := data.GetOk("bound_zone")
-	if hasZone {
-		role.BoundZone = strings.TrimSpace(zone.(string))
+	if zones, ok := data.GetOk("bound_zones"); ok {
+		role.BoundZones = strutil.TrimStrings(zones.([]string))
 	}
 
-	instanceGroup, ok := data.GetOk("bound_instance_group")
-	if ok {
-		role.BoundInstanceGroup = strings.TrimSpace(instanceGroup.(string))
+	if instanceGroups, ok := data.GetOk("bound_instance_groups"); ok {
+		role.BoundInstanceGroups = strutil.TrimStrings(instanceGroups.([]string))
+	}
 	}
 
-	labels, ok := data.GetOk("bound_labels")
-	if ok {
-		var invalidLabels []string
-		role.BoundLabels, invalidLabels = gcputil.ParseGcpLabels(labels.([]string))
+
+	if labelsRaw, ok := data.GetOk("bound_labels"); ok {
+		labels, invalidLabels := gcputil.ParseGcpLabels(labelsRaw.([]string))
 		if len(invalidLabels) > 0 {
-			return fmt.Errorf("invalid labels given: %q", invalidLabels)
+			err = fmt.Errorf("invalid labels given: %q", invalidLabels)
+			return
 		}
+		role.BoundLabels = labels
 	}
 
-	return nil
+	return
 }
 
 // validateIamFields validates the IAM-only fields for a role.
