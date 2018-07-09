@@ -261,34 +261,13 @@ func (b *GcpAuthBackend) pathRoleRead(ctx context.Context, req *logical.Request,
 		return nil, nil
 	}
 
-	roleMap := map[string]interface{}{
-		"role_type":              role.RoleType,
-		"project_id":             role.ProjectId,
-		"policies":               role.Policies,
-		"ttl":                    int64(role.TTL / time.Second),
-		"max_ttl":                int64(role.MaxTTL / time.Second),
-		"period":                 int64(role.Period / time.Second),
-		"bound_service_accounts": role.BoundServiceAccounts,
-	}
-
-	switch role.RoleType {
-	case iamRoleType:
-		roleMap["max_jwt_exp"] = int64(role.MaxJwtExp / time.Second)
-		roleMap["allow_gce_inference"] = role.AllowGCEInference
-	case gceRoleType:
-		roleMap["bound_zone"] = role.BoundZone
-		roleMap["bound_region"] = role.BoundRegion
-		roleMap["bound_instance_group"] = role.BoundInstanceGroup
-		// Ensure values are not nil to avoid errors during plugin RPC conversions.
-		if role.BoundLabels != nil && len(role.BoundLabels) > 0 {
-			roleMap["bound_labels"] = role.BoundLabels
-		} else {
-			roleMap["bound_labels"] = ""
-		}
-	}
+	role.Period /= time.Second
+	role.TTL /= time.Second
+	role.MaxTTL /= time.Second
+	role.MaxJwtExp /= time.Second
 
 	return &logical.Response{
-		Data: roleMap,
+		Data: structs.New(role).Map(),
 	}, nil
 }
 
@@ -443,8 +422,9 @@ func (b *GcpAuthBackend) pathRoleEditGceLabels(ctx context.Context, req *logical
 
 // role reads a gcpRole from storage. This assumes the caller has already obtained the role lock.
 func (b *GcpAuthBackend) role(ctx context.Context, s logical.Storage, name string) (*gcpRole, error) {
-	entry, err := s.Get(ctx, fmt.Sprintf("role/%s", strings.ToLower(name)))
+	name = strings.ToLower(name)
 
+	entry, err := s.Get(ctx, "role/"+name)
 	if err != nil {
 		return nil, err
 	}
@@ -452,12 +432,11 @@ func (b *GcpAuthBackend) role(ctx context.Context, s logical.Storage, name strin
 		return nil, nil
 	}
 
-	role := &gcpRole{}
-	if err := entry.DecodeJSON(role); err != nil {
+	var role gcpRole
+	if err := entry.DecodeJSON(&role); err != nil {
 		return nil, err
 	}
 
-	return role, nil
 }
 
 // storeRole saves the gcpRole to storage.
@@ -490,36 +469,36 @@ func (b *GcpAuthBackend) storeRole(ctx context.Context, s logical.Storage, roleN
 
 type gcpRole struct {
 	// Type of this role. See path_role constants for currently supported types.
-	RoleType string `json:"role_type" structs:"role_type" mapstructure:"role_type"`
+	RoleType string `json:"role_type,omitempty" structs:"role_type,omitempty"`
 
 	// Project ID in GCP for authorized entities.
-	ProjectId string `json:"project_id" structs:"project_id" mapstructure:"project_id"`
+	ProjectId string `json:"project_id,omitempty" structs:"project_id,omitempty"`
 
 	// Policies for Vault to assign to authorized entities.
-	Policies []string `json:"policies" structs:"policies" mapstructure:"policies"`
+	Policies []string `json:"policies,omitempty" structs:"policies,omitempty"`
 
 	// TTL of Vault auth leases under this role.
-	TTL time.Duration `json:"ttl" structs:"ttl" mapstructure:"ttl"`
+	TTL time.Duration `json:"ttl,omitempty" structs:"ttl,omitempty"`
 
 	// Max total TTL including renewals, of Vault auth leases under this role.
-	MaxTTL time.Duration `json:"max_ttl" structs:"max_ttl" mapstructure:"max_ttl"`
+	MaxTTL time.Duration `json:"max_ttl,omitempty" structs:"max_ttl,omitempty"`
 
 	// Period, If set, indicates that this token should not expire and
 	// should be automatically renewed within this time period
 	// with TTL equal to this value.
-	Period time.Duration `json:"period" structs:"period" mapstructure:"period"`
+	Period time.Duration `json:"period,omitempty" structs:"period,omitempty"`
 
 	// Service accounts allowed to login under this role.
-	BoundServiceAccounts []string `json:"bound_service_accounts" structs:"bound_service_accounts" mapstructure:"bound_service_accounts"`
+	BoundServiceAccounts []string `json:"bound_service_accounts,omitempty" structs:"bound_service_accounts,omitempty"`
 
 	// --| IAM-only attributes |--
 	// MaxJwtExp is the duration from time of authentication that a JWT used to authenticate to role must expire within.
 	// TODO(emilymye): Allow this to be updated for GCE roles once 'exp' parameter has been allowed for GCE metadata.
-	MaxJwtExp time.Duration `json:"max_jwt_exp" structs:"max_jwt_exp" mapstructure:"max_jwt_exp"`
+	MaxJwtExp time.Duration `json:"max_jwt_exp,omitempty" structs:"max_jwt_exp,omitempty"`
 
 	// AllowGCEInference, if false, does not allow a GCE instance to login under this 'iam' role. If true (default),
 	// a service account is inferred from the instance metadata and used as the authenticating instance.
-	AllowGCEInference bool `json:"allow_gce_inference" structs:"allow_gce_inference" mapstructure:"allow_gce_inference"`
+	AllowGCEInference bool `json:"allow_gce_inference,omitempty" structs:"allow_gce_inference,omitempty"`
 
 	// --| GCE-only attributes |--
 	// BoundRegion that instances must belong to in order to login under this role.
