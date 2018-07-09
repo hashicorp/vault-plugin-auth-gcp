@@ -23,6 +23,8 @@ const (
 )
 
 func TestLoginIam(t *testing.T) {
+	t.Parallel()
+
 	b, reqStorage := getTestBackend(t)
 
 	creds, err := getTestCredentials()
@@ -71,6 +73,8 @@ func TestLoginIam(t *testing.T) {
 }
 
 func TestLoginIamWildcard(t *testing.T) {
+	t.Parallel()
+
 	b, reqStorage := getTestBackend(t)
 
 	creds, err := getTestCredentials()
@@ -118,6 +122,8 @@ func TestLoginIamWildcard(t *testing.T) {
 // TestLoginIam_UnauthorizedRole checks that we return an error response
 // if the user attempts to login against a role it is not authorized for.
 func TestLoginIam_UnauthorizedRole(t *testing.T) {
+	t.Parallel()
+
 	b, reqStorage := getTestBackend(t)
 
 	creds, err := getTestCredentials()
@@ -155,6 +161,8 @@ func TestLoginIam_UnauthorizedRole(t *testing.T) {
 
 // TestLoginIam_MissingRole checks that we return an error response if role is not provided.
 func TestLoginIam_MissingRole(t *testing.T) {
+	t.Parallel()
+
 	b, reqStorage := getTestBackend(t)
 
 	creds, err := getTestCredentials()
@@ -182,6 +190,8 @@ func TestLoginIam_MissingRole(t *testing.T) {
 
 // TestLoginIam_ExpiredJwt checks that we return an error response for an expired JWT.
 func TestLoginIam_ExpiredJwt(t *testing.T) {
+	t.Parallel()
+
 	b, reqStorage := getTestBackend(t)
 
 	creds, err := getTestCredentials()
@@ -212,6 +222,8 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 
 // TestLoginIam_JwtExpiresLate checks that we return an error response for an expired JWT.
 func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
+	t.Parallel()
+
 	b, reqStorage := getTestBackend(t)
 
 	creds, err := getTestCredentials()
