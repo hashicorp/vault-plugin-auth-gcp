@@ -6,8 +6,8 @@ import (
 	"log"
 
 	"github.com/hashicorp/vault/helper/strutil"
-	compute "google.golang.org/api/compute/v1"
-	iam "google.golang.org/api/iam/v1"
+	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/iam/v1"
 )
 
 var _ client = (*gcpClient)(nil)
