@@ -1,10 +1,11 @@
 # Vault Plugin: Google Cloud Platform Auth Backend
 
-This is a standalone backend plugin for use with [Hashicorp Vault](https://www.github.com/hashicorp/vault).
-This plugin allows for various GCP entities to authenticate with Vault. 
+This is a standalone backend plugin for use with [HashiCorp Vault](https://www.github.com/hashicorp/vault).
+This plugin allows for various GCP entities to authenticate with Vault.
 This is currently included in Vault distributions.
 
 Currently, this plugin supports login for:
+
 - IAM service accounts
 - GCE Instances
 
@@ -38,22 +39,33 @@ This plugin is currently built into Vault and by default is accessed
 at `auth/gcp`. To enable this in a running Vault server:
 
 ```sh
-$ vault auth-enable 'gcp'
-Successfully enabled 'gcp' at 'gcp'!
+$ vault auth enable gcp
+Success! Enabled gcp auth method at: gcp/
 ```
 
 To see all the supported paths, see the [GCP auth backend docs](https://www.vaultproject.io/docs/auth/gcp.html).
 
 ## Developing
 
+Please note that local development is only required if you plan to contribute or
+compile this plugin yourself. This plugin is automatically bundled in Vault
+installations and is available by default. You do not need to compile it
+yourself unless you intend to modify it.
+
 If you wish to work on this plugin, you'll first need
-[Go](https://www.golang.org) installed on your machine
-(version 1.8+ is *required*).
+[Go](https://www.golang.org) installed on your machine (version 1.10+ is
+*required*).
 
 For local dev first make sure Go is properly installed, including
 setting up a [GOPATH](https://golang.org/doc/code.html#GOPATH).
-Next, clone this repository into
-`$GOPATH/src/github.com/hashicorp/vault-gcp-auth-plugin`.
+Next, clone this repository into your `GOPATH`:
+
+```sh
+$ mkdir -p $GOPATH/src/github.com/hashicorp
+$ git clone https://github.com/hashicorp/vault-plugin-auth-gcp $GOPATH/src/github.com/hashicorp/
+$ cd vault-plugin-auth-gcp
+```
+
 You can then download any required build tools by bootstrapping your
 environment:
 
@@ -70,50 +82,19 @@ $ make
 $ make dev
 ```
 
-Put the plugin binary into a location of your choice. This directory
-will be specified as the [`plugin_directory`](https://www.vaultproject.io/docs/configuration/index.html#plugin_directory)
-in the Vault config used to start the server.
-
-```json
-...
-plugin_directory = "path/to/plugin/directory"
-...
-```
-
-Start a Vault server with this config file:
-```sh
-$ vault server -config=path/to/config.json ...
-...
-```
-
-Once the server is started, register the plugin in the Vault server's [plugin catalog](https://www.vaultproject.io/docs/internals/plugins.html#plugin-catalog):
+For local development, use Vault's "dev" mode for fast setup:
 
 ```sh
-$ vault write sys/plugins/catalog/mygcpplugin \
-        sha_256=<expected SHA256 Hex value of the plugin binary> \
-        command="vault-plugin-auth-gcp"
-...
-Success! Data written to: sys/plugins/catalog/mygcpplugin
+$ vault server -dev -dev-plugin-dir="$(pwd)/bin"
 ```
 
-Note you should generate a new sha256 checksum if you have made changes
-to the plugin. Example using openssl:
+The plugin will automatically be added to the catalog with the name
+"vault-plugin-auth-gcp". Run the following command to enable this new auth
+method as a plugin:
 
 ```sh
-openssl dgst -sha256 $GOPATH/vault-plugin-gcp-auth
-...
-SHA256(.../go/bin/vault-plugin-auth-gcp)= 896c13c0f5305daed381952a128322e02bc28a57d0c862a78cbc2ea66e8c6fa1
-```
-
-Any name can be substituted for the plugin name "mygcpplugin". This
-name will be referenced in the next step, where we enable the auth
-plugin backend using the GCP auth plugin:
-
-```sh
-$ vault auth-enable -plugin-name='mygcpplugin' -path='gcp' plugin
-...
-
-Successfully enabled 'plugin' at 'gcp'!
+$ vault auth enable -plugin-name="vault-plugin-auth-gcp" -path="gcp" plugin
+Success! Enabled vault-plugin-auth-gcp plugin at: gcp/
 ```
 
 #### Tests
@@ -135,6 +116,15 @@ it is technically possible that broken backends could leave dangling
 data behind. Therefore, please run the acceptance tests at your own risk.
 At the very least, we recommend running them in their own private
 account for whatever backend you're testing.
+
+To run the acceptance tests, you will need a GCP IAM service account with
+project.viewer and serviceaccount.admin permission. You can generate one from
+the Google Cloud Console. Save this file locally and export its contents as an
+environment variable:
+
+```sh
+$ export GOOGLE_CREDENTIALS="$(cat my-credentials.sh)"
+```
 
 To run the acceptance tests, invoke `make test`:
 
