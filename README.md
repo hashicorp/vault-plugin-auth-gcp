@@ -53,7 +53,7 @@ installations and is available by default. You do not need to compile it
 yourself unless you intend to modify it.
 
 If you wish to work on this plugin, you'll first need
-[Go](https://www.golang.org) installed on your machine (version 1.8+ is
+[Go](https://www.golang.org) installed on your machine (version 1.10+ is
 *required*).
 
 For local dev first make sure Go is properly installed, including
