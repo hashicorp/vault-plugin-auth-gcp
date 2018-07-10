@@ -23,12 +23,11 @@ const (
 )
 
 func TestLoginIam(t *testing.T) {
+	t.Parallel()
+
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
+	creds := getTestCredentials(t)
 
 	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
 		"credentials": os.Getenv(googleCredentialsEnv),
@@ -71,12 +70,11 @@ func TestLoginIam(t *testing.T) {
 }
 
 func TestLoginIamWildcard(t *testing.T) {
+	t.Parallel()
+
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
+	creds := getTestCredentials(t)
 
 	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
 		"credentials": os.Getenv(googleCredentialsEnv),
@@ -118,12 +116,11 @@ func TestLoginIamWildcard(t *testing.T) {
 // TestLoginIam_UnauthorizedRole checks that we return an error response
 // if the user attempts to login against a role it is not authorized for.
 func TestLoginIam_UnauthorizedRole(t *testing.T) {
+	t.Parallel()
+
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
+	creds := getTestCredentials(t)
 
 	roleName := "testrolenologin"
 
@@ -155,12 +152,11 @@ func TestLoginIam_UnauthorizedRole(t *testing.T) {
 
 // TestLoginIam_MissingRole checks that we return an error response if role is not provided.
 func TestLoginIam_MissingRole(t *testing.T) {
+	t.Parallel()
+
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
+	creds := getTestCredentials(t)
 
 	roleName := "doesnotexist"
 
@@ -182,12 +178,11 @@ func TestLoginIam_MissingRole(t *testing.T) {
 
 // TestLoginIam_ExpiredJwt checks that we return an error response for an expired JWT.
 func TestLoginIam_ExpiredJwt(t *testing.T) {
+	t.Parallel()
+
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
+	creds := getTestCredentials(t)
 
 	roleName := "testrole"
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
@@ -203,7 +198,6 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 	jwtVal := createExpiredIamToken(t, roleName, creds)
 	loginData := map[string]interface{}{
 		"role": roleName,
-		"kid":  creds.PrivateKeyId,
 		"jwt":  jwtVal,
 	}
 
@@ -212,12 +206,11 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 
 // TestLoginIam_JwtExpiresLate checks that we return an error response for an expired JWT.
 func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
+	t.Parallel()
+
 	b, reqStorage := getTestBackend(t)
 
-	creds, err := getTestCredentials()
-	if err != nil {
-		t.Fatal(err)
-	}
+	creds := getTestCredentials(t)
 
 	roleName := "testrole"
 
