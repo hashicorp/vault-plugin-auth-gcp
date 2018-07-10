@@ -34,11 +34,10 @@ func TestConfig(t *testing.T) {
 	})
 
 	expected := map[string]interface{}{
-		"client_email":          creds["client_email"],
-		"client_id":             creds["client_id"],
-		"private_key_id":        creds["private_key_id"],
-		"project_id":            creds["project_id"],
-		"google_certs_endpoint": "",
+		"client_email":   creds["client_email"],
+		"client_id":      creds["client_id"],
+		"private_key_id": creds["private_key_id"],
+		"project_id":     creds["project_id"],
 	}
 
 	testConfigRead(t, b, reqStorage, expected)
@@ -58,6 +57,8 @@ func TestConfig(t *testing.T) {
 }
 
 func testConfigUpdate(tb testing.TB, b logical.Backend, s logical.Storage, d map[string]interface{}) {
+	tb.Helper()
+
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "config",
@@ -73,6 +74,8 @@ func testConfigUpdate(tb testing.TB, b logical.Backend, s logical.Storage, d map
 }
 
 func testConfigRead(tb testing.TB, b logical.Backend, s logical.Storage, expected map[string]interface{}) {
+	tb.Helper()
+
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.ReadOperation,
 		Path:      "config",
