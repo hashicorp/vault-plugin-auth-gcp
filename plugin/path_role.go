@@ -475,6 +475,9 @@ func (b *GcpAuthBackend) pathRoleEditGceLabels(ctx context.Context, req *logical
 		return logical.ErrorResponse(fmt.Sprintf("given invalid labels to add: %q", invalidLabels)), nil
 	}
 	for k, v := range labelsToAdd {
+		if role.BoundLabels == nil {
+			role.BoundLabels = make(map[string]string, len(labelsToAdd))
+		}
 		role.BoundLabels[k] = v
 	}
 
