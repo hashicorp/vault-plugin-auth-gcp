@@ -14,6 +14,7 @@ import (
 	"golang.org/x/oauth2"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
+	"github.com/hashicorp/go-cleanhttp"
 )
 
 type GcpAuthBackend struct {
@@ -145,8 +146,8 @@ func (b *GcpAuthBackend) initClients(ctx context.Context, s logical.Storage) (er
 		if err != nil {
 			return fmt.Errorf("credentials were not configured and fallback to application default credentials failed: %v", err)
 		}
-
-		httpClient = oauth2.NewClient(ctx, tknSrc)
+		cleanCtx := context.WithValue(context.Background(), oauth2.HTTPClient, cleanhttp.DefaultClient())
+		httpClient = oauth2.NewClient(cleanCtx, tknSrc)
 	} else {
 		httpClient, err = gcputil.GetHttpClient(config.Credentials, b.oauthScopes...)
 		if err != nil {
