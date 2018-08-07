@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
@@ -14,7 +15,6 @@ import (
 	"golang.org/x/oauth2"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
-	"github.com/hashicorp/go-cleanhttp"
 )
 
 type GcpAuthBackend struct {
