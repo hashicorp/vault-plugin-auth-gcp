@@ -40,8 +40,8 @@ func TestLoginIam(t *testing.T) {
 		"policies":               "dev, prod",
 		"project_id":             creds.ProjectId,
 		"bound_service_accounts": creds.ClientEmail,
-		"ttl":     1800,
-		"max_ttl": 1800,
+		"ttl":                    1800,
+		"max_ttl":                1800,
 	})
 
 	// Have token expire within 5 minutes of max JWT exp
