@@ -34,11 +34,12 @@ func TestLoginIam(t *testing.T) {
 	})
 
 	roleName := "testrole"
+	projects := []string{creds.ProjectId, "someproject"}
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
 		"name":                   roleName,
 		"type":                   "iam",
 		"policies":               "dev, prod",
-		"project_id":             creds.ProjectId,
+		"bound_projects":         strings.Join(projects, ","),
 		"bound_service_accounts": creds.ClientEmail,
 		"ttl":                    1800,
 		"max_ttl":                1800,
@@ -59,7 +60,7 @@ func TestLoginIam(t *testing.T) {
 	}
 	role := &gcpRole{
 		RoleType:             "iam",
-		ProjectId:            creds.ProjectId,
+		BoundProjects:        projects,
 		Policies:             []string{"default", "dev", "prod"},
 		TTL:                  time.Duration(1800) * time.Second,
 		MaxTTL:               time.Duration(1800) * time.Second,
@@ -84,7 +85,7 @@ func TestLoginIamWildcard(t *testing.T) {
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
 		"name":                   roleName,
 		"type":                   "iam",
-		"project_id":             creds.ProjectId,
+		"bound_projects":         creds.ProjectId,
 		"bound_service_accounts": "*",
 	})
 
@@ -103,7 +104,7 @@ func TestLoginIamWildcard(t *testing.T) {
 	}
 	role := &gcpRole{
 		RoleType:             "iam",
-		ProjectId:            creds.ProjectId,
+		BoundProjects:        []string{creds.ProjectId},
 		Policies:             []string{"default"},
 		TTL:                  time.Duration(0),
 		MaxTTL:               time.Duration(0),
@@ -130,7 +131,7 @@ func TestLoginIam_UnauthorizedRole(t *testing.T) {
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
 		"type":                   "iam",
 		"name":                   roleName,
-		"project_id":             creds.ProjectId,
+		"bound_projects":         strings.Join([]string{creds.ProjectId, "arandomprojectId"}, ","),
 		"bound_service_accounts": "notarealserviceaccount",
 	})
 
@@ -189,7 +190,7 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 		"name":                   roleName,
 		"type":                   "iam",
 		"policies":               "dev, prod",
-		"project_id":             creds.ProjectId,
+		"bound_projects":         creds.ProjectId,
 		"bound_service_accounts": creds.ClientEmail,
 	})
 
@@ -219,7 +220,7 @@ func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
 		"name":                   roleName,
 		"type":                   "iam",
 		"policies":               "dev, prod",
-		"project_id":             creds.ProjectId,
+		"bound_projects":         creds.ProjectId,
 		"bound_service_accounts": creds.ClientEmail,
 		"max_jwt_exp":            maxJwtExpSeconds,
 	})
@@ -240,10 +241,11 @@ func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
 		"service_account_id":    creds.ClientId,
 		"service_account_email": creds.ClientEmail,
 		"role":                  roleName,
+		"project_id":            creds.ProjectId,
 	}
 	role := &gcpRole{
 		RoleType:             "iam",
-		ProjectId:            creds.ProjectId,
+		BoundProjects:        []string{creds.ProjectId},
 		Policies:             []string{"default", "dev", "prod"},
 		BoundServiceAccounts: []string{creds.ClientEmail},
 	}

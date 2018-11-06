@@ -118,7 +118,7 @@ type gcpLoginInfo struct {
 	Role *gcpRole
 
 	// ID or email of an IAM service account or that inferred for a GCE VM.
-	ServiceAccountId string
+	EmailOrId string
 
 	// Base JWT Claims (registered claims such as 'exp', 'iss', etc)
 	JWTClaims *jwt.Claims
@@ -177,7 +177,7 @@ func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, req *logical.R
 	if len(baseClaims.Subject) == 0 {
 		return nil, errors.New("expected JWT to have non-empty 'sub' claim")
 	}
-	loginInfo.ServiceAccountId = baseClaims.Subject
+	loginInfo.EmailOrId = baseClaims.Subject
 
 	if customClaims.Google != nil && customClaims.Google.Compute != nil && len(customClaims.Google.Compute.InstanceId) > 0 {
 		loginInfo.GceMetadata = customClaims.Google.Compute
@@ -210,7 +210,7 @@ func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebTo
 		}
 
 		accountKey, err := gcputil.ServiceAccountKey(iamClient, &gcputil.ServiceAccountKeyId{
-			Project:   role.ProjectId,
+			Project:   "-",
 			EmailOrId: serviceAccountId,
 			Key:       keyId,
 		})
@@ -306,8 +306,8 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 
 	// Get service account and make sure it still exists.
 	accountId := &gcputil.ServiceAccountId{
-		Project:   role.ProjectId,
-		EmailOrId: loginInfo.ServiceAccountId,
+		Project:   "-",
+		EmailOrId: loginInfo.EmailOrId,
 	}
 	serviceAccount, err := gcputil.ServiceAccount(iamClient, accountId)
 	if err != nil {
@@ -365,8 +365,14 @@ func (b *GcpAuthBackend) pathIamRenew(ctx context.Context, req *logical.Request,
 		return errors.New("service account id metadata not associated with auth token, invalid")
 	}
 
+	// This project is the service account's project.
+	project, ok := req.Auth.Metadata["project_id"]
+	if !ok {
+		project = "-"
+	}
+
 	serviceAccount, err := gcputil.ServiceAccount(iamClient, &gcputil.ServiceAccountId{
-		Project:   role.ProjectId,
+		Project:   project,
 		EmailOrId: serviceAccountId,
 	})
 	if err != nil {
@@ -387,9 +393,8 @@ func (b *GcpAuthBackend) pathIamRenew(ctx context.Context, req *logical.Request,
 
 // validateAgainstIAMRole returns an error if the given IAM service account is not authorized for the role.
 func (b *GcpAuthBackend) authorizeIAMServiceAccount(serviceAccount *iam.ServiceAccount, role *gcpRole) error {
-	// This is just in case - project should already be used to retrieve service account.
-	if role.ProjectId != serviceAccount.ProjectId {
-		return fmt.Errorf("service account %s does not belong to project %s", serviceAccount.Email, role.ProjectId)
+	if len(role.BoundProjects) > 0 && !strutil.StrListContains(role.BoundProjects, serviceAccount.ProjectId) {
+		return fmt.Errorf("service account %s does not belong to one of project %+v", serviceAccount.Email, role.BoundProjects)
 	}
 
 	// Check if role has the wildcard as the only service account.
@@ -416,10 +421,9 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		return logical.ErrorResponse("could not get GCE metadata from given JWT"), nil
 	}
 
-	if role.ProjectId != metadata.ProjectId {
+	if len(role.BoundProjects) > 0 && !strutil.StrListContains(role.BoundProjects, metadata.ProjectId) {
 		return logical.ErrorResponse(fmt.Sprintf(
-			"GCE instance must belong to project %s; metadata given has project %s",
-			role.ProjectId, metadata.ProjectId)), nil
+			"service account %s does not belong to one of project %+v", metadata.ProjectId, role.BoundProjects)), nil
 	}
 
 	// Verify instance exists.
@@ -435,7 +439,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 			metadata.ProjectId, metadata.Zone, metadata.InstanceName, err)), nil
 	}
 
-	if err := b.authorizeGCEInstance(ctx, instance, req.Storage, role, loginInfo.ServiceAccountId); err != nil {
+	if err := b.authorizeGCEInstance(ctx, instance, req.Storage, role, loginInfo.EmailOrId); err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
@@ -445,13 +449,13 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	}
 
 	serviceAccount, err := gcputil.ServiceAccount(iamClient, &gcputil.ServiceAccountId{
-		Project:   loginInfo.Role.ProjectId,
-		EmailOrId: loginInfo.ServiceAccountId,
+		Project:   "-",
+		EmailOrId: loginInfo.EmailOrId,
 	})
 	if err != nil {
 		return logical.ErrorResponse(fmt.Sprintf(
 			"Could not find service account '%s' used for GCE metadata token: %s",
-			loginInfo.ServiceAccountId, err)), nil
+			loginInfo.EmailOrId, err)), nil
 	}
 
 	resp := &logical.Response{
@@ -480,6 +484,7 @@ func authMetadata(loginInfo *gcpLoginInfo, serviceAccount *iam.ServiceAccount) m
 		"role":                  loginInfo.RoleName,
 		"service_account_id":    serviceAccount.UniqueId,
 		"service_account_email": serviceAccount.Email,
+		"project_id":            serviceAccount.ProjectId,
 	}
 
 	if loginInfo.GceMetadata != nil {
@@ -588,8 +593,6 @@ func (b *GcpAuthBackend) authorizeGCEInstance(ctx context.Context, instance *com
 			computeSvc: computeSvc,
 			iamSvc:     iamSvc,
 		},
-
-		project:        role.ProjectId,
 		serviceAccount: serviceAccountId,
 
 		instanceLabels:   instance.Labels,
