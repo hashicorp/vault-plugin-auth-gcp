@@ -394,7 +394,7 @@ func (b *GcpAuthBackend) pathIamRenew(ctx context.Context, req *logical.Request,
 // validateAgainstIAMRole returns an error if the given IAM service account is not authorized for the role.
 func (b *GcpAuthBackend) authorizeIAMServiceAccount(serviceAccount *iam.ServiceAccount, role *gcpRole) error {
 	if len(role.BoundProjects) > 0 && !strutil.StrListContains(role.BoundProjects, serviceAccount.ProjectId) {
-		return fmt.Errorf("service account %s does not belong to one of project %+v", serviceAccount.Email, role.BoundProjects)
+		return fmt.Errorf("service account %q not in bound projects %+v", serviceAccount.Email, role.BoundProjects)
 	}
 
 	// Check if role has the wildcard as the only service account.
@@ -423,7 +423,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 
 	if len(role.BoundProjects) > 0 && !strutil.StrListContains(role.BoundProjects, metadata.ProjectId) {
 		return logical.ErrorResponse(fmt.Sprintf(
-			"service account %s does not belong to one of project %+v", metadata.ProjectId, role.BoundProjects)), nil
+			"instance %q (project %q) not in bound projects %+v", metadata.InstanceId, metadata.ProjectId, role.BoundProjects)), nil
 	}
 
 	// Verify instance exists.
@@ -441,6 +441,16 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 
 	if err := b.authorizeGCEInstance(ctx, instance, req.Storage, role, loginInfo.EmailOrId); err != nil {
 		return logical.ErrorResponse(err.Error()), nil
+	}
+
+	if req.Operation == logical.AliasLookaheadOperation {
+		return &logical.Response{
+			Auth: &logical.Auth{
+				Alias: &logical.Alias{
+					Name: fmt.Sprintf("gce-%s", strconv.FormatUint(instance.Id, 10)),
+				},
+			},
+		}, nil
 	}
 
 	iamClient, err := b.IAM(ctx, req.Storage)
@@ -464,6 +474,9 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 			Period:       role.Period,
 			Alias: &logical.Alias{
 				Name: fmt.Sprintf("gce-%s", strconv.FormatUint(instance.Id, 10)),
+			},
+			GroupAliases: []*logical.Alias{
+				{Name: fmt.Sprintf("project-%s", metadata.ProjectId)},
 			},
 			Policies:    role.Policies,
 			Metadata:    authMetadata(loginInfo, serviceAccount),

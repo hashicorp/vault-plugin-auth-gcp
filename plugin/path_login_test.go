@@ -253,6 +253,34 @@ func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
 
 }
 
+// TestLoginIam_BoundProject checks that we return an error response for projects outside the allowed bound projects.
+func TestLoginIam_ErrorOnBoundProject(t *testing.T) {
+	t.Parallel()
+
+	b, reqStorage := getTestBackend(t)
+
+	creds := getTestCredentials(t)
+
+	roleName := "testrole"
+	roleProject := "a-test-project"
+	testRoleCreate(t, b, reqStorage, map[string]interface{}{
+		"name":                   roleName,
+		"type":                   "iam",
+		"policies":               "dev, prod",
+		"bound_projects":         roleProject,
+		"bound_service_accounts": creds.ClientEmail,
+	})
+
+	expDelta := time.Duration(defaultIamMaxJwtExpMinutes-5) * time.Minute
+	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
+	loginData := map[string]interface{}{
+		"role": roleName,
+		"jwt":  jwtVal,
+	}
+
+	testLoginError(t, b, reqStorage, loginData, []string{"not in bound projects", roleProject})
+}
+
 func testLoginIam(
 	t *testing.T, b logical.Backend, s logical.Storage,
 	d map[string]interface{}, expectedMetadata map[string]string, role *gcpRole, aliasName string) {
