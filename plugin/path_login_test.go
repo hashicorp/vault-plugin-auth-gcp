@@ -41,6 +41,7 @@ func TestLoginIam(t *testing.T) {
 		"policies":               "dev, prod",
 		"bound_projects":         strings.Join(projects, ","),
 		"bound_service_accounts": creds.ClientEmail,
+		"add_group_aliases":      true,
 		"ttl":                    1800,
 		"max_ttl":                1800,
 	})
@@ -66,6 +67,7 @@ func TestLoginIam(t *testing.T) {
 		MaxTTL:               time.Duration(1800) * time.Second,
 		Period:               time.Duration(0),
 		BoundServiceAccounts: []string{creds.ClientEmail},
+		AddGroupAliases:      true,
 	}
 	testLoginIam(t, b, reqStorage, loginData, metadata, role, creds.ClientId)
 }
@@ -327,6 +329,28 @@ func testLoginIam(
 	}
 	if resp.Auth.LeaseOptions.TTL != role.TTL {
 		t.Fatalf("lease option TTL mismatch, expected %v but got %v", role.TTL, resp.Auth.LeaseOptions.TTL)
+	}
+
+	if role.AddGroupAliases {
+		if len(resp.Auth.GroupAliases) == 0 {
+			t.Fatalf("expected group aliases in auth response")
+		}
+		projectId, ok := resp.Auth.Metadata["project_id"]
+		if !ok {
+			t.Fatalf("expected project in auth metadata")
+		}
+		expectedGroup := fmt.Sprintf("project-%s", projectId)
+
+		found := false
+		for _, groupAlias := range resp.Auth.GroupAliases {
+			if groupAlias.Name == expectedGroup {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected group alias in auth metadata")
+		}
 	}
 }
 

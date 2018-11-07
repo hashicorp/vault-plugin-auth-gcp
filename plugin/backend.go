@@ -3,18 +3,17 @@ package gcpauth
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"runtime"
-	"sync"
-
+	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
-	"github.com/hashicorp/vault/version"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/jwt"
+	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
+	"net/http"
 )
 
 type GcpAuthBackend struct {
@@ -22,13 +21,6 @@ type GcpAuthBackend struct {
 
 	// OAuth scopes for generating HTTP and GCP service clients.
 	oauthScopes []string
-
-	// Locks for guarding service clients
-	clientMutex sync.RWMutex
-
-	// -- GCP service clients --
-	iamClient *iam.Service
-	gceClient *compute.Service
 }
 
 // Factory returns a new backend as logical.Backend.
@@ -45,13 +37,13 @@ func Backend() *GcpAuthBackend {
 		oauthScopes: []string{
 			iam.CloudPlatformScope,
 			compute.ComputeReadonlyScope,
+			cloudresourcemanager.CloudPlatformScope,
 		},
 	}
 
 	b.Backend = &framework.Backend{
 		AuthRenew:   b.pathLoginRenew,
 		BackendType: logical.TypeCredential,
-		Invalidate:  b.invalidate,
 		Help:        backendHelp,
 		PathsSpecial: &logical.Paths{
 			Unauthenticated: []string{
@@ -72,106 +64,37 @@ func Backend() *GcpAuthBackend {
 	return b
 }
 
-func (b *GcpAuthBackend) invalidate(_ context.Context, key string) {
-	switch key {
-	case "config":
-		b.Close()
-	}
-}
-
-// Close deletes created GCP clients in backend.
-func (b *GcpAuthBackend) Close() {
-	b.clientMutex.Lock()
-	defer b.clientMutex.Unlock()
-
-	b.iamClient = nil
-	b.gceClient = nil
-}
-
-func (b *GcpAuthBackend) IAM(ctx context.Context, s logical.Storage) (*iam.Service, error) {
-	b.clientMutex.RLock()
-	if b.iamClient != nil {
-		defer b.clientMutex.RUnlock()
-		return b.iamClient, nil
-	}
-
-	b.clientMutex.RUnlock()
-	b.clientMutex.Lock()
-	defer b.clientMutex.Unlock()
-
-	// Check if client was created during lock switch.
-	if b.iamClient == nil {
-		err := b.initClients(ctx, s)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return b.iamClient, nil
-}
-
-func (b *GcpAuthBackend) GCE(ctx context.Context, s logical.Storage) (*compute.Service, error) {
-	b.clientMutex.RLock()
-	if b.gceClient != nil {
-		defer b.clientMutex.RUnlock()
-		return b.gceClient, nil
-	}
-
-	b.clientMutex.RUnlock()
-	b.clientMutex.Lock()
-	defer b.clientMutex.Unlock()
-
-	// Check if client was created during lock switch.
-	if b.gceClient == nil {
-		err := b.initClients(ctx, s)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return b.gceClient, nil
-}
-
-// Initialize attempts to create GCP clients from stored config.
-// It does not attempt to claim the client lock.
-func (b *GcpAuthBackend) initClients(ctx context.Context, s logical.Storage) (err error) {
+func (b *GcpAuthBackend) httpClient(ctx context.Context, s logical.Storage) (*http.Client, error) {
 	config, err := b.config(ctx, s)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("credentials were not configured and fallback to application default credentials failed: %v", err)
 	}
 
 	var httpClient *http.Client
 	if config == nil || config.Credentials == nil {
 		_, tknSrc, err := gcputil.FindCredentials("", ctx, b.oauthScopes...)
 		if err != nil {
-			return fmt.Errorf("credentials were not configured and fallback to application default credentials failed: %v", err)
+			return nil, errwrap.Wrapf("credentials were not configured, could not obtain application default credentials: {{err}}", err)
 		}
-		cleanCtx := context.WithValue(context.Background(), oauth2.HTTPClient, cleanhttp.DefaultClient())
+
+		cleanCtx := context.WithValue(ctx, oauth2.HTTPClient, cleanhttp.DefaultClient())
 		httpClient = oauth2.NewClient(cleanCtx, tknSrc)
 	} else {
+		conf := jwt.Config{
+			Email:      config.Credentials.ClientEmail,
+			PrivateKey: []byte(config.Credentials.PrivateKey),
+			Scopes:     b.oauthScopes,
+			TokenURL:   "https://accounts.google.com/o/oauth2/token",
+		}
+		ctx := context.WithValue(ctx, oauth2.HTTPClient, cleanhttp.DefaultClient())
+		client := conf.Client(ctx)
+		return client, nil
 		httpClient, err = gcputil.GetHttpClient(config.Credentials, b.oauthScopes...)
 		if err != nil {
-			return err
+			return nil, errwrap.Wrapf("could not create HTTP client for given config credentials: {{err}}", err)
 		}
 	}
-
-	userAgentStr := fmt.Sprintf("(%s %s) Vault/%s", runtime.GOOS, runtime.GOARCH, version.GetVersion().FullVersionNumber(true))
-
-	b.iamClient, err = iam.New(httpClient)
-	if err != nil {
-		b.Close()
-		return err
-	}
-	b.iamClient.UserAgent = userAgentStr
-
-	b.gceClient, err = compute.New(httpClient)
-	if err != nil {
-		b.Close()
-		return err
-	}
-	b.gceClient.UserAgent = userAgentStr
-
-	return nil
+	return httpClient, nil
 }
 
 const backendHelp = `

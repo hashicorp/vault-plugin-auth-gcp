@@ -17,13 +17,14 @@ import (
 
 // Defaults for verifying response data. If a value is not included here, it must be included in the
 // 'expected' map param for a test.
-var expectedDefaults map[string]interface{} = map[string]interface{}{
+var expectedDefaults = map[string]interface{}{
 	"policies":               []string{"default"},
 	"ttl":                    time.Duration(baseRoleFieldSchema["ttl"].Default.(int)),
 	"max_ttl":                time.Duration(baseRoleFieldSchema["ttl"].Default.(int)),
 	"period":                 time.Duration(baseRoleFieldSchema["ttl"].Default.(int)),
 	"bound_projects":         []string{},
 	"bound_service_accounts": []string{},
+	"add_group_aliases":      false,
 	// IAM
 	"max_jwt_exp":         time.Duration(iamOnlyFieldSchema["max_jwt_exp"].Default.(int)),
 	"allow_gce_inference": iamOnlyFieldSchema["allow_gce_inference"].Default.(bool),
@@ -65,6 +66,7 @@ func TestRoleUpdateIam(t *testing.T) {
 		"period":                 30,
 		"max_jwt_exp":            20 * 60,
 		"allow_gce_inference":    false,
+		"add_group_aliases":      true,
 		"bound_service_accounts": strings.Join(serviceAccounts, ","),
 	})
 
@@ -76,6 +78,7 @@ func TestRoleUpdateIam(t *testing.T) {
 		"period":                 time.Duration(30),
 		"max_jwt_exp":            time.Duration(20 * 60),
 		"allow_gce_inference":    false,
+		"add_group_aliases":      true,
 		"bound_service_accounts": serviceAccounts,
 	})
 }
@@ -196,17 +199,8 @@ func TestRoleIam_HasGceArgs(t *testing.T) {
 		"type":                   iamRoleType,
 		"bound_projects":         projectId,
 		"bound_service_accounts": "aserviceaccountid",
-		"bound_zone":             "us-central1-b",
-		"bound_labels":           "env:test",
-	}, []string{fmt.Sprintf(errTemplateInvalidRoleTypeArgs, iamRoleType, ""), "zone", "label"})
-
-	testRoleCreateError(t, b, reqStorage, map[string]interface{}{
-		"name":                   roleName,
-		"type":                   iamRoleType,
-		"bound_projects":         projectId,
-		"bound_service_accounts": "aserviceaccountid",
-		"bound_region":           "us-central",
-	}, []string{fmt.Sprintf(errTemplateInvalidRoleTypeArgs, iamRoleType, ""), "region"})
+		"bound_zones":            "us-central1-b",
+	}, []string{fmt.Sprintf(errTemplateInvalidRoleTypeArgs, iamRoleType, ""), "bound_zones"})
 }
 
 //-- GCE ROLE TESTS --
@@ -240,6 +234,7 @@ func TestRoleGce(t *testing.T) {
 		"bound_instance_groups":  "devGroup",
 		"bound_labels":           "label1:foo,prod:true",
 		"bound_service_accounts": strings.Join(serviceAccounts, ","),
+		"add_group_aliases":      true,
 	})
 
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
@@ -257,6 +252,7 @@ func TestRoleGce(t *testing.T) {
 		},
 		"bound_instance_groups":  []string{"devGroup"},
 		"bound_service_accounts": serviceAccounts,
+		"add_group_aliases":      true,
 	})
 }
 

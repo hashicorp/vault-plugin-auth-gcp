@@ -15,9 +15,11 @@ import (
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
+	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
 	"gopkg.in/square/go-jose.v2/jwt"
+	"net/http"
 )
 
 const (
@@ -199,9 +201,14 @@ func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebTo
 
 	switch role.RoleType {
 	case iamRoleType:
-		iamClient, err := b.IAM(ctx, s)
+		httpC, err := b.httpClient(ctx, s)
 		if err != nil {
 			return nil, err
+		}
+
+		iamClient, err := iam.New(httpC)
+		if err != nil {
+			return nil, fmt.Errorf(clientErrorTemplate, "IAM", err)
 		}
 
 		serviceAccountId, err := parseServiceAccountFromIAMJWT(rawToken)
@@ -288,7 +295,12 @@ func validateBaseJWTClaims(c *jwt.Claims, roleName string) error {
 // ---- IAM login domain ----
 // pathIamLogin attempts a login operation using the parsed login info.
 func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request, loginInfo *gcpLoginInfo) (*logical.Response, error) {
-	iamClient, err := b.IAM(ctx, req.Storage)
+	httpC, err := b.httpClient(ctx, req.Storage)
+	if err != nil {
+		return nil, err
+	}
+
+	iamClient, err := iam.New(httpC)
 	if err != nil {
 		return logical.ErrorResponse(fmt.Sprintf(clientErrorTemplate, "IAM", err)), nil
 	}
@@ -348,6 +360,18 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 			},
 		},
 	}
+	if role.AddGroupAliases {
+		httpC, err := b.httpClient(ctx, req.Storage)
+		if err != nil {
+			return nil, err
+		}
+
+		aliases, err := b.groupAliases(httpC, ctx, serviceAccount.ProjectId)
+		if err != nil {
+			return nil, err
+		}
+		resp.Auth.GroupAliases = aliases
+	}
 
 	return resp, nil
 }
@@ -355,7 +379,12 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 // pathIamRenew returns an error if the service account referenced in the auth token metadata cannot renew the
 // auth token for the given role.
 func (b *GcpAuthBackend) pathIamRenew(ctx context.Context, req *logical.Request, roleName string, role *gcpRole) error {
-	iamClient, err := b.IAM(ctx, req.Storage)
+	httpC, err := b.httpClient(ctx, req.Storage)
+	if err != nil {
+		return err
+	}
+
+	iamClient, err := iam.New(httpC)
 	if err != nil {
 		return fmt.Errorf(clientErrorTemplate, "IAM", err)
 	}
@@ -427,9 +456,19 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	}
 
 	// Verify instance exists.
-	gceClient, err := b.GCE(ctx, req.Storage)
+	httpC, err := b.httpClient(ctx, req.Storage)
 	if err != nil {
-		return logical.ErrorResponse(fmt.Sprintf(clientErrorTemplate, "GCE", err)), nil
+		return nil, err
+	}
+
+	iamClient, err := iam.New(httpC)
+	if err != nil {
+		return nil, fmt.Errorf(clientErrorTemplate, "IAM", err)
+	}
+
+	gceClient, err := compute.New(httpC)
+	if err != nil {
+		return nil, fmt.Errorf(clientErrorTemplate, "GCE", err)
 	}
 
 	instance, err := metadata.GetVerifiedInstance(gceClient)
@@ -453,11 +492,6 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		}, nil
 	}
 
-	iamClient, err := b.IAM(ctx, req.Storage)
-	if err != nil {
-		return logical.ErrorResponse(fmt.Sprintf(clientErrorTemplate, "IAM", err)), nil
-	}
-
 	serviceAccount, err := gcputil.ServiceAccount(iamClient, &gcputil.ServiceAccountId{
 		Project:   "-",
 		EmailOrId: loginInfo.EmailOrId,
@@ -475,9 +509,6 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 			Alias: &logical.Alias{
 				Name: fmt.Sprintf("gce-%s", strconv.FormatUint(instance.Id, 10)),
 			},
-			GroupAliases: []*logical.Alias{
-				{Name: fmt.Sprintf("project-%s", metadata.ProjectId)},
-			},
 			Policies:    role.Policies,
 			Metadata:    authMetadata(loginInfo, serviceAccount),
 			DisplayName: instance.Name,
@@ -489,7 +520,44 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		},
 	}
 
+	if role.AddGroupAliases {
+		httpC, err := b.httpClient(ctx, req.Storage)
+		if err != nil {
+			return nil, err
+		}
+
+		aliases, err := b.groupAliases(httpC, ctx, metadata.ProjectId)
+		if err != nil {
+			return nil, err
+		}
+		resp.Auth.GroupAliases = aliases
+	}
 	return resp, nil
+}
+
+func (b *GcpAuthBackend) groupAliases(httpClient *http.Client, ctx context.Context, projectId string) ([]*logical.Alias, error) {
+	crmProjects, err := cloudresourcemanager.New(httpClient)
+	if err != nil {
+		return nil, err
+	}
+	ancestry, err := crmProjects.Projects.
+		GetAncestry(projectId, &cloudresourcemanager.GetAncestryRequest{}).
+		Context(ctx).
+		Do()
+	if err != nil {
+		return nil, err
+	}
+
+	aliases := make([]*logical.Alias, len(ancestry.Ancestor)+1)
+	aliases[0] = &logical.Alias{
+		Name: fmt.Sprintf("project-%s", projectId),
+	}
+	for i, parent := range ancestry.Ancestor {
+		aliases[i+1] = &logical.Alias{
+			Name: fmt.Sprintf("%s-%s", parent.ResourceId.Type, parent.ResourceId.Id),
+		}
+	}
+	return aliases, nil
 }
 
 func authMetadata(loginInfo *gcpLoginInfo, serviceAccount *iam.ServiceAccount) map[string]string {
@@ -515,7 +583,12 @@ func authMetadata(loginInfo *gcpLoginInfo, serviceAccount *iam.ServiceAccount) m
 // pathGceRenew returns an error if the instance referenced in the auth token metadata cannot renew the
 // auth token for the given role.
 func (b *GcpAuthBackend) pathGceRenew(ctx context.Context, req *logical.Request, roleName string, role *gcpRole) error {
-	gceClient, err := b.GCE(ctx, req.Storage)
+	httpC, err := b.httpClient(ctx, req.Storage)
+	if err != nil {
+		return err
+	}
+
+	gceClient, err := compute.New(httpC)
 	if err != nil {
 		return fmt.Errorf(clientErrorTemplate, "GCE", err)
 	}
@@ -591,20 +664,25 @@ func getInstanceMetadataFromAuth(authMetadata map[string]string) (*gcputil.GCEId
 // authorizeGCEInstance returns an error if the given GCE instance is not
 // authorized for the role.
 func (b *GcpAuthBackend) authorizeGCEInstance(ctx context.Context, instance *compute.Instance, s logical.Storage, role *gcpRole, serviceAccountId string) error {
-	computeSvc, err := b.GCE(ctx, s)
+	httpC, err := b.httpClient(ctx, s)
 	if err != nil {
 		return err
 	}
 
-	iamSvc, err := b.IAM(ctx, s)
+	iamClient, err := iam.New(httpC)
 	if err != nil {
-		return err
+		return fmt.Errorf(clientErrorTemplate, "IAM", err)
+	}
+
+	gceClient, err := compute.New(httpC)
+	if err != nil {
+		return fmt.Errorf(clientErrorTemplate, "GCE", err)
 	}
 
 	return AuthorizeGCE(ctx, &AuthorizeGCEInput{
 		client: &gcpClient{
-			computeSvc: computeSvc,
-			iamSvc:     iamSvc,
+			computeSvc: gceClient,
+			iamSvc:     iamClient,
 		},
 		serviceAccount: serviceAccountId,
 

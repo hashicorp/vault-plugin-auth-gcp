@@ -23,7 +23,6 @@ const (
 	// Errors
 	errEmptyRoleName           = "role name is required"
 	errEmptyRoleType           = "role type cannot be empty"
-	errEmptyProjectId          = "project id cannot be empty"
 	errEmptyIamServiceAccounts = "IAM role type must have at least one service account"
 
 	errTemplateEditListWrongType   = "role is type '%s', cannot edit attribute '%s' (expected role type: '%s')"
@@ -84,9 +83,13 @@ var baseRoleFieldSchema = map[string]*framework.FieldSchema{
 	If the single value "*" is given, this is assumed to be all service accounts under the role's project. If this
 	is set on a GCE role, the inferred service account from the instance metadata token will be used.`,
 	},
-	"service_accounts": {
-		Type:        framework.TypeCommaStringSlice,
-		Description: `Deprecated, use bound_service_accounts instead.`,
+	"add_group_aliases": {
+		Type:    framework.TypeBool,
+		Default: false,
+		Description: "If true, will add group aliases to auth tokens generated under this role. " +
+			"This will add the full list of ancestors (projects, folders, organizations) " +
+			"for the given entity's project. Requires IAM permission `resourcemanager.projects.get` " +
+			"on this project.",
 	},
 }
 
@@ -131,40 +134,6 @@ var gceOnlyFieldSchema = map[string]*framework.FieldSchema{
 		Description: "Comma-separated list of GCP labels formatted as" +
 			"\"key:value\" strings that must be present on the GCE instance " +
 			"in order to authenticate. This option only applies to \"gce\" roles.",
-	},
-
-	// Deprecated roles
-	"bound_zone": {
-		Type:        framework.TypeString,
-		Description: "Deprecated: use \"bound_zones\" instead.",
-	},
-	"bound_region": {
-		Type:        framework.TypeString,
-		Description: "Deprecated: use \"bound_regions\" instead.",
-	},
-	"bound_instance_group": {
-		Type:        framework.TypeString,
-		Description: "Deprecated: use \"bound_instance_groups\" instead.",
-	},
-}
-
-var deprecatedFieldSchema = map[string]*framework.FieldSchema{
-	// Deprecated roles
-	"project_id": {
-		Type:        framework.TypeString,
-		Description: `The id of the project that authorized instances must belong to for this role.`,
-	},
-	"bound_zone": {
-		Type:        framework.TypeString,
-		Description: "Deprecated: use \"bound_zones\" instead.",
-	},
-	"bound_region": {
-		Type:        framework.TypeString,
-		Description: "Deprecated: use \"bound_regions\" instead.",
-	},
-	"bound_instance_group": {
-		Type:        framework.TypeString,
-		Description: "Deprecated: use \"bound_instance_groups\" instead.",
 	},
 }
 
@@ -332,6 +301,7 @@ func (b *GcpAuthBackend) pathRoleRead(ctx context.Context, req *logical.Request,
 	if len(role.BoundProjects) > 0 {
 		resp["bound_projects"] = role.BoundProjects
 	}
+	resp["add_group_aliases"] = role.AddGroupAliases
 
 	switch role.RoleType {
 	case iamRoleType:
@@ -647,6 +617,8 @@ type gcpRole struct {
 	// BoundLabels that instances must currently have set in order to login under this role.
 	BoundLabels map[string]string `json:"bound_labels,omitempty"`
 
+	AddGroupAliases bool `json:"add_group_aliases,omitempty"`
+
 	// Deprecated fields
 	// TODO: Remove in 0.5.0+
 	ProjectId          string `json:"project_id,omitempty"`
@@ -757,6 +729,12 @@ func (role *gcpRole) updateRole(sys logical.SystemView, op logical.Operation, da
 	if len(role.BoundProjects) > 0 {
 		role.BoundProjects = strutil.TrimStrings(role.BoundProjects)
 		role.BoundProjects = strutil.RemoveDuplicates(role.BoundProjects, false)
+	}
+
+	// Update bound GCP projects.
+	addGroupAliases, ok := data.GetOk("add_group_aliases")
+	if ok {
+		role.AddGroupAliases = addGroupAliases.(bool)
 	}
 
 	// Update fields specific to this type
@@ -997,4 +975,28 @@ func checkInvalidRoleTypeArgs(data *framework.FieldData, invalidSchema map[strin
 		return fmt.Errorf(errTemplateInvalidRoleTypeArgs, data.Get("type"), strings.Join(invalidArgs, ","))
 	}
 	return nil
+}
+
+// deprecatedFieldSchema contains the deprecated role attributes
+var deprecatedFieldSchema = map[string]*framework.FieldSchema{
+	"service_accounts": {
+		Type:        framework.TypeCommaStringSlice,
+		Description: `Deprecated, use bound_service_accounts instead.`,
+	},
+	"project_id": {
+		Type:        framework.TypeString,
+		Description: `The id of the project that authorized instances must belong to for this role.`,
+	},
+	"bound_zone": {
+		Type:        framework.TypeString,
+		Description: "Deprecated: use \"bound_zones\" instead.",
+	},
+	"bound_region": {
+		Type:        framework.TypeString,
+		Description: "Deprecated: use \"bound_regions\" instead.",
+	},
+	"bound_instance_group": {
+		Type:        framework.TypeString,
+		Description: "Deprecated: use \"bound_instance_groups\" instead.",
+	},
 }
