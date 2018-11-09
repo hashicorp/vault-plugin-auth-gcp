@@ -19,7 +19,6 @@ import (
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
 	"gopkg.in/square/go-jose.v2/jwt"
-	"net/http"
 )
 
 const (
@@ -201,29 +200,23 @@ func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebTo
 
 	switch role.RoleType {
 	case iamRoleType:
-		httpC, err := b.httpClient(ctx, s)
+		clients, err := b.newGcpClients(ctx, s)
 		if err != nil {
 			return nil, err
 		}
-
-		iamClient, err := iam.New(httpC)
-		if err != nil {
-			return nil, fmt.Errorf(clientErrorTemplate, "IAM", err)
-		}
-
 		serviceAccountId, err := parseServiceAccountFromIAMJWT(rawToken)
 		if err != nil {
 			return nil, err
 		}
 
-		accountKey, err := gcputil.ServiceAccountKey(iamClient, &gcputil.ServiceAccountKeyId{
+		accountKey, err := gcputil.ServiceAccountKey(clients.iam, &gcputil.ServiceAccountKeyId{
 			Project:   "-",
 			EmailOrId: serviceAccountId,
 			Key:       keyId,
 		})
 		if err != nil {
 			// Attempt to get a normal Google Oauth cert in case of GCE inferrence.
-			key, err := b.getGoogleOauthCert(ctx, keyId, s)
+			key, err := gcputil.OAuth2RSAPublicKey(keyId, "")
 			if err != nil {
 				return nil, errwrap.Wrapf(
 					fmt.Sprintf("could not find service account key or Google Oauth cert with given 'kid' id %s: {{err}}", keyId),
@@ -233,7 +226,7 @@ func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebTo
 		}
 		return gcputil.PublicKey(accountKey.PublicKeyData)
 	case gceRoleType:
-		return b.getGoogleOauthCert(ctx, keyId, s)
+		return gcputil.OAuth2RSAPublicKey(keyId, "")
 	default:
 		return nil, fmt.Errorf("unexpected role type %s", role.RoleType)
 	}
@@ -252,17 +245,8 @@ func parseServiceAccountFromIAMJWT(signedJwt string) (string, error) {
 	return accountId, nil
 }
 
-func (b *GcpAuthBackend) getGoogleOauthCert(ctx context.Context, keyId string, s logical.Storage) (interface{}, error) {
-	var certsEndpoint string
-	conf, err := b.config(ctx, s)
-	if err != nil {
-		return nil, fmt.Errorf("could not read config for backend: %v", err)
-	}
-	if conf != nil {
-		certsEndpoint = conf.GoogleCertsEndpoint
-	}
-
-	key, err := gcputil.OAuth2RSAPublicKey(keyId, certsEndpoint)
+func (b *GcpAuthBackend) getGoogleOauthCert(ctx context.Context, keyId string) (interface{}, error) {
+	key, err := gcputil.OAuth2RSAPublicKey(keyId, "")
 	if err != nil {
 		return nil, err
 	}
@@ -295,14 +279,9 @@ func validateBaseJWTClaims(c *jwt.Claims, roleName string) error {
 // ---- IAM login domain ----
 // pathIamLogin attempts a login operation using the parsed login info.
 func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request, loginInfo *gcpLoginInfo) (*logical.Response, error) {
-	httpC, err := b.httpClient(ctx, req.Storage)
+	clients, err := b.newGcpClients(ctx, req.Storage)
 	if err != nil {
 		return nil, err
-	}
-
-	iamClient, err := iam.New(httpC)
-	if err != nil {
-		return logical.ErrorResponse(fmt.Sprintf(clientErrorTemplate, "IAM", err)), nil
 	}
 
 	role := loginInfo.Role
@@ -321,7 +300,7 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 		Project:   "-",
 		EmailOrId: loginInfo.EmailOrId,
 	}
-	serviceAccount, err := gcputil.ServiceAccount(iamClient, accountId)
+	serviceAccount, err := gcputil.ServiceAccount(clients.iam, accountId)
 	if err != nil {
 		return nil, err
 	}
@@ -361,12 +340,12 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 		},
 	}
 	if role.AddGroupAliases {
-		httpC, err := b.httpClient(ctx, req.Storage)
+		clients, err := b.newGcpClients(ctx, req.Storage)
 		if err != nil {
 			return nil, err
 		}
 
-		aliases, err := b.groupAliases(httpC, ctx, serviceAccount.ProjectId)
+		aliases, err := b.groupAliases(clients.resourceManager, ctx, serviceAccount.ProjectId)
 		if err != nil {
 			return nil, err
 		}
@@ -379,14 +358,9 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 // pathIamRenew returns an error if the service account referenced in the auth token metadata cannot renew the
 // auth token for the given role.
 func (b *GcpAuthBackend) pathIamRenew(ctx context.Context, req *logical.Request, roleName string, role *gcpRole) error {
-	httpC, err := b.httpClient(ctx, req.Storage)
+	clients, err := b.newGcpClients(ctx, req.Storage)
 	if err != nil {
 		return err
-	}
-
-	iamClient, err := iam.New(httpC)
-	if err != nil {
-		return fmt.Errorf(clientErrorTemplate, "IAM", err)
 	}
 
 	serviceAccountId, ok := req.Auth.Metadata["service_account_id"]
@@ -400,7 +374,7 @@ func (b *GcpAuthBackend) pathIamRenew(ctx context.Context, req *logical.Request,
 		project = "-"
 	}
 
-	serviceAccount, err := gcputil.ServiceAccount(iamClient, &gcputil.ServiceAccountId{
+	serviceAccount, err := gcputil.ServiceAccount(clients.iam, &gcputil.ServiceAccountId{
 		Project:   project,
 		EmailOrId: serviceAccountId,
 	})
@@ -456,22 +430,12 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	}
 
 	// Verify instance exists.
-	httpC, err := b.httpClient(ctx, req.Storage)
+	clients, err := b.newGcpClients(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
 
-	iamClient, err := iam.New(httpC)
-	if err != nil {
-		return nil, fmt.Errorf(clientErrorTemplate, "IAM", err)
-	}
-
-	gceClient, err := compute.New(httpC)
-	if err != nil {
-		return nil, fmt.Errorf(clientErrorTemplate, "GCE", err)
-	}
-
-	instance, err := metadata.GetVerifiedInstance(gceClient)
+	instance, err := metadata.GetVerifiedInstance(clients.gce)
 	if err != nil {
 		return logical.ErrorResponse(fmt.Sprintf(
 			"error when attempting to find instance (project %s, zone: %s, instance: %s) :%v",
@@ -492,7 +456,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		}, nil
 	}
 
-	serviceAccount, err := gcputil.ServiceAccount(iamClient, &gcputil.ServiceAccountId{
+	serviceAccount, err := gcputil.ServiceAccount(clients.iam, &gcputil.ServiceAccountId{
 		Project:   "-",
 		EmailOrId: loginInfo.EmailOrId,
 	})
@@ -521,12 +485,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	}
 
 	if role.AddGroupAliases {
-		httpC, err := b.httpClient(ctx, req.Storage)
-		if err != nil {
-			return nil, err
-		}
-
-		aliases, err := b.groupAliases(httpC, ctx, metadata.ProjectId)
+		aliases, err := b.groupAliases(clients.resourceManager, ctx, metadata.ProjectId)
 		if err != nil {
 			return nil, err
 		}
@@ -535,12 +494,21 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	return resp, nil
 }
 
-func (b *GcpAuthBackend) groupAliases(httpClient *http.Client, ctx context.Context, projectId string) ([]*logical.Alias, error) {
-	crmProjects, err := cloudresourcemanager.New(httpClient)
-	if err != nil {
-		return nil, err
-	}
-	ancestry, err := crmProjects.Projects.
+// groupAliases will add group aliases for an authenticating GCP entity
+// starting at project-level and going up the Cloud Resource Manager
+// hierarchy
+//
+// For example, given a project hierarchy of
+// "my-org" --> "my-folder" --> "my-subfolder" --> "my-project",
+// this returns the following group aliases:
+// [
+//   "project-my-project"
+//   "folder-my-subfolder"
+//   "folder-my-project"
+//   "organization-my-org"
+// ]
+func (b *GcpAuthBackend) groupAliases(crmClient *cloudresourcemanager.Service, ctx context.Context, projectId string) ([]*logical.Alias, error) {
+	ancestry, err := crmClient.Projects.
 		GetAncestry(projectId, &cloudresourcemanager.GetAncestryRequest{}).
 		Context(ctx).
 		Do()

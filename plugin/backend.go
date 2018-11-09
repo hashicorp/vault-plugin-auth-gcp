@@ -5,16 +5,18 @@ import (
 	"fmt"
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-cleanhttp"
-	"github.com/hashicorp/go-gcp-common/gcputil"
+	"github.com/hashicorp/vault/helper/useragent"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/jwt"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
 	"net/http"
 )
+
+const defaultCloudScope = "https://www.googleapis.com/auth/cloud-platform"
 
 type GcpAuthBackend struct {
 	*framework.Backend
@@ -34,11 +36,7 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 
 func Backend() *GcpAuthBackend {
 	b := &GcpAuthBackend{
-		oauthScopes: []string{
-			iam.CloudPlatformScope,
-			compute.ComputeReadonlyScope,
-			cloudresourcemanager.CloudPlatformScope,
-		},
+		oauthScopes: []string{defaultCloudScope},
 	}
 
 	b.Backend = &framework.Backend{
@@ -67,34 +65,74 @@ func Backend() *GcpAuthBackend {
 func (b *GcpAuthBackend) httpClient(ctx context.Context, s logical.Storage) (*http.Client, error) {
 	config, err := b.config(ctx, s)
 	if err != nil {
-		return nil, fmt.Errorf("credentials were not configured and fallback to application default credentials failed: %v", err)
+		return nil, errwrap.Wrapf(
+			"could not check to see if GCP credentials were configured, error"+
+				"reading config: {{err}}", err)
 	}
 
-	var httpClient *http.Client
-	if config == nil || config.Credentials == nil {
-		_, tknSrc, err := gcputil.FindCredentials("", ctx, b.oauthScopes...)
-		if err != nil {
-			return nil, errwrap.Wrapf("credentials were not configured, could not obtain application default credentials: {{err}}", err)
-		}
+	credsBytes, err := config.formatAndMarshalCredentials()
+	if err != nil {
+		return nil, errwrap.Wrapf(
+			"unable to marshal given GCP credential JSON: {{err}}", err)
+	}
 
-		cleanCtx := context.WithValue(ctx, oauth2.HTTPClient, cleanhttp.DefaultClient())
-		httpClient = oauth2.NewClient(cleanCtx, tknSrc)
+	var creds *google.Credentials
+	if config != nil && config.Credentials != nil {
+		creds, err = google.CredentialsFromJSON(ctx, credsBytes, b.oauthScopes...)
+		if err != nil {
+			return nil, errwrap.Wrapf("failed to parse credentials: {{err}}", err)
+		}
 	} else {
-		conf := jwt.Config{
-			Email:      config.Credentials.ClientEmail,
-			PrivateKey: []byte(config.Credentials.PrivateKey),
-			Scopes:     b.oauthScopes,
-			TokenURL:   "https://accounts.google.com/o/oauth2/token",
-		}
-		ctx := context.WithValue(ctx, oauth2.HTTPClient, cleanhttp.DefaultClient())
-		client := conf.Client(ctx)
-		return client, nil
-		httpClient, err = gcputil.GetHttpClient(config.Credentials, b.oauthScopes...)
+		creds, err = google.FindDefaultCredentials(ctx, b.oauthScopes...)
 		if err != nil {
-			return nil, errwrap.Wrapf("could not create HTTP client for given config credentials: {{err}}", err)
+			return nil, errwrap.Wrapf(
+				"credentials were not configured and Vault could not find "+
+					"Application Default Credentials (ADC). Either set ADC or "+
+					"configure this auth backend at auth/$MOUNT/config "+
+					"(default auth/gcp/config). Error: {{err}}", err)
 		}
 	}
-	return httpClient, nil
+
+	cleanCtx := context.WithValue(ctx, oauth2.HTTPClient, cleanhttp.DefaultClient())
+	client := oauth2.NewClient(cleanCtx, creds.TokenSource)
+	return client, nil
+}
+
+func (b *GcpAuthBackend) newGcpClients(ctx context.Context, s logical.Storage) (*clientHandles, error) {
+	httpC, err := b.httpClient(ctx, s)
+	if err != nil {
+		return nil, errwrap.Wrapf("could not obtain HTTP client: {{err}}", err)
+	}
+
+	iamClient, err := iam.New(httpC)
+	if err != nil {
+		return nil, fmt.Errorf(clientErrorTemplate, "IAM", err)
+	}
+	iamClient.UserAgent = useragent.String()
+
+	gceClient, err := compute.New(httpC)
+	if err != nil {
+		return nil, fmt.Errorf(clientErrorTemplate, "Compute", err)
+	}
+	iamClient.UserAgent = useragent.String()
+
+	crmClient, err := cloudresourcemanager.New(httpC)
+	if err != nil {
+		return nil, fmt.Errorf(clientErrorTemplate, "Cloud Resource Manager", err)
+	}
+	crmClient.UserAgent = useragent.String()
+
+	return &clientHandles{
+		iam:             iamClient,
+		gce:             gceClient,
+		resourceManager: crmClient,
+	}, nil
+}
+
+type clientHandles struct {
+	iam             *iam.Service
+	gce             *compute.Service
+	resourceManager *cloudresourcemanager.Service
 }
 
 const backendHelp = `

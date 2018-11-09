@@ -981,11 +981,11 @@ func checkInvalidRoleTypeArgs(data *framework.FieldData, invalidSchema map[strin
 var deprecatedFieldSchema = map[string]*framework.FieldSchema{
 	"service_accounts": {
 		Type:        framework.TypeCommaStringSlice,
-		Description: `Deprecated, use bound_service_accounts instead.`,
+		Description: "Deprecated: use \"bound_service_accounts\" instead.",
 	},
 	"project_id": {
 		Type:        framework.TypeString,
-		Description: `The id of the project that authorized instances must belong to for this role.`,
+		Description: "Deprecated: use \"bound_projects\" instead",
 	},
 	"bound_zone": {
 		Type:        framework.TypeString,
