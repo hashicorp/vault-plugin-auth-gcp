@@ -34,12 +34,14 @@ func TestLoginIam(t *testing.T) {
 	})
 
 	roleName := "testrole"
+	projects := []string{creds.ProjectId, "someproject"}
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
 		"name":                   roleName,
 		"type":                   "iam",
 		"policies":               "dev, prod",
-		"project_id":             creds.ProjectId,
+		"bound_projects":         strings.Join(projects, ","),
 		"bound_service_accounts": creds.ClientEmail,
+		"add_group_aliases":      true,
 		"ttl":                    1800,
 		"max_ttl":                1800,
 	})
@@ -59,12 +61,13 @@ func TestLoginIam(t *testing.T) {
 	}
 	role := &gcpRole{
 		RoleType:             "iam",
-		ProjectId:            creds.ProjectId,
+		BoundProjects:        projects,
 		Policies:             []string{"default", "dev", "prod"},
 		TTL:                  time.Duration(1800) * time.Second,
 		MaxTTL:               time.Duration(1800) * time.Second,
 		Period:               time.Duration(0),
 		BoundServiceAccounts: []string{creds.ClientEmail},
+		AddGroupAliases:      true,
 	}
 	testLoginIam(t, b, reqStorage, loginData, metadata, role, creds.ClientId)
 }
@@ -84,7 +87,7 @@ func TestLoginIamWildcard(t *testing.T) {
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
 		"name":                   roleName,
 		"type":                   "iam",
-		"project_id":             creds.ProjectId,
+		"bound_projects":         creds.ProjectId,
 		"bound_service_accounts": "*",
 	})
 
@@ -103,7 +106,7 @@ func TestLoginIamWildcard(t *testing.T) {
 	}
 	role := &gcpRole{
 		RoleType:             "iam",
-		ProjectId:            creds.ProjectId,
+		BoundProjects:        []string{creds.ProjectId},
 		Policies:             []string{"default"},
 		TTL:                  time.Duration(0),
 		MaxTTL:               time.Duration(0),
@@ -130,7 +133,7 @@ func TestLoginIam_UnauthorizedRole(t *testing.T) {
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
 		"type":                   "iam",
 		"name":                   roleName,
-		"project_id":             creds.ProjectId,
+		"bound_projects":         strings.Join([]string{creds.ProjectId, "arandomprojectId"}, ","),
 		"bound_service_accounts": "notarealserviceaccount",
 	})
 
@@ -189,7 +192,7 @@ func TestLoginIam_ExpiredJwt(t *testing.T) {
 		"name":                   roleName,
 		"type":                   "iam",
 		"policies":               "dev, prod",
-		"project_id":             creds.ProjectId,
+		"bound_projects":         creds.ProjectId,
 		"bound_service_accounts": creds.ClientEmail,
 	})
 
@@ -219,7 +222,7 @@ func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
 		"name":                   roleName,
 		"type":                   "iam",
 		"policies":               "dev, prod",
-		"project_id":             creds.ProjectId,
+		"bound_projects":         creds.ProjectId,
 		"bound_service_accounts": creds.ClientEmail,
 		"max_jwt_exp":            maxJwtExpSeconds,
 	})
@@ -240,15 +243,44 @@ func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
 		"service_account_id":    creds.ClientId,
 		"service_account_email": creds.ClientEmail,
 		"role":                  roleName,
+		"project_id":            creds.ProjectId,
 	}
 	role := &gcpRole{
 		RoleType:             "iam",
-		ProjectId:            creds.ProjectId,
+		BoundProjects:        []string{creds.ProjectId},
 		Policies:             []string{"default", "dev", "prod"},
 		BoundServiceAccounts: []string{creds.ClientEmail},
 	}
 	testLoginIam(t, b, reqStorage, loginData, metadata, role, creds.ClientId)
 
+}
+
+// TestLoginIam_BoundProject checks that we return an error response for projects outside the allowed bound projects.
+func TestLoginIam_ErrorOnBoundProject(t *testing.T) {
+	t.Parallel()
+
+	b, reqStorage := getTestBackend(t)
+
+	creds := getTestCredentials(t)
+
+	roleName := "testrole"
+	roleProject := "a-test-project"
+	testRoleCreate(t, b, reqStorage, map[string]interface{}{
+		"name":                   roleName,
+		"type":                   "iam",
+		"policies":               "dev, prod",
+		"bound_projects":         roleProject,
+		"bound_service_accounts": creds.ClientEmail,
+	})
+
+	expDelta := time.Duration(defaultIamMaxJwtExpMinutes-5) * time.Minute
+	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
+	loginData := map[string]interface{}{
+		"role": roleName,
+		"jwt":  jwtVal,
+	}
+
+	testLoginError(t, b, reqStorage, loginData, []string{"not in bound projects", roleProject})
 }
 
 func testLoginIam(
@@ -297,6 +329,28 @@ func testLoginIam(
 	}
 	if resp.Auth.LeaseOptions.TTL != role.TTL {
 		t.Fatalf("lease option TTL mismatch, expected %v but got %v", role.TTL, resp.Auth.LeaseOptions.TTL)
+	}
+
+	if role.AddGroupAliases {
+		if len(resp.Auth.GroupAliases) == 0 {
+			t.Fatalf("expected group aliases in auth response")
+		}
+		projectId, ok := resp.Auth.Metadata["project_id"]
+		if !ok {
+			t.Fatalf("expected project in auth metadata")
+		}
+		expectedGroup := fmt.Sprintf("project-%s", projectId)
+
+		found := false
+		for _, groupAlias := range resp.Auth.GroupAliases {
+			if groupAlias.Name == expectedGroup {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected group alias in auth metadata")
+		}
 	}
 }
 

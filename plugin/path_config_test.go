@@ -47,12 +47,10 @@ func TestConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
-		"credentials":           credJson,
-		"google_certs_endpoint": "https://www.fakecredsendpoint.com/",
+		"credentials": credJson,
 	})
 
 	expected["project_id"] = "newProjectId123"
-	expected["google_certs_endpoint"] = "https://www.fakecredsendpoint.com/"
 	testConfigRead(t, b, reqStorage, expected)
 }
 
