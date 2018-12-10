@@ -140,7 +140,7 @@ func AuthorizeGCE(ctx context.Context, i *AuthorizeGCEInput) error {
 	// Verify instance is running under one of the allowed service accounts.
 	if len(i.boundServiceAccounts) > 0 {
 		// ServiceAccount wraps a call to the GCP IAM API to get a service account.
-		name := fmt.Sprintf("projects/%s/serviceAccounts/%s", i.project, i.serviceAccount)
+		name := fmt.Sprintf("projects/-/serviceAccounts/%s", i.serviceAccount)
 
 		saId, saEmail, err := i.client.ServiceAccount(ctx, name)
 		if err != nil {
