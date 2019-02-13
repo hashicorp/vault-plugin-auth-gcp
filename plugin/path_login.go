@@ -215,11 +215,12 @@ func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebTo
 			Key:       keyId,
 		})
 		if err != nil {
+			saErr := err
 			// Attempt to get a normal Google Oauth cert in case of GCE inferrence.
-			key, err2 := gcputil.OAuth2RSAPublicKey(keyId, "")
-			if err2 != nil {
+			key, err := gcputil.OAuth2RSAPublicKey(keyId, "")
+			if err != nil {
 				return nil, errwrap.Wrapf(
-					fmt.Sprintf("%s or could not find Google Oauth cert with given 'kid' id %s: {{err}}", err.Error(), keyId),
+					fmt.Sprintf("%s or could not find Google Oauth cert with given 'kid' id %s: {{err}}", saErr.Error(), keyId),
 					err)
 			}
 			return key, nil
