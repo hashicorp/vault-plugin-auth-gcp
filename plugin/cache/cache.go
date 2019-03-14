@@ -46,6 +46,15 @@ func (c *Cache) Fetch(name string, t time.Duration, f Func) (interface{}, error)
 	// Either no cached value exists, or the cached item has exceeded its lifetime.
 	c.lock.Lock()
 
+	// Go doesn't have the ability to "upgrade" a lock, so it's possible that
+	// another concurrent invocation sized the lock between our RLock and Lock,
+	// thus we have to check again.
+	e, ok = c.data[name]
+	if ok && e.result != nil && time.Now().UTC().Sub(e.created) < e.lifetime {
+		c.lock.Unlock()
+		return e.result, nil
+	}
+
 	result, err := f()
 	if err != nil {
 		c.lock.Unlock()
