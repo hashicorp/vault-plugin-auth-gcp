@@ -525,12 +525,9 @@ func (b *GcpAuthBackend) groupAliases(crmClient *cloudresourcemanager.Service, c
 		return nil, err
 	}
 
-	aliases := make([]*logical.Alias, len(ancestry.Ancestor)+1)
-	aliases[0] = &logical.Alias{
-		Name: fmt.Sprintf("project-%s", projectId),
-	}
+	aliases := make([]*logical.Alias, len(ancestry.Ancestor))
 	for i, parent := range ancestry.Ancestor {
-		aliases[i+1] = &logical.Alias{
+		aliases[i] = &logical.Alias{
 			Name: fmt.Sprintf("%s-%s", parent.ResourceId.Type, parent.ResourceId.Id),
 		}
 	}
