@@ -117,14 +117,60 @@ data behind. Therefore, please run the acceptance tests at your own risk.
 At the very least, we recommend running them in their own private
 account for whatever backend you're testing.
 
-To run the acceptance tests, you will need a GCP IAM service account with
-project.viewer and serviceaccount.admin permission. You can generate one from
-the Google Cloud Console. Save this file locally and export its contents as an
-environment variable:
+To run the acceptance tests, you will need a GCP IAM service account with the
+permissions listed below. The following steps assume you have
+[gcloud][install-gcloud] installed.
 
-```sh
-$ export GOOGLE_CREDENTIALS="$(cat my-credentials.sh)"
-```
+1. Save the name of your project as an environment variable for reference:
+
+    ```text
+    $ export GOOGLE_CLOUD_PROJECT=my-project # replace with your project ID
+    ```
+
+1. Enable the IAM service on the project:
+
+    ```text
+    $ gcloud services enable --project "${GOOGLE_CLOUD_PROJECT}" \
+        cloudresourcemanager.googleapis.com \
+        iam.googleapis.com
+    ```
+
+1. Create the service account:
+
+    ```text
+    $ gcloud iam service-accounts create vault-tester \
+        --display-name vault-tester \
+        --project "${GOOGLE_CLOUD_PROJECT}"
+    ```
+
+1. Grant `project.viewer` and `serviceaccount.admin` permissions:
+
+    ```text
+    $ gcloud projects add-iam-policy-binding "${GOOGLE_CLOUD_PROJECT}" \
+        --member "serviceAccount:vault-tester@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" \
+        --role "roles/viewer"
+
+    $ gcloud projects add-iam-policy-binding "${GOOGLE_CLOUD_PROJECT}" \
+        --member "serviceAccount:vault-tester@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" \
+        --role "roles/iam.serviceAccountKeyAdmin"
+
+    $ gcloud projects add-iam-policy-binding "${GOOGLE_CLOUD_PROJECT}" \
+        --member "serviceAccount:vault-tester@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" \
+        --role "roles/iam.serviceAccountTokenCreator"
+    ```
+
+1. Download the service account key file to local disk:
+
+    ```text
+    $ gcloud iam service-accounts keys create vault-tester.json \
+        --iam-account "vault-tester@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+    ```
+
+1. Export the credentials to an environment variable:
+
+    ```text
+    $ export GOOGLE_CREDENTIALS="$(cat vault-tester.json)"
+    ```
 
 To run the acceptance tests, invoke `make test`:
 
@@ -137,3 +183,5 @@ You can also specify a `TESTARGS` variable to filter tests like so:
 ```sh
 $ make test TESTARGS='--run=TestConfig'
 ```
+
+[install-gcloud]: https://cloud.google.com/sdk
