@@ -37,7 +37,7 @@ func (c *Cache) Fetch(name string, t time.Duration, f Func) (interface{}, error)
 	// valid.
 	c.lock.RLock()
 	e, ok := c.data[name]
-	if ok && e.result != nil && time.Now().UTC().Sub(e.created) < e.lifetime {
+	if ok && e.result != nil && time.Now().Sub(e.created) < e.lifetime {
 		c.lock.RUnlock()
 		return e.result, nil
 	}
@@ -50,7 +50,7 @@ func (c *Cache) Fetch(name string, t time.Duration, f Func) (interface{}, error)
 	// another concurrent invocation sized the lock between our RLock and Lock,
 	// thus we have to check again.
 	e, ok = c.data[name]
-	if ok && e.result != nil && time.Now().UTC().Sub(e.created) < e.lifetime {
+	if ok && e.result != nil && time.Now().Sub(e.created) < e.lifetime {
 		c.lock.Unlock()
 		return e.result, nil
 	}
@@ -63,7 +63,7 @@ func (c *Cache) Fetch(name string, t time.Duration, f Func) (interface{}, error)
 
 	c.data[name] = &cacheEntry{
 		result:   result,
-		created:  time.Now().UTC(),
+		created:  time.Now(),
 		lifetime: t,
 	}
 
