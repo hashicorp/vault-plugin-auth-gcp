@@ -39,7 +39,7 @@ var expectedDefaults = map[string]interface{}{
 func TestRoleUpdateIam(t *testing.T) {
 	t.Parallel()
 
-	b, reqStorage := getTestBackend(t)
+	b, reqStorage := testBackend(t)
 
 	serviceAccounts := []string{"dev1@project-123456.iam.gserviceaccounts.com", "aserviceaccountid"}
 
@@ -86,7 +86,7 @@ func TestRoleUpdateIam(t *testing.T) {
 func TestRoleIam_Wildcard(t *testing.T) {
 	t.Parallel()
 
-	b, reqStorage := getTestBackend(t)
+	b, reqStorage := testBackend(t)
 
 	serviceAccounts := []string{"*", "dev1@project-123456.iam.gserviceaccounts.com", "aserviceaccountid"}
 
@@ -116,7 +116,7 @@ func TestRoleIam_Wildcard(t *testing.T) {
 func TestRoleIam_EditServiceAccounts(t *testing.T) {
 	t.Parallel()
 
-	b, reqStorage := getTestBackend(t)
+	b, reqStorage := testBackend(t)
 
 	roleName, projectId := testRoleAndProject(t)
 	projects := []string{projectId, "another-project"}
@@ -170,7 +170,7 @@ func TestRoleIam_EditServiceAccounts(t *testing.T) {
 func TestRoleIam_MissingRequiredArgs(t *testing.T) {
 	t.Parallel()
 
-	b, reqStorage := getTestBackend(t)
+	b, reqStorage := testBackend(t)
 
 	roleName, _ := testRoleAndProject(t)
 
@@ -190,7 +190,7 @@ func TestRoleIam_MissingRequiredArgs(t *testing.T) {
 func TestRoleIam_HasGceArgs(t *testing.T) {
 	t.Parallel()
 
-	b, reqStorage := getTestBackend(t)
+	b, reqStorage := testBackend(t)
 
 	roleName, projectId := testRoleAndProject(t)
 
@@ -207,7 +207,7 @@ func TestRoleIam_HasGceArgs(t *testing.T) {
 func TestRoleGce(t *testing.T) {
 	t.Parallel()
 
-	b, reqStorage := getTestBackend(t)
+	b, reqStorage := testBackend(t)
 
 	roleName, projectId := testRoleAndProject(t)
 
@@ -259,7 +259,7 @@ func TestRoleGce(t *testing.T) {
 func TestRoleGce_EditLabels(t *testing.T) {
 	t.Parallel()
 
-	b, reqStorage := getTestBackend(t)
+	b, reqStorage := testBackend(t)
 
 	roleName, projectId := testRoleAndProject(t)
 
@@ -315,7 +315,7 @@ func TestRoleGce_DeprecatedFields(t *testing.T) {
 	t.Run("deprecated_fields_upgraded", func(t *testing.T) {
 		t.Parallel()
 
-		b, storage := getTestBackend(t)
+		b, storage := testBackend(t)
 
 		roleName, projectId := testRoleAndProject(t)
 
@@ -343,7 +343,7 @@ func TestRoleGce_DeprecatedFields(t *testing.T) {
 	t.Run("existing_storage_upgraded", func(t *testing.T) {
 		t.Parallel()
 
-		b, storage := getTestBackend(t)
+		b, storage := testBackend(t)
 
 		roleName, projectId := testRoleAndProject(t)
 
@@ -402,7 +402,7 @@ func TestRoleGce_DeprecatedFields(t *testing.T) {
 func TestRole_MissingRequiredArgs(t *testing.T) {
 	t.Parallel()
 
-	b, reqStorage := getTestBackend(t)
+	b, reqStorage := testBackend(t)
 
 	roleName, projectId := testRoleAndProject(t)
 
@@ -421,7 +421,7 @@ func TestRole_MissingRequiredArgs(t *testing.T) {
 }
 
 func TestRole_InvalidRoleType(t *testing.T) {
-	b, reqStorage := getTestBackend(t)
+	b, reqStorage := testBackend(t)
 
 	roleName, projectId := testRoleAndProject(t)
 

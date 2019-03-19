@@ -5,408 +5,282 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/go-gcp-common/gcputil"
-	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/logical"
-	"google.golang.org/api/iam/v1"
-	"gopkg.in/square/go-jose.v2"
+	"github.com/stretchr/testify/assert"
+	jose "gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
-const (
-	googleCredentialsEnv = "GOOGLE_CREDENTIALS"
-)
-
-func TestLoginIam(t *testing.T) {
+func TestLogin_IAM(t *testing.T) {
 	t.Parallel()
 
-	b, reqStorage := getTestBackend(t)
+	b, storage, creds := testBackendWithCreds(t)
+	ctx := context.Background()
 
-	creds := getTestCredentials(t)
-
-	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
-		"credentials": os.Getenv(googleCredentialsEnv),
-	})
-
-	roleName := "testrole"
-	projects := []string{creds.ProjectId, "someproject"}
-	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":                   roleName,
-		"type":                   "iam",
-		"policies":               "dev, prod",
-		"bound_projects":         strings.Join(projects, ","),
-		"bound_service_accounts": creds.ClientEmail,
-		"add_group_aliases":      true,
-		"ttl":                    1800,
-		"max_ttl":                1800,
-	})
-
-	// Have token expire within 5 minutes of max JWT exp
-	expDelta := time.Duration(defaultIamMaxJwtExpMinutes-5) * time.Minute
-	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
-	loginData := map[string]interface{}{
-		"role": roleName,
-		"jwt":  jwtVal,
-	}
-
-	metadata := map[string]string{
-		"service_account_id":    creds.ClientId,
-		"service_account_email": creds.ClientEmail,
-		"role":                  roleName,
-	}
-	role := &gcpRole{
-		RoleType:             "iam",
-		BoundProjects:        projects,
-		Policies:             []string{"default", "dev", "prod"},
-		TTL:                  time.Duration(1800) * time.Second,
-		MaxTTL:               time.Duration(1800) * time.Second,
-		Period:               time.Duration(0),
-		BoundServiceAccounts: []string{creds.ClientEmail},
-		AddGroupAliases:      true,
-	}
-	testLoginIam(t, b, reqStorage, loginData, metadata, role, creds.ClientId)
-}
-
-func TestLoginIamWildcard(t *testing.T) {
-	t.Parallel()
-
-	b, reqStorage := getTestBackend(t)
-
-	creds := getTestCredentials(t)
-
-	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
-		"credentials": os.Getenv(googleCredentialsEnv),
-	})
-
-	roleName := "testrole"
-	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":                   roleName,
-		"type":                   "iam",
-		"bound_projects":         creds.ProjectId,
-		"bound_service_accounts": "*",
-	})
-
-	// Have token expire within 5 minutes of max JWT exp
-	expDelta := time.Duration(defaultIamMaxJwtExpMinutes-5) * time.Minute
-	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
-	loginData := map[string]interface{}{
-		"role": roleName,
-		"jwt":  jwtVal,
-	}
-
-	metadata := map[string]string{
-		"service_account_id":    creds.ClientId,
-		"service_account_email": creds.ClientEmail,
-		"role":                  roleName,
-	}
-	role := &gcpRole{
-		RoleType:             "iam",
-		BoundProjects:        []string{creds.ProjectId},
-		Policies:             []string{"default"},
-		TTL:                  time.Duration(0),
-		MaxTTL:               time.Duration(0),
-		Period:               time.Duration(0),
-		BoundServiceAccounts: []string{creds.ClientEmail},
-	}
-	testLoginIam(t, b, reqStorage, loginData, metadata, role, creds.ClientId)
-}
-
-// TestLoginIam_UnauthorizedRole checks that we return an error response
-// if the user attempts to login against a role it is not authorized for.
-func TestLoginIam_UnauthorizedRole(t *testing.T) {
-	t.Parallel()
-
-	b, reqStorage := getTestBackend(t)
-
-	creds := getTestCredentials(t)
-
-	roleName := "testrolenologin"
-
-	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
-		"credentials": os.Getenv(googleCredentialsEnv),
-	})
-	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"type":                   "iam",
-		"name":                   roleName,
-		"bound_projects":         strings.Join([]string{creds.ProjectId, "arandomprojectId"}, ","),
-		"bound_service_accounts": "notarealserviceaccount",
-	})
-
-	// Have token expire within 5 minutes of max JWT exp
-	expDelta := time.Duration(defaultIamMaxJwtExpMinutes-5) * time.Minute
-	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
-	loginData := map[string]interface{}{
-		"role": roleName,
-		"jwt":  jwtVal,
-	}
-
-	testLoginError(t, b, reqStorage, loginData, []string{
-		"service account",
-		creds.ClientEmail,
-		creds.ClientId,
-		"is not authorized for role",
-	})
-}
-
-// TestLoginIam_MissingRole checks that we return an error response if role is not provided.
-func TestLoginIam_MissingRole(t *testing.T) {
-	t.Parallel()
-
-	b, reqStorage := getTestBackend(t)
-
-	creds := getTestCredentials(t)
-
-	roleName := "doesnotexist"
-
-	testConfigUpdate(t, b, reqStorage, map[string]interface{}{
-		"credentials": os.Getenv(googleCredentialsEnv),
-	})
-
-	// Have token expire within 5 minutes of max JWT exp
-	expDelta := time.Duration(defaultIamMaxJwtExpMinutes-5) * time.Minute
-	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
-	loginData := map[string]interface{}{
-		"jwt": jwtVal,
-	}
-	testLoginError(t, b, reqStorage, loginData, []string{"role is required"})
-
-	loginData["role"] = roleName
-	testLoginError(t, b, reqStorage, loginData, []string{roleName, "not found"})
-}
-
-// TestLoginIam_ExpiredJwt checks that we return an error response for an expired JWT.
-func TestLoginIam_ExpiredJwt(t *testing.T) {
-	t.Parallel()
-
-	b, reqStorage := getTestBackend(t)
-
-	creds := getTestCredentials(t)
-
-	roleName := "testrole"
-	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":                   roleName,
-		"type":                   "iam",
-		"policies":               "dev, prod",
-		"bound_projects":         creds.ProjectId,
-		"bound_service_accounts": creds.ClientEmail,
-	})
-
-	// Create fake self-signed JWT to test.
-
-	jwtVal := createExpiredIamToken(t, roleName, creds)
-	loginData := map[string]interface{}{
-		"role": roleName,
-		"jwt":  jwtVal,
-	}
-
-	testLoginError(t, b, reqStorage, loginData, []string{"JWT is expired or does not have proper 'exp' claim"})
-}
-
-// TestLoginIam_JwtExpiresLate checks that we return an error response for an expired JWT.
-func TestLoginIam_JwtExpiresTooLate(t *testing.T) {
-	t.Parallel()
-
-	b, reqStorage := getTestBackend(t)
-
-	creds := getTestCredentials(t)
-
-	roleName := "testrole"
-
-	maxJwtExpSeconds := 2400
-	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":                   roleName,
-		"type":                   "iam",
-		"policies":               "dev, prod",
-		"bound_projects":         creds.ProjectId,
-		"bound_service_accounts": creds.ClientEmail,
-		"max_jwt_exp":            maxJwtExpSeconds,
-	})
-
-	badExpDelta := time.Duration(maxJwtExpSeconds+1200) * time.Second
-	loginData := map[string]interface{}{
-		"role": roleName,
-		"jwt":  getTestIamToken(t, roleName, creds, badExpDelta),
-	}
-
-	testLoginError(t, b, reqStorage, loginData, []string{
-		fmt.Sprintf("expire within %d seconds", maxJwtExpSeconds),
-	})
-
-	validExpDelta := time.Duration(maxJwtExpSeconds-1200) * time.Second
-	loginData["jwt"] = getTestIamToken(t, roleName, creds, validExpDelta)
-	metadata := map[string]string{
-		"service_account_id":    creds.ClientId,
-		"service_account_email": creds.ClientEmail,
-		"role":                  roleName,
-		"project_id":            creds.ProjectId,
-	}
-	role := &gcpRole{
-		RoleType:             "iam",
-		BoundProjects:        []string{creds.ProjectId},
-		Policies:             []string{"default", "dev", "prod"},
-		BoundServiceAccounts: []string{creds.ClientEmail},
-	}
-	testLoginIam(t, b, reqStorage, loginData, metadata, role, creds.ClientId)
-
-}
-
-// TestLoginIam_BoundProject checks that we return an error response for projects outside the allowed bound projects.
-func TestLoginIam_ErrorOnBoundProject(t *testing.T) {
-	t.Parallel()
-
-	b, reqStorage := getTestBackend(t)
-
-	creds := getTestCredentials(t)
-
-	roleName := "testrole"
-	roleProject := "a-test-project"
-	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name":                   roleName,
-		"type":                   "iam",
-		"policies":               "dev, prod",
-		"bound_projects":         roleProject,
-		"bound_service_accounts": creds.ClientEmail,
-	})
-
-	expDelta := time.Duration(defaultIamMaxJwtExpMinutes-5) * time.Minute
-	jwtVal := getTestIamToken(t, roleName, creds, expDelta)
-	loginData := map[string]interface{}{
-		"role": roleName,
-		"jwt":  jwtVal,
-	}
-
-	testLoginError(t, b, reqStorage, loginData, []string{"not in bound projects", roleProject})
-}
-
-func testLoginIam(
-	t *testing.T, b logical.Backend, s logical.Storage,
-	d map[string]interface{}, expectedMetadata map[string]string, role *gcpRole, aliasName string) {
-	resp, err := b.HandleRequest(context.Background(), &logical.Request{
-		Operation: logical.UpdateOperation,
-		Path:      "login",
-		Data:      d,
-		Storage:   s,
-	})
-
+	// Calculate group aliases here once
+	crmClient, err := b.CRMClient(storage)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp != nil && resp.IsError() {
-		t.Fatal(resp.Error())
+	groupAliases, err := b.groupAliases(crmClient, ctx, creds.ProjectId)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	if !policyutil.EquivalentPolicies(resp.Auth.Policies, role.Policies) {
-		t.Fatalf("policy mismatch, expected %v but got %v", role.Policies, resp.Auth.Policies)
-	}
-
-	if resp.Auth.Period != role.Period {
-		t.Fatalf("period mismatch, expected %v but got %v", role.Period, resp.Auth.Period)
-	}
-
-	// Check metadata
-	for k, expected := range expectedMetadata {
-		actual, ok := resp.Auth.Metadata[k]
-		if !ok {
-			t.Fatalf("metadata value '%s' not found, expected value '%s'", k, expected)
+	// defaultRole fills in values unless they are already filled in
+	defaultRole := func(r *gcpRole) *gcpRole {
+		if r.RoleType == "" {
+			r.RoleType = "iam"
 		}
-		if actual != expected {
-			t.Fatalf("metadata value '%s' mismatch, expected '%s' but got '%s'", k, expected, actual)
+
+		if r.MaxJwtExp == 0 {
+			r.MaxJwtExp = 30 * time.Minute
 		}
+
+		return r
 	}
 
-	if resp.Auth.Alias.Name != aliasName {
-		t.Fatalf("expected persona with name %s, got %s", aliasName, resp.Auth.Alias.Name)
+	cases := []struct {
+		name string
+		role *gcpRole
+		exp  *logical.Response
+		err  string
+	}{
+		{
+			"not_bound",
+			defaultRole(&gcpRole{
+				BoundServiceAccounts: []string{},
+			}),
+			nil,
+			"not authorized for role",
+		},
+		{
+			"not_bound_project",
+			defaultRole(&gcpRole{
+				BoundProjects:        []string{"definitely-not-in-this-project"},
+				BoundServiceAccounts: []string{creds.ClientEmail},
+			}),
+			nil,
+			"not in bound projects",
+		},
+		{
+			"no_policies",
+			defaultRole(&gcpRole{
+				BoundServiceAccounts: []string{creds.ClientEmail},
+			}),
+			&logical.Response{
+				Auth: &logical.Auth{
+					LeaseOptions: logical.LeaseOptions{
+						Renewable: true,
+					},
+				},
+			},
+			"",
+		},
+		{
+			"expire_late",
+			defaultRole(&gcpRole{
+				BoundServiceAccounts: []string{creds.ClientEmail},
+				MaxJwtExp:            2 * time.Second,
+			}),
+			nil,
+			"must expire within 2 seconds",
+		},
+		{
+			"group_aliases",
+			defaultRole(&gcpRole{
+				AddGroupAliases:      true,
+				BoundServiceAccounts: []string{creds.ClientEmail},
+			}),
+			&logical.Response{
+				Auth: &logical.Auth{
+					GroupAliases: groupAliases,
+				},
+			},
+			"",
+		},
+		{
+			"wildcard",
+			defaultRole(&gcpRole{
+				BoundServiceAccounts: []string{"*"},
+			}),
+			&logical.Response{
+				Auth: &logical.Auth{},
+			},
+			"",
+		},
+		{
+			"ttl",
+			defaultRole(&gcpRole{
+				BoundServiceAccounts: []string{creds.ClientEmail},
+				TTL:                  1 * time.Minute,
+			}),
+			&logical.Response{
+				Auth: &logical.Auth{
+					LeaseOptions: logical.LeaseOptions{
+						TTL: 1 * time.Minute,
+					},
+				},
+			},
+			"",
+		},
+		{
+			"max_ttl",
+			defaultRole(&gcpRole{
+				BoundServiceAccounts: []string{creds.ClientEmail},
+				MaxTTL:               1 * time.Minute,
+			}),
+			&logical.Response{
+				Auth: &logical.Auth{
+					LeaseOptions: logical.LeaseOptions{
+						MaxTTL: 1 * time.Minute,
+					},
+				},
+			},
+			"",
+		},
+		{
+			"period",
+			defaultRole(&gcpRole{
+				BoundServiceAccounts: []string{creds.ClientEmail},
+				Period:               72 * time.Hour,
+			}),
+			&logical.Response{
+				Auth: &logical.Auth{
+					Period: 72 * time.Hour,
+				},
+			},
+			"",
+		},
 	}
 
-	// Check lease options
-	if !resp.Auth.LeaseOptions.Renewable {
-		t.Fatal("expected lease options to be renewable")
-	}
-	if resp.Auth.LeaseOptions.TTL != role.TTL {
-		t.Fatalf("lease option TTL mismatch, expected %v but got %v", role.TTL, resp.Auth.LeaseOptions.TTL)
-	}
+	for _, tc := range cases {
+		tc := tc
 
-	if role.AddGroupAliases {
-		if len(resp.Auth.GroupAliases) == 0 {
-			t.Fatalf("expected group aliases in auth response")
-		}
-		projectId, ok := resp.Auth.Metadata["project_id"]
-		if !ok {
-			t.Fatalf("expected project in auth metadata")
-		}
-		expectedGroup := fmt.Sprintf("project-%s", projectId)
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-		found := false
-		for _, groupAlias := range resp.Auth.GroupAliases {
-			if groupAlias.Name == expectedGroup {
-				found = true
-				break
+			// Create the role
+			role := "test-" + tc.name
+			entry, err := logical.StorageEntryJSON("role/"+role, tc.role)
+			if err != nil {
+				t.Fatal(err)
 			}
-		}
-		if !found {
-			t.Fatalf("expected group alias in auth metadata")
-		}
-	}
-}
+			if err := storage.Put(ctx, entry); err != nil {
+				t.Fatal(err)
+			}
 
-func testLoginError(t *testing.T, b logical.Backend, s logical.Storage, d map[string]interface{}, errorSubstrings []string) {
-	resp, err := b.HandleRequest(context.Background(), &logical.Request{
-		Operation: logical.UpdateOperation,
-		Path:      "login",
-		Data:      d,
-		Storage:   s,
+			// Build the JWT token
+			iamClient, err := b.IAMClient(storage)
+			if err != nil {
+				t.Fatal(err)
+			}
+			exp := time.Now().Add(10 * time.Minute)
+			jwt, err := ServiceAccountLoginJwt(iamClient, exp, "vault/"+role, creds.ProjectId, creds.ClientEmail)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			resp, err := b.HandleRequest(ctx, &logical.Request{
+				Storage:   storage,
+				Operation: logical.UpdateOperation,
+				Path:      "login",
+				Data: map[string]interface{}{
+					"role": role,
+					"jwt":  jwt.SignedJwt,
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if resp.IsError() {
+				if tc.err == "" {
+					t.Fatal(resp.Error())
+				}
+
+				// If there was an error, make sure it was the right error
+				str := resp.Error().Error()
+				if !strings.Contains(str, tc.err) {
+					t.Errorf("expected %q to contain %q", str, tc.err)
+				}
+			}
+
+			if tc.exp != nil && tc.exp.Auth != nil {
+				tc.exp.Auth.Alias = &logical.Alias{
+					Name: creds.ClientId,
+				}
+				tc.exp.Auth.DisplayName = creds.ClientEmail
+
+				tc.exp.Auth.Metadata = map[string]string{
+					"role":                  role,
+					"project_id":            creds.ProjectId,
+					"service_account_email": creds.ClientEmail,
+					"service_account_id":    creds.ClientId,
+				}
+
+				tc.exp.Auth.LeaseOptions.Renewable = true
+				tc.exp.Auth.Policies = tc.role.Policies
+
+				assert.Equal(t, tc.exp, resp)
+			}
+		})
+	}
+
+	t.Run("jwt_already_expired", func(t *testing.T) {
+		t.Parallel()
+
+		// Create the role
+		role := "test-jwt_already_expired"
+		entry, err := logical.StorageEntryJSON("role/"+role, defaultRole(&gcpRole{
+			BoundServiceAccounts: []string{creds.ClientEmail},
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := storage.Put(ctx, entry); err != nil {
+			t.Fatal(err)
+		}
+
+		jwt := testCreateExpiredJwtToken(t, "vault/"+role, creds)
+
+		resp, err := b.HandleRequest(ctx, &logical.Request{
+			Storage:   storage,
+			Operation: logical.UpdateOperation,
+			Path:      "login",
+			Data: map[string]interface{}{
+				"role": role,
+				"jwt":  jwt,
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !resp.IsError() {
+			t.Fatal("expected error")
+		}
+
+		if str, exp := resp.Error().Error(), "is expired"; !strings.Contains(str, exp) {
+			t.Errorf("expected %q to contain %q", str, exp)
+		}
 	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !resp.IsError() {
-		t.Fatal("expected error response")
-	}
-
-	errMsg := strings.ToLower(resp.Error().Error())
-	for _, v := range errorSubstrings {
-		if !strings.Contains(errMsg, strings.ToLower(v)) {
-			t.Fatalf("expected '%s' to be in error: '%v'", v, resp.Error())
-		}
-	}
 }
 
-func getTestIamToken(t *testing.T, roleName string, creds *gcputil.GcpCredentials, expDelta time.Duration) string {
-	// Generate signed JWT to login with.
-	httpClient, err := gcputil.GetHttpClient(creds, iam.CloudPlatformScope)
-	if err != nil {
-		t.Fatal(err)
-	}
-	iamClient, err := iam.New(httpClient)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expectedJwtAud := fmt.Sprintf(expectedJwtAudTemplate, roleName)
-	exp := time.Now().Add(expDelta)
-	signedJwtResp, err := ServiceAccountLoginJwt(iamClient, exp, expectedJwtAud, creds.ProjectId, creds.ClientEmail)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return signedJwtResp.SignedJwt
-}
-
-func createExpiredIamToken(t *testing.T, roleName string, creds *gcputil.GcpCredentials) string {
+// testCreateExpiredJwtToken creates an expired IAM JWT token
+func testCreateExpiredJwtToken(tb testing.TB, roleName string, creds *gcputil.GcpCredentials) string {
 	block, _ := pem.Decode([]byte(creds.PrivateKey))
 	if block == nil {
-		t.Fatal("expected valid PEM block for test credentials private key")
+		tb.Fatal("expected valid PEM block for test credentials private key")
 	}
 	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 
 	// Create header.
@@ -419,7 +293,7 @@ func createExpiredIamToken(t *testing.T, roleName string, creds *gcputil.GcpCred
 		},
 	})
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	builder := jwt.Signed(signer)
 	jwt, err := builder.Claims(
@@ -429,7 +303,7 @@ func createExpiredIamToken(t *testing.T, roleName string, creds *gcputil.GcpCred
 			Expiry:   jwt.NewNumericDate(time.Now().Add(-100 * time.Minute)),
 		}).CompactSerialize()
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 
 	return jwt

@@ -34,12 +34,12 @@ test: fmtcheck generate
 		echo "ERROR: Set TEST to a specific package"; \
 		exit 1; \
 	fi
-	VAULT_ACC=1 go test -tags='$(BUILD_TAGS)' $(TEST) -v $(TESTARGS) -parallel=40 -timeout 45m
+	@VAULT_ACC=1 go test -tags='$(BUILD_TAGS)' $(TEST) $(TESTARGS) -parallel=20 -timeout=60s
 
 # generate runs `go generate` to build the dynamically generated
 # source files.
 generate:
-	go generate $(go list ./... | grep -v /vendor/)
+	@go generate $(go list ./... | grep -v /vendor/)
 
 # bootstrap the build by downloading additional tools
 bootstrap:
