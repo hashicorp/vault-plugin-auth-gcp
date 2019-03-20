@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SermoDigital/jose/jws"
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/helper/policyutil"
@@ -233,15 +232,19 @@ func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebTo
 
 // ParseServiceAccountFromIAMJWT parses the service account from the 'sub' claim given a serialized signed JWT.
 func parseServiceAccountFromIAMJWT(signedJwt string) (string, error) {
-	jwtVal, err := jws.ParseJWT([]byte(signedJwt))
+	jwtVal, err := jwt.ParseSigned(signedJwt)
 	if err != nil {
-		return "", fmt.Errorf("could not parse service account from JWT 'sub' claim: %v", err)
+		return "", fmt.Errorf("could not parse JWT: %v", err)
 	}
-	accountId, ok := jwtVal.Claims().Subject()
-	if !ok {
+	var claims jwt.Claims
+	if err = jwtVal.UnsafeClaimsWithoutVerification(&claims); err != nil {
+		return "", fmt.Errorf("could not parse claims from JWT: %v", err)
+	}
+	accountID := claims.Subject
+	if accountID == "" {
 		return "", errors.New("expected 'sub' claim with service account ID or name")
 	}
-	return accountId, nil
+	return accountID, nil
 }
 
 func (b *GcpAuthBackend) getGoogleOauthCert(ctx context.Context, keyId string) (interface{}, error) {
