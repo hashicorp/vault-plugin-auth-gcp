@@ -27,10 +27,6 @@
 
 [[constraint]]
   branch = "master"
-  name = "github.com/SermoDigital/jose"
-
-[[constraint]]
-  branch = "master"
   name = "github.com/hashicorp/go-cleanhttp"
 
 [[constraint]]

@@ -11,24 +11,19 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e26170d7ec7d444d7b74a5b1dbd6437fd8e552d27efce9327f733311737c4ae9"
-  name = "github.com/SermoDigital/jose"
-  packages = [
-    ".",
-    "crypto",
-    "jws",
-    "jwt",
-  ]
-  pruneopts = "UT"
-  revision = "803625baeddc3526d01d321b5066029f53eafc81"
-
-[[projects]]
-  branch = "master"
   digest = "1:6bf6d532e503d9526d46e69aff04d11632c8c1e28b847dbd226babc1689aa723"
   name = "github.com/armon/go-radix"
   packages = ["."]
   pruneopts = "UT"
   revision = "7fddfc383310abc091d79a27f116d30cf0424032"
+
+[[projects]]
+  digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
+  name = "github.com/davecgh/go-spew"
+  packages = ["spew"]
+  pruneopts = "UT"
+  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
+  version = "v1.1.1"
 
 [[projects]]
   digest = "1:17fe264ee908afc795734e8c4e63db2accabaf57326dbf21763a7d6b86096260"
@@ -109,12 +104,12 @@
   revision = "a4620f9913d19f03a6bf19b2f304daaaf83ea130"
 
 [[projects]]
-  branch = "master"
-  digest = "1:183f00c472fb9b2446659618eebf4899872fa267b92f926539411abdc8b941df"
+  digest = "1:d260503602063d71718eb21f85c02133ad5eac894c2a6f0e0546b7dc017dc97e"
   name = "github.com/hashicorp/go-retryablehttp"
   packages = ["."]
   pruneopts = "UT"
-  revision = "e651d75abec6fbd4f2c09508f72ae7af8a8b7171"
+  revision = "73489d0a1476f0c9e6fb03f9c39241523a496dfd"
+  version = "v0.5.2"
 
 [[projects]]
   branch = "master"
@@ -179,13 +174,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:87dea7ed63cae0c22586d3d5176d4ccb925d8db83059ad0af5395f49c0e99dbc"
+  digest = "1:c4d3c04aff2196341491a11831fe37b127e04e7c87eda145739d86780cf995c5"
   name = "github.com/hashicorp/vault"
   packages = [
     "api",
     "helper/certutil",
     "helper/compressutil",
     "helper/consts",
+    "helper/cryptoutil",
     "helper/errutil",
     "helper/hclutil",
     "helper/jsonutil",
@@ -210,7 +206,7 @@
     "version",
   ]
   pruneopts = "UT"
-  revision = "47d339fce18017bf21b6765ea7452c9175dff06f"
+  revision = "208c76d345731837087b6a96493b5c1652eaf39b"
 
 [[projects]]
   branch = "master"
@@ -264,6 +260,14 @@
   version = "v2.0.8"
 
 [[projects]]
+  digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  pruneopts = "UT"
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:0e792eea6c96ec55ff302ef33886acbaa5006e900fefe82689e88d96439dcd84"
   name = "github.com/ryanuber/go-glob"
   packages = ["."]
@@ -272,10 +276,19 @@
   version = "v0.1"
 
 [[projects]]
+  digest = "1:972c2427413d41a1e06ca4897e8528e5a1622894050e2f527b38ddf0f343f759"
+  name = "github.com/stretchr/testify"
+  packages = ["assert"]
+  pruneopts = "UT"
+  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
+  version = "v1.3.0"
+
+[[projects]]
   branch = "master"
-  digest = "1:b8fa1ff0fc20983395978b3f771bb10438accbfe19326b02e236c1d4bf1c91b2"
+  digest = "1:e6c04d62699efee546107b79e0074fcfae0387c58232a1c05b700f96acafc5cc"
   name = "golang.org/x/crypto"
   packages = [
+    "blake2b",
     "ed25519",
     "ed25519/internal/edwards25519",
     "pbkdf2",
@@ -316,9 +329,12 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:05662433b3a13c921587a6e622b5722072edff83211efd1cd79eeaeedfd83f07"
+  digest = "1:a989b95f72fce8876213e8e20492525b4cf69a9e7fee7f1d9897983ee0d547e9"
   name = "golang.org/x/sys"
-  packages = ["unix"]
+  packages = [
+    "cpu",
+    "unix",
+  ]
   pruneopts = "UT"
   revision = "1c9583448a9c3aa0f9a6a5241bf73c0bd8aafded"
 
@@ -450,15 +466,12 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/SermoDigital/jose/jws",
     "github.com/hashicorp/errwrap",
     "github.com/hashicorp/go-cleanhttp",
     "github.com/hashicorp/go-gcp-common/gcputil",
     "github.com/hashicorp/go-hclog",
     "github.com/hashicorp/vault/api",
     "github.com/hashicorp/vault/helper/consts",
-    "github.com/hashicorp/vault/helper/jsonutil",
-    "github.com/hashicorp/vault/helper/logging",
     "github.com/hashicorp/vault/helper/parseutil",
     "github.com/hashicorp/vault/helper/pluginutil",
     "github.com/hashicorp/vault/helper/policyutil",
@@ -467,6 +480,7 @@
     "github.com/hashicorp/vault/logical",
     "github.com/hashicorp/vault/logical/framework",
     "github.com/hashicorp/vault/logical/plugin",
+    "github.com/stretchr/testify/assert",
     "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "google.golang.org/api/cloudresourcemanager/v1",
