@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-gcp-common/gcputil"
-	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/assert"
 	jose "gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"

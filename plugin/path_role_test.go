@@ -10,9 +10,9 @@ import (
 
 	"reflect"
 
-	"github.com/hashicorp/vault/helper/policyutil"
-	"github.com/hashicorp/vault/helper/strutil"
-	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/sdk/helper/policyutil"
+	"github.com/hashicorp/vault/sdk/helper/strutil"
+	"github.com/hashicorp/vault/sdk/logical"
 )
 
 // Defaults for verifying response data. If a value is not included here, it must be included in the
