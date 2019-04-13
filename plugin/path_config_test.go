@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-gcp-common/gcputil"
-	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/logical"
 )
 
 func TestBackend_PathConfigRead(t *testing.T) {
