@@ -258,10 +258,16 @@ func (b *GcpAuthBackend) getGoogleOauthCert(ctx context.Context, keyId string) (
 
 func validateBaseJWTClaims(c *jwt.Claims, roleName string) error {
 	exp := c.Expiry.Time()
-	if exp.IsZero() || exp.Before(time.Now()) {
+	// Compare expiration to current time with tolerance of 1s
+	if exp.IsZero() || exp.Before(time.Now().Add(-1*time.Second)) {
 		return errors.New("JWT is expired or does not have proper 'exp' claim")
-	} else if exp.After(time.Now().Add(time.Minute * time.Duration(maxJwtExpMaxMinutes))) {
-		return fmt.Errorf("JWT must expire in %d minutes", maxJwtExpMaxMinutes)
+	}
+
+	// Compare expiration to max expiration with tolerance of 1s
+	allowedDelta := time.Minute*time.Duration(maxJwtExpMaxMinutes) + time.Second
+	expIn := exp.Sub(time.Now())
+	if expIn > allowedDelta {
+		return fmt.Errorf("JWT must expire in %d minutes, expires in %v", maxJwtExpMaxMinutes, expIn)
 	}
 
 	sub := c.Subject
