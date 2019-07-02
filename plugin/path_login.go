@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/cidrutil"
 	"github.com/hashicorp/vault/sdk/helper/policyutil"
 	"github.com/hashicorp/vault/sdk/helper/strutil"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -22,7 +23,7 @@ import (
 
 const (
 	expectedJwtAudTemplate string = "vault/%s"
-	jwtExpToleranceSec = 60
+	jwtExpToleranceSec            = 60
 )
 
 func pathLogin(b *GcpAuthBackend) *framework.Path {
@@ -60,6 +61,10 @@ func (b *GcpAuthBackend) pathLogin(ctx context.Context, req *logical.Request, da
 	loginInfo, err := b.parseAndValidateJwt(ctx, req, data)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
+	}
+
+	if !cidrutil.RemoteAddrIsOk(req.Connection.RemoteAddr, loginInfo.Role.TokenBoundCIDRs) {
+		return nil, logical.ErrPermissionDenied
 	}
 
 	roleType := loginInfo.Role.RoleType
