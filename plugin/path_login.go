@@ -22,6 +22,7 @@ import (
 
 const (
 	expectedJwtAudTemplate string = "vault/%s"
+	jwtExpToleranceSec = 60
 )
 
 func pathLogin(b *GcpAuthBackend) *framework.Path {
@@ -258,10 +259,17 @@ func (b *GcpAuthBackend) getGoogleOauthCert(ctx context.Context, keyId string) (
 
 func validateBaseJWTClaims(c *jwt.Claims, roleName string) error {
 	exp := c.Expiry.Time()
-	if exp.IsZero() || exp.Before(time.Now()) {
+	tolDelt := time.Second * jwtExpToleranceSec
+	// Compare expiration to current time with tolerance
+	if exp.IsZero() || exp.Before(time.Now().Add(-tolDelt)) {
 		return errors.New("JWT is expired or does not have proper 'exp' claim")
-	} else if exp.After(time.Now().Add(time.Minute * time.Duration(maxJwtExpMaxMinutes))) {
-		return fmt.Errorf("JWT must expire in %d minutes", maxJwtExpMaxMinutes)
+	}
+
+	// Compare expiration to max expiration with tolerance
+	allowedDelta := time.Minute*time.Duration(maxJwtExpMaxMinutes) + tolDelt
+	expIn := exp.Sub(time.Now())
+	if expIn > allowedDelta {
+		return fmt.Errorf("JWT must expire in %d minutes, expires in %v", maxJwtExpMaxMinutes, expIn)
 	}
 
 	sub := c.Subject
