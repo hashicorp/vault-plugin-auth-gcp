@@ -18,15 +18,24 @@ import (
 // Defaults for verifying response data. If a value is not included here, it must be included in the
 // 'expected' map param for a test.
 var expectedDefaults = map[string]interface{}{
-	"policies":               []string{"default"},
-	"ttl":                    time.Duration(baseRoleFieldSchema["ttl"].Default.(int)),
-	"max_ttl":                time.Duration(baseRoleFieldSchema["ttl"].Default.(int)),
-	"period":                 time.Duration(baseRoleFieldSchema["ttl"].Default.(int)),
-	"bound_projects":         []string{},
-	"bound_service_accounts": []string{},
-	"add_group_aliases":      false,
+	"token_policies":          []string{},
+	"policies":                []string{},
+	"token_ttl":               int64(0),
+	"ttl":                     int64(0),
+	"token_max_ttl":           int64(0),
+	"max_ttl":                 int64(0),
+	"token_period":            int64(0),
+	"period":                  int64(0),
+	"token_explicit_max_ttl":  int64(0),
+	"token_no_default_policy": false,
+	"token_bound_cidrs":       []string{},
+	"token_num_uses":          int(0),
+	"token_type":              logical.TokenTypeDefault.String(),
+	"bound_projects":          []string{},
+	"bound_service_accounts":  []string{},
+	"add_group_aliases":       false,
 	// IAM
-	"max_jwt_exp":         time.Duration(iamOnlyFieldSchema["max_jwt_exp"].Default.(int)),
+	"max_jwt_exp":         int64(iamOnlyFieldSchema["max_jwt_exp"].Default.(int)),
 	"allow_gce_inference": iamOnlyFieldSchema["allow_gce_inference"].Default.(bool),
 	// GCE
 	"bound_zones":           []string{},
@@ -72,11 +81,15 @@ func TestRoleUpdateIam(t *testing.T) {
 
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"type":                   iamRoleType,
+		"token_policies":         []string{"dev"},
 		"policies":               []string{"dev"},
-		"ttl":                    time.Duration(1000),
-		"max_ttl":                time.Duration(2000),
-		"period":                 time.Duration(30),
-		"max_jwt_exp":            time.Duration(20 * 60),
+		"token_ttl":              int64(1000),
+		"ttl":                    int64(1000),
+		"token_max_ttl":          int64(2000),
+		"max_ttl":                int64(2000),
+		"token_period":           int64(30),
+		"period":                 int64(30),
+		"max_jwt_exp":            int64(20 * 60),
 		"allow_gce_inference":    false,
 		"add_group_aliases":      true,
 		"bound_service_accounts": serviceAccounts,
@@ -240,10 +253,14 @@ func TestRoleGce(t *testing.T) {
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"type":           gceRoleType,
 		"bound_projects": projectId,
+		"token_policies": []string{"dev"},
 		"policies":       []string{"dev"},
-		"ttl":            time.Duration(1000),
-		"max_ttl":        time.Duration(2000),
-		"period":         time.Duration(30),
+		"token_ttl":      int64(1000),
+		"ttl":            int64(1000),
+		"token_max_ttl":  int64(2000),
+		"max_ttl":        int64(2000),
+		"token_period":   int64(30),
+		"period":         int64(30),
 		"bound_zones":    []string{"us-central-1b"},
 		"bound_regions":  []string{"us-central"},
 		"bound_labels": map[string]string{
@@ -376,22 +393,22 @@ func TestRoleGce_DeprecatedFields(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var m map[string][]string
+		var m map[string]interface{}
 		if err := entry.DecodeJSON(&m); err != nil {
 			t.Fatal(err)
 		}
 
-		exp := []string{"us-east1"}
+		exp := []interface{}{"us-east1"}
 		if v, ok := m["bound_regions"]; !ok || !reflect.DeepEqual(v, exp) {
 			t.Errorf("expected %q to be %q", v, exp)
 		}
 
-		exp = []string{"us-east1-a"}
+		exp = []interface{}{"us-east1-a"}
 		if v, ok := m["bound_zones"]; !ok || !reflect.DeepEqual(v, exp) {
 			t.Errorf("expected %q to be %q", v, exp)
 		}
 
-		exp = []string{"my-ig"}
+		exp = []interface{}{"my-ig"}
 		if v, ok := m["bound_instance_groups"]; !ok || !reflect.DeepEqual(v, exp) {
 			t.Errorf("expected %q to be %q", v, exp)
 		}

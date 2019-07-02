@@ -102,9 +102,9 @@ func (b *GcpAuthBackend) pathLoginRenew(ctx context.Context, req *logical.Reques
 	}
 
 	resp := &logical.Response{Auth: req.Auth}
-	resp.Auth.Period = role.Period
-	resp.Auth.TTL = role.TTL
-	resp.Auth.MaxTTL = role.MaxTTL
+	resp.Auth.Period = role.TokenPeriod
+	resp.Auth.TTL = role.TokenTTL
+	resp.Auth.MaxTTL = role.TokenMaxTTL
 	return resp, nil
 }
 
@@ -334,22 +334,20 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	resp := &logical.Response{
-		Auth: &logical.Auth{
-			Period: role.Period,
-			Alias: &logical.Alias{
-				Name: serviceAccount.UniqueId,
-			},
-			Policies:    role.Policies,
-			Metadata:    authMetadata(loginInfo, serviceAccount),
-			DisplayName: serviceAccount.Email,
-			LeaseOptions: logical.LeaseOptions{
-				Renewable: true,
-				TTL:       role.TTL,
-				MaxTTL:    role.MaxTTL,
-			},
+	auth := &logical.Auth{
+		Alias: &logical.Alias{
+			Name: serviceAccount.UniqueId,
 		},
+		Metadata:    authMetadata(loginInfo, serviceAccount),
+		DisplayName: serviceAccount.Email,
 	}
+
+	role.PopulateTokenAuth(auth)
+
+	resp := &logical.Response{
+		Auth: auth,
+	}
+
 	if role.AddGroupAliases {
 		crmClient, err := b.CRMClient(req.Storage)
 		if err != nil {
@@ -482,22 +480,19 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 			loginInfo.EmailOrId, err)), nil
 	}
 
-	resp := &logical.Response{
-		Auth: &logical.Auth{
-			InternalData: map[string]interface{}{},
-			Period:       role.Period,
-			Alias: &logical.Alias{
-				Name: fmt.Sprintf("gce-%s", strconv.FormatUint(instance.Id, 10)),
-			},
-			Policies:    role.Policies,
-			Metadata:    authMetadata(loginInfo, serviceAccount),
-			DisplayName: instance.Name,
-			LeaseOptions: logical.LeaseOptions{
-				Renewable: true,
-				TTL:       role.TTL,
-				MaxTTL:    role.MaxTTL,
-			},
+	auth := &logical.Auth{
+		InternalData: map[string]interface{}{},
+		Alias: &logical.Alias{
+			Name: fmt.Sprintf("gce-%s", strconv.FormatUint(instance.Id, 10)),
 		},
+		Metadata:    authMetadata(loginInfo, serviceAccount),
+		DisplayName: instance.Name,
+	}
+
+	role.PopulateTokenAuth(auth)
+
+	resp := &logical.Response{
+		Auth: auth,
 	}
 
 	if role.AddGroupAliases {
