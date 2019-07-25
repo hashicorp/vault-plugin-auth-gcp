@@ -8,8 +8,8 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.1
 	github.com/hashicorp/go-gcp-common v0.5.0
 	github.com/hashicorp/go-hclog v0.8.0
-	github.com/hashicorp/vault/api v1.0.3
-	github.com/hashicorp/vault/sdk v0.1.12
+	github.com/hashicorp/vault/api v1.0.4
+	github.com/hashicorp/vault/sdk v0.1.13
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/oauth2 v0.0.0-20190402181905-9f3314589c9a
 	google.golang.org/api v0.3.2
