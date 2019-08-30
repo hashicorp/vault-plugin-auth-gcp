@@ -19,6 +19,23 @@ type gcpClient struct {
 	iamSvc     *iam.Service
 }
 
+func genExtractZonesFn(igz map[string][]string, boundInstanceGroups []string) func(*compute.InstanceGroupAggregatedList) error {
+	return func(l *compute.InstanceGroupAggregatedList) error {
+		for k, v := range l.Items {
+			zone, err := zoneFromSelfLink(k)
+			if err != nil {
+				return err
+			}
+			for _, g := range v.InstanceGroups {
+				if strutil.StrListContains(boundInstanceGroups, g.Name) {
+					igz[zone] = append(igz[zone], g.Name)
+				}
+			}
+		}
+		return nil
+	}
+}
+
 func (c *gcpClient) InstanceGroups(ctx context.Context, project string, boundInstanceGroups []string) (map[string][]string, error) {
 	// map of zone names to a slice of instance group names in that zone.
 	igz := make(map[string][]string)
@@ -26,21 +43,7 @@ func (c *gcpClient) InstanceGroups(ctx context.Context, project string, boundIns
 	if err := c.computeSvc.InstanceGroups.
 		AggregatedList(project).
 		Fields("items/*/instanceGroups/name").
-		Pages(ctx, func(l *compute.InstanceGroupAggregatedList) error {
-			for k, v := range l.Items {
-				zone, err := zoneFromSelfLink(k)
-				if err != nil {
-					return err
-				}
-
-				for _, g := range v.InstanceGroups {
-					if strutil.StrListContains(boundInstanceGroups, g.Name) {
-						igz[zone] = append(igz[zone], g.Name)
-					}
-				}
-			}
-			return nil
-		}); err != nil {
+		Pages(ctx, genExtractZonesFn(igz, boundInstanceGroups)); err != nil {
 		return nil, err
 	}
 
