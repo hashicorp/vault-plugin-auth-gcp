@@ -3,6 +3,8 @@ package gcpauth
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
 
 	"github.com/hashicorp/vault/sdk/helper/strutil"
 	"google.golang.org/api/compute/v1"
@@ -28,11 +30,16 @@ func (c *gcpClient) InstanceGroups(ctx context.Context, project string, boundIns
 		Fields("items/*/instanceGroups/name").
 		Pages(ctx, func(l *compute.InstanceGroupAggregatedList) error {
 			for k, v := range l.Items {
+				// Some groups returned are regional
+				// TODO(emilymye, #73): Support regions?
+				if strings.Contains(k, "/regions/") {
+					log.Printf("[WARN] ignoring key %q with region in instance group aggregated list", k)
+					continue
+				}
+
 				zone, err := zoneFromSelfLink(k)
 				if err != nil {
-					// some groups returned are regional
-					// TODO(emilymye, #73): Support regions?
-					continue
+					return err
 				}
 
 				for _, g := range v.InstanceGroups {
