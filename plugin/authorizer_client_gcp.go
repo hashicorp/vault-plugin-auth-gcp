@@ -30,7 +30,9 @@ func (c *gcpClient) InstanceGroups(ctx context.Context, project string, boundIns
 			for k, v := range l.Items {
 				zone, err := zoneFromSelfLink(k)
 				if err != nil {
-					return err
+					// some groups returned are regional
+					// TODO(emilymye, #73): Support regions?
+					continue
 				}
 
 				for _, g := range v.InstanceGroups {
