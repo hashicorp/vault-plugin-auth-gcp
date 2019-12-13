@@ -89,7 +89,7 @@ func TestLogin_IAM(t *testing.T) {
 				MaxJwtExp:            2 * time.Second,
 			}),
 			nil,
-			"must expire within 2 seconds",
+			"expire within 2 seconds",
 		},
 		{
 			"group_aliases",
