@@ -84,7 +84,7 @@ func (b *GcpAuthBackend) pathLogin(ctx context.Context, req *logical.Request, da
 	case gceRoleType:
 		return b.pathGceLogin(ctx, req, loginInfo)
 	default:
-		return logical.ErrorResponse(fmt.Sprintf("login against role type '%s' is unsupported", roleType)), nil
+		return logical.ErrorResponse("login against role type '%s' is unsupported", roleType), nil
 	}
 }
 
@@ -299,7 +299,7 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 	if loginInfo.GceMetadata != nil {
 		b.Logger().Info("GCE Metadata found in JWT, skipping custom expiry check")
 	} else if loginInfo.JWTClaims.Expiry.Time().After(time.Now().Add(role.MaxJwtExp)) {
-		return logical.ErrorResponse(fmt.Sprintf("role requires that service account JWTs expire within %d seconds", int(role.MaxJwtExp/time.Second))), nil
+		return logical.ErrorResponse("role requires that service account JWTs expire within %d seconds", int(role.MaxJwtExp/time.Second)), nil
 	}
 
 	// Get service account and make sure it still exists.
@@ -430,8 +430,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	}
 
 	if len(role.BoundProjects) > 0 && !strutil.StrListContains(role.BoundProjects, metadata.ProjectId) {
-		return logical.ErrorResponse(fmt.Sprintf(
-			"instance %q (project %q) not in bound projects %+v", metadata.InstanceId, metadata.ProjectId, role.BoundProjects)), nil
+		return logical.ErrorResponse("instance %q (project %q) not in bound projects %+v", metadata.InstanceId, metadata.ProjectId, role.BoundProjects), nil
 	}
 
 	// Verify instance exists.
@@ -442,9 +441,8 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 
 	instance, err := metadata.GetVerifiedInstance(computeClient)
 	if err != nil {
-		return logical.ErrorResponse(fmt.Sprintf(
-			"error when attempting to find instance (project %s, zone: %s, instance: %s) :%v",
-			metadata.ProjectId, metadata.Zone, metadata.InstanceName, err)), nil
+		return logical.ErrorResponse("error when attempting to find instance (project %s, zone: %s, instance: %s) :%v",
+			metadata.ProjectId, metadata.Zone, metadata.InstanceName, err), nil
 	}
 
 	if err := b.authorizeGCEInstance(ctx, metadata.ProjectId, instance, req.Storage, role, loginInfo.EmailOrId); err != nil {
@@ -471,9 +469,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		EmailOrId: loginInfo.EmailOrId,
 	})
 	if err != nil {
-		return logical.ErrorResponse(fmt.Sprintf(
-			"Could not find service account '%s' used for GCE metadata token: %s",
-			loginInfo.EmailOrId, err)), nil
+		return logical.ErrorResponse("Could not find service account '%s' used for GCE metadata token: %s", loginInfo.EmailOrId, err), nil
 	}
 
 	auth := &logical.Auth{

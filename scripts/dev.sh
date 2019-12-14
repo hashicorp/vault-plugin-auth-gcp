@@ -45,7 +45,7 @@ vault server \
 sleep 2
 VAULT_PID=$!
 
-echo "    Mouting plugin"
+echo "    Mounting plugin"
 vault auth enable -path=${MNT_PATH} -plugin-name=${PLUGIN_NAME} plugin
 
 echo "==> Ready!"
