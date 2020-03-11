@@ -8,15 +8,16 @@ var _ client = (*stubbedClient)(nil)
 // GCP are "stubbed" instead of hitting the actual API.
 type stubbedClient struct {
 	instanceGroupsByZone          map[string][]string
+	instanceGroupsByRegion        map[string][]string
 	instanceGroupContainsInstance bool
 	saId, saEmail                 string
 }
 
-func (c *stubbedClient) InstanceGroups(_ context.Context, _ string, _ []string) (map[string][]string, error) {
-	return c.instanceGroupsByZone, nil
+func (c *stubbedClient) InstanceGroups(_ context.Context, _ string, _ []string) (map[string][]string, map[string][]string, error) {
+	return c.instanceGroupsByZone, c.instanceGroupsByRegion, nil
 }
 
-func (c *stubbedClient) InstanceGroupContainsInstance(_ context.Context, _, _, _, _ string) (bool, error) {
+func (c *stubbedClient) InstanceGroupContainsInstance(_ context.Context, _, _, _, _, _ string) (bool, error) {
 	return c.instanceGroupContainsInstance, nil
 }
 
