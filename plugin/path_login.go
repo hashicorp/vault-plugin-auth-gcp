@@ -453,7 +453,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		return &logical.Response{
 			Auth: &logical.Auth{
 				Alias: &logical.Alias{
-					Name: fmt.Sprintf("gce-%s", strconv.FormatUint(instance.Id, 10)),
+					Name: loginInfo.EmailOrId,
 				},
 			},
 		}, nil
@@ -475,7 +475,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	auth := &logical.Auth{
 		InternalData: map[string]interface{}{},
 		Alias: &logical.Alias{
-			Name: fmt.Sprintf("gce-%s", strconv.FormatUint(instance.Id, 10)),
+			Name: serviceAccount.UniqueId,
 		},
 		Metadata:    authMetadata(loginInfo, serviceAccount),
 		DisplayName: instance.Name,
@@ -546,9 +546,6 @@ func authMetadata(loginInfo *gcpLoginInfo, serviceAccount *iam.ServiceAccount) m
 		metadata["project_id"] = gceMetadata.ProjectId
 		metadata["project_number"] = strconv.FormatInt(gceMetadata.ProjectNumber, 10)
 		metadata["zone"] = gceMetadata.Zone
-		metadata["instance_id"] = gceMetadata.InstanceId
-		metadata["instance_name"] = gceMetadata.InstanceName
-		metadata["instance_creation_timestamp"] = strconv.FormatInt(gceMetadata.CreatedAt, 10)
 	}
 	return metadata
 }
