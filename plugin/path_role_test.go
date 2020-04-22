@@ -478,7 +478,6 @@ func TestRetrieveRole(t *testing.T) {
 		replicationState      consts.ReplicationState
 		replicationStateTimes int
 
-		putErr   error
 		putTimes int
 
 		expectedRole *gcpRole
@@ -603,7 +602,6 @@ func TestRetrieveRole(t *testing.T) {
 			localMountTimes:       1,
 			replicationStateTimes: 0,
 
-			putErr:   nil,
 			putTimes: 1,
 
 			expectedRole: &gcpRole{
@@ -632,7 +630,6 @@ func TestRetrieveRole(t *testing.T) {
 			localMountTimes:       1,
 			replicationStateTimes: 0,
 
-			putErr:   nil,
 			putTimes: 1,
 
 			expectedRole: &gcpRole{
@@ -661,7 +658,6 @@ func TestRetrieveRole(t *testing.T) {
 			localMountTimes:       1,
 			replicationStateTimes: 0,
 
-			putErr:   nil,
 			putTimes: 1,
 
 			expectedRole: &gcpRole{
@@ -690,7 +686,6 @@ func TestRetrieveRole(t *testing.T) {
 			localMountTimes:       1,
 			replicationStateTimes: 0,
 
-			putErr:   nil,
 			putTimes: 1,
 
 			expectedRole: &gcpRole{
@@ -719,7 +714,6 @@ func TestRetrieveRole(t *testing.T) {
 			localMountTimes:       1,
 			replicationStateTimes: 0,
 
-			putErr:   nil,
 			putTimes: 1,
 
 			expectedRole: &gcpRole{
@@ -751,7 +745,6 @@ func TestRetrieveRole(t *testing.T) {
 			localMountTimes:       1,
 			replicationStateTimes: 0,
 
-			putErr:   nil,
 			putTimes: 1,
 
 			expectedRole: &gcpRole{
@@ -783,7 +776,6 @@ func TestRetrieveRole(t *testing.T) {
 			localMountTimes:       1,
 			replicationStateTimes: 0,
 
-			putErr:   nil,
 			putTimes: 1,
 
 			expectedRole: &gcpRole{
@@ -815,7 +807,6 @@ func TestRetrieveRole(t *testing.T) {
 			localMountTimes:       1,
 			replicationStateTimes: 0,
 
-			putErr:   nil,
 			putTimes: 1,
 
 			expectedRole: &gcpRole{
@@ -844,7 +835,7 @@ func TestRetrieveRole(t *testing.T) {
 				Key:   fmt.Sprintf("role/%s", test.name),
 				Value: append(toJSON(t, test.expectedRole), '\n'), // Add a newline because StorageEntryJSON somehow adds it
 			}
-			storage.EXPECT().Put(ctx, putReq).Return(test.putErr).Times(test.putTimes)
+			storage.EXPECT().Put(ctx, putReq).Return(nil).Times(test.putTimes)
 
 			systemView := NewMockSystemView(ctrl)
 			systemView.EXPECT().LocalMount().Return(test.localMount).Times(test.localMountTimes)
