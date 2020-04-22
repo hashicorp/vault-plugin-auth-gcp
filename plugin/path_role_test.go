@@ -1186,27 +1186,3 @@ func toJSON(t testing.TB, val interface{}) []byte {
 	}
 	return b
 }
-
-// type testStorage struct {
-// 	getResp *logical.StorageEntry
-// 	getErr  error
-//
-// 	actualPut *logical.StorageEntry
-// 	putErr    error
-// }
-//
-// func (ts *testStorage) Get(context.Context, string) (*logical.StorageEntry, error) {
-// 	return ts.getResp, ts.getErr
-// }
-//
-// func (ts *testStorage) Put(_ context.Context, entry *logical.StorageEntry) error {
-// 	ts.actualPut = entry
-// 	return ts.putErr
-// }
-//
-// func (testStorage) List(context.Context, string) ([]string, error) {
-// 	return nil, fmt.Errorf("not implemented")
-// }
-// func (testStorage) Delete(context.Context, string) error {
-// 	return fmt.Errorf("not implemented")
-// }
