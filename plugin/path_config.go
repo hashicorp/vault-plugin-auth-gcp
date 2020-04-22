@@ -2,9 +2,9 @@ package gcpauth
 
 import (
 	"context"
-	"errors"
-
 	"encoding/json"
+	"errors"
+	"net/http"
 
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-gcp-common/gcputil"
@@ -44,7 +44,7 @@ Deprecated. This field does nothing and be removed in a future release`,
 
 func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	if err := validateFields(req, d); err != nil {
-		return nil, logical.CodedError(422, err.Error())
+		return nil, logical.CodedError(http.StatusUnprocessableEntity, err.Error())
 	}
 
 	c, err := b.config(ctx, req.Storage)
@@ -58,7 +58,7 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 
 	changed, err := c.Update(d)
 	if err != nil {
-		return nil, logical.CodedError(400, err.Error())
+		return nil, logical.CodedError(http.StatusBadRequest, err.Error())
 	}
 
 	// Only do the following if the config is different
@@ -83,7 +83,7 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 
 func (b *GcpAuthBackend) pathConfigRead(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	if err := validateFields(req, d); err != nil {
-		return nil, logical.CodedError(422, err.Error())
+		return nil, logical.CodedError(http.StatusUnprocessableEntity, err.Error())
 	}
 
 	config, err := b.config(ctx, req.Storage)
