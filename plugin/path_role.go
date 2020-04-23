@@ -251,7 +251,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 }
 
 func (b *GcpAuthBackend) pathRoleExistenceCheck(ctx context.Context, req *logical.Request, data *framework.FieldData) (bool, error) {
-	entry, err := b.retrieveRole(ctx, req.Storage, data.Get("name").(string))
+	entry, err := b.role(ctx, req.Storage, data.Get("name").(string))
 	if err != nil {
 		return false, err
 	}
@@ -276,7 +276,7 @@ func (b *GcpAuthBackend) pathRoleRead(ctx context.Context, req *logical.Request,
 		return logical.ErrorResponse(errEmptyRoleName), nil
 	}
 
-	role, err := b.retrieveRole(ctx, req.Storage, name)
+	role, err := b.role(ctx, req.Storage, name)
 	if err != nil {
 		return nil, err
 	} else if role == nil {
@@ -353,7 +353,7 @@ func (b *GcpAuthBackend) pathRoleCreateUpdate(ctx context.Context, req *logical.
 		return logical.ErrorResponse(errEmptyRoleName), nil
 	}
 
-	role, err := b.retrieveRole(ctx, req.Storage, name)
+	role, err := b.role(ctx, req.Storage, name)
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +418,7 @@ func (b *GcpAuthBackend) pathRoleEditIamServiceAccounts(ctx context.Context, req
 		return logical.ErrorResponse("must provide at least one value to add or remove"), nil
 	}
 
-	role, err := b.retrieveRole(ctx, req.Storage, roleName)
+	role, err := b.role(ctx, req.Storage, roleName)
 	if err != nil {
 		return nil, err
 	}
@@ -475,7 +475,7 @@ func (b *GcpAuthBackend) pathRoleEditGceLabels(ctx context.Context, req *logical
 		return logical.ErrorResponse("must provide at least one value to add or remove"), nil
 	}
 
-	role, err := b.retrieveRole(ctx, req.Storage, roleName)
+	role, err := b.role(ctx, req.Storage, roleName)
 	if err != nil {
 		return nil, err
 	}
@@ -502,8 +502,8 @@ func (b *GcpAuthBackend) pathRoleEditGceLabels(ctx context.Context, req *logical
 	return b.storeRole(ctx, req.Storage, roleName, role, warnings)
 }
 
-// retrieveRole from storage. This assumes the caller has already obtained the role lock.
-func (b *GcpAuthBackend) retrieveRole(ctx context.Context, s logical.Storage, name string) (*gcpRole, error) {
+// role from storage. This assumes the caller has already obtained the role lock.
+func (b *GcpAuthBackend) role(ctx context.Context, s logical.Storage, name string) (*gcpRole, error) {
 	name = strings.ToLower(name)
 
 	entry, err := s.Get(ctx, "role/"+name)

@@ -847,7 +847,7 @@ func TestRetrieveRole(t *testing.T) {
 			}
 			b := be.(*GcpAuthBackend)
 
-			actualResp, err := b.retrieveRole(ctx, storage, test.name)
+			actualResp, err := b.role(ctx, storage, test.name)
 			if test.expectErr && err == nil {
 				t.Fatalf("err expected, got nil")
 			}
@@ -901,7 +901,7 @@ func TestRetrieveRole(t *testing.T) {
 		}
 		b := be.(*GcpAuthBackend)
 
-		actualResp, err := b.retrieveRole(ctx, storage, name)
+		actualResp, err := b.role(ctx, storage, name)
 		if err == nil {
 			t.Fatalf("err expected, got nil")
 		}
@@ -943,7 +943,7 @@ func TestRetrieveRole(t *testing.T) {
 		}
 		b := be.(*GcpAuthBackend)
 
-		actualRole, err := b.retrieveRole(ctx, storage, name)
+		actualRole, err := b.role(ctx, storage, name)
 		if err != nil {
 			t.Fatalf("no err expected, got: %s", err)
 		}
