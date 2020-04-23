@@ -120,11 +120,11 @@ func (role *gcpRole) updateRole(sys logical.SystemView, req *logical.Request, da
 	if rt, ok := data.GetOk("type"); ok {
 		roleType := rt.(string)
 		if role.RoleType != roleType && req.Operation == logical.UpdateOperation {
-			return warnings, fmt.Errorf("role type cannot be changed for an existing role")
+			return nil, fmt.Errorf("role type cannot be changed for an existing role")
 		}
 		role.RoleType = roleType
 	} else if req.Operation == logical.CreateOperation {
-		return warnings, fmt.Errorf(errEmptyRoleType)
+		return nil, fmt.Errorf(errEmptyRoleType)
 	}
 
 	def := sys.DefaultLeaseTTL()

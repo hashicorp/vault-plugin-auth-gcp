@@ -10,12 +10,6 @@ import (
 	"google.golang.org/api/iam/v1"
 )
 
-type aliasData struct {
-	role       *gcpRole
-	svcAccount *iam.ServiceAccount
-	instance   *compute.Instance
-}
-
 type iamAliaser func(role *gcpRole, svcAccount *iam.ServiceAccount) (alias string)
 type gceAliaser func(role *gcpRole, instance *compute.Instance) (alias string)
 
