@@ -19,8 +19,8 @@ import (
 
 func TestLogin_IAM(t *testing.T) {
 	t.Parallel()
-	if os.Getenv("GOOGLE_CREDENTIALS") == "" {
-		t.Skip("skipping because 'GOOGLE_CREDENTIALS' is unset")
+	if os.Getenv(googleCredentialsEnv) == "" {
+		t.Skip(fmt.Sprintf("skipping because %q is unset", googleCredentialsEnv))
 	}
 
 	b, storage, creds := testBackendWithCreds(t)
