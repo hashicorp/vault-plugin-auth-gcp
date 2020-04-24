@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,9 @@ import (
 
 func TestLogin_IAM(t *testing.T) {
 	t.Parallel()
+	if os.Getenv("GOOGLE_CREDENTIALS") == "" {
+		t.Skip("skipping because 'GOOGLE_CREDENTIALS' is unset")
+	}
 
 	b, storage, creds := testBackendWithCreds(t)
 	ctx := context.Background()

@@ -68,6 +68,12 @@ func TestRoleUpdateIam(t *testing.T) {
 		"type":                   iamRoleType,
 		"bound_service_accounts": serviceAccounts,
 		"iam_alias":              defaultIAMAlias,
+		"iam_metadata": []string{
+			"project_id",
+			"role",
+			"service_account_id",
+			"service_account_email",
+		},
 	})
 
 	serviceAccounts = append(serviceAccounts, "testaccount@google.com")
@@ -98,6 +104,12 @@ func TestRoleUpdateIam(t *testing.T) {
 		"add_group_aliases":      true,
 		"bound_service_accounts": serviceAccounts,
 		"iam_alias":              defaultIAMAlias,
+		"iam_metadata": []string{
+			"project_id",
+			"role",
+			"service_account_id",
+			"service_account_email",
+		},
 	})
 }
 
@@ -129,6 +141,12 @@ func TestRoleIam_Wildcard(t *testing.T) {
 		"type":                   iamRoleType,
 		"bound_service_accounts": serviceAccounts,
 		"iam_alias":              defaultIAMAlias,
+		"iam_metadata": []string{
+			"project_id",
+			"role",
+			"service_account_id",
+			"service_account_email",
+		},
 	})
 }
 
@@ -152,6 +170,12 @@ func TestRoleIam_EditServiceAccounts(t *testing.T) {
 		"bound_projects":         projects,
 		"bound_service_accounts": initial,
 		"iam_alias":              defaultIAMAlias,
+		"iam_metadata": []string{
+			"project_id",
+			"role",
+			"service_account_id",
+			"service_account_email",
+		},
 	}
 
 	testRoleCreate(t, b, reqStorage, data)
@@ -241,6 +265,17 @@ func TestRoleGce(t *testing.T) {
 		"bound_projects":         []string{},
 		"bound_service_accounts": []string{},
 		"gce_alias":              defaultGCEAlias,
+		"gce_metadata": []string{
+			"instance_creation_timestamp",
+			"instance_id",
+			"instance_name",
+			"project_id",
+			"project_number",
+			"role",
+			"service_account_id",
+			"service_account_email",
+			"zone",
+		},
 	})
 
 	serviceAccounts := []string{"aserviceaccountid", "testaccount@google.com"}
@@ -279,6 +314,17 @@ func TestRoleGce(t *testing.T) {
 		"bound_service_accounts": serviceAccounts,
 		"add_group_aliases":      true,
 		"gce_alias":              defaultGCEAlias,
+		"gce_metadata": []string{
+			"instance_creation_timestamp",
+			"instance_id",
+			"instance_name",
+			"project_id",
+			"project_number",
+			"role",
+			"service_account_id",
+			"service_account_email",
+			"zone",
+		},
 	})
 }
 
@@ -305,6 +351,17 @@ func TestRoleGce_EditLabels(t *testing.T) {
 		"bound_projects": []string{projectId},
 		"bound_labels":   labels,
 		"gce_alias":      defaultGCEAlias,
+		"gce_metadata": []string{
+			"instance_creation_timestamp",
+			"instance_id",
+			"instance_name",
+			"project_id",
+			"project_number",
+			"role",
+			"service_account_id",
+			"service_account_email",
+			"zone",
+		},
 	})
 
 	testRoleEditLabels(t, b, reqStorage, map[string]interface{}{
@@ -319,6 +376,17 @@ func TestRoleGce_EditLabels(t *testing.T) {
 		"bound_projects": []string{projectId},
 		"bound_labels":   labels,
 		"gce_alias":      defaultGCEAlias,
+		"gce_metadata": []string{
+			"instance_creation_timestamp",
+			"instance_id",
+			"instance_name",
+			"project_id",
+			"project_number",
+			"role",
+			"service_account_id",
+			"service_account_email",
+			"zone",
+		},
 	})
 
 	testRoleEditLabels(t, b, reqStorage, map[string]interface{}{
@@ -335,6 +403,17 @@ func TestRoleGce_EditLabels(t *testing.T) {
 		"bound_projects": []string{projectId},
 		"bound_labels":   labels,
 		"gce_alias":      defaultGCEAlias,
+		"gce_metadata": []string{
+			"instance_creation_timestamp",
+			"instance_id",
+			"instance_name",
+			"project_id",
+			"project_number",
+			"role",
+			"service_account_id",
+			"service_account_email",
+			"zone",
+		},
 	})
 }
 
@@ -367,6 +446,17 @@ func TestRoleGce_DeprecatedFields(t *testing.T) {
 			"bound_zones":           []string{"us-east1-a"},
 			"bound_instance_groups": []string{"my-ig"},
 			"gce_alias":             defaultGCEAlias,
+			"gce_metadata": []string{
+				"instance_creation_timestamp",
+				"instance_id",
+				"instance_name",
+				"project_id",
+				"project_number",
+				"role",
+				"service_account_id",
+				"service_account_email",
+				"zone",
+			},
 		})
 	})
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/authmetadata"
 	"github.com/hashicorp/vault/sdk/helper/strutil"
 	"github.com/hashicorp/vault/sdk/helper/tokenutil"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -72,10 +73,12 @@ type gcpRole struct {
 	BoundLabels map[string]string `json:"bound_labels,omitempty"`
 
 	// IAMAliasType specifies the alias name to use with IAM roles. Can be either "unique_id" (default) or "role_id"
-	IAMAliasType string `json:"iam_alias,omitempty"`
+	IAMAliasType    string                `json:"iam_alias,omitempty"`
+	IAMAuthMetadata *authmetadata.Handler `json:"iam_auth_metadata_handler"`
 
 	// GCEAliasType specifies the alias name to use with GCE roles. Can be either "instance_id" (default) or "role_id"
-	GCEAliasType string `json:"gce_alias,omitempty"`
+	GCEAliasType    string                `json:"gce_alias,omitempty"`
+	GCEAuthMetadata *authmetadata.Handler `json:"gce_auth_metadata_handler"`
 
 	// Version indicates the version of this configuration. Allows for more advanced logic around
 	// upgrades and different behavior between config versions.

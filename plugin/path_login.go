@@ -341,10 +341,11 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 		Alias: &logical.Alias{
 			Name: alias,
 		},
-		Metadata:    authMetadata(loginInfo, serviceAccount),
 		DisplayName: serviceAccount.Email,
 	}
-
+	if err := role.IAMAuthMetadata.PopulateDesiredMetadata(auth, authMetadata(loginInfo, serviceAccount)); err != nil {
+		b.Logger().Warn("unable to set auth metadata", "err", err)
+	}
 	role.PopulateTokenAuth(auth)
 
 	resp := &logical.Response{
@@ -489,10 +490,11 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		Alias: &logical.Alias{
 			Name: alias,
 		},
-		Metadata:    authMetadata(loginInfo, serviceAccount),
 		DisplayName: instance.Name,
 	}
-
+	if err := role.GCEAuthMetadata.PopulateDesiredMetadata(auth, authMetadata(loginInfo, serviceAccount)); err != nil {
+		b.Logger().Warn("unable to set auth metadata", "err", err)
+	}
 	role.PopulateTokenAuth(auth)
 
 	resp := &logical.Response{

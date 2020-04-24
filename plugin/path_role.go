@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/authmetadata"
 	vaultconsts "github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/helper/tokenutil"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -35,6 +36,41 @@ const (
 
 	// Max allowed duration that all JWT tokens must expire within to be accepted
 	maxJwtExpMaxMinutes int = 60
+)
+
+var (
+	// The default gce_alias is "instance_id". The default fields
+	// below are selected because they're unlikely to change often
+	// for a particular instance ID.
+	gceAuthMetadataFields = &authmetadata.Fields{
+		FieldName: "gce_metadata",
+		Default: []string{
+			"instance_creation_timestamp",
+			"instance_id",
+			"instance_name",
+			"project_id",
+			"project_number",
+			"role",
+			"service_account_id",
+			"service_account_email",
+			"zone",
+		},
+		AvailableToAdd: []string{},
+	}
+
+	// The default iam_alias is "unique_id". The default fields
+	// below are selected because they're unlikely to change often
+	// for a particular instance ID.
+	iamAuthMetadataFields = &authmetadata.Fields{
+		FieldName: "iam_metadata",
+		Default: []string{
+			"project_id",
+			"role",
+			"service_account_id",
+			"service_account_email",
+		},
+		AvailableToAdd: []string{},
+	}
 )
 
 func baseRoleFieldSchema() map[string]*framework.FieldSchema {
@@ -109,6 +145,7 @@ var iamOnlyFieldSchema = map[string]*framework.FieldSchema{
 		Default:     defaultIAMAlias,
 		Description: "Indicates what value to use when generating an alias for IAM authentications.",
 	},
+	iamAuthMetadataFields.FieldName: authmetadata.FieldSchema(iamAuthMetadataFields),
 }
 
 var gceOnlyFieldSchema = map[string]*framework.FieldSchema{
@@ -145,6 +182,7 @@ var gceOnlyFieldSchema = map[string]*framework.FieldSchema{
 		Default:     defaultGCEAlias,
 		Description: "Indicates what value to use when generating an alias for GCE authentications.",
 	},
+	gceAuthMetadataFields.FieldName: authmetadata.FieldSchema(gceAuthMetadataFields),
 }
 
 // pathsRole creates paths for listing roles and CRUD operations.
@@ -306,6 +344,7 @@ func (b *GcpAuthBackend) pathRoleRead(ctx context.Context, req *logical.Request,
 		}
 		respData["allow_gce_inference"] = role.AllowGCEInference
 		respData["iam_alias"] = role.IAMAliasType
+		respData[iamAuthMetadataFields.FieldName] = role.IAMAuthMetadata.AuthMetadata()
 	case gceRoleType:
 		if len(role.BoundRegions) > 0 {
 			respData["bound_regions"] = role.BoundRegions
@@ -320,6 +359,7 @@ func (b *GcpAuthBackend) pathRoleRead(ctx context.Context, req *logical.Request,
 			respData["bound_labels"] = role.BoundLabels
 		}
 		respData["gce_alias"] = role.GCEAliasType
+		respData[gceAuthMetadataFields.FieldName] = role.GCEAuthMetadata.AuthMetadata()
 	}
 
 	// Upgrade vals
@@ -358,7 +398,16 @@ func (b *GcpAuthBackend) pathRoleCreateUpdate(ctx context.Context, req *logical.
 		return nil, err
 	}
 	if role == nil {
-		role = &gcpRole{}
+		role = &gcpRole{
+			IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
+			GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+		}
+	}
+	if err := role.IAMAuthMetadata.ParseAuthMetadata(data); err != nil {
+		return logical.ErrorResponse(err.Error()), logical.ErrInvalidRequest
+	}
+	if err := role.GCEAuthMetadata.ParseAuthMetadata(data); err != nil {
+		return logical.ErrorResponse(err.Error()), logical.ErrInvalidRequest
 	}
 
 	if role.RoleID == "" {
@@ -514,7 +563,10 @@ func (b *GcpAuthBackend) role(ctx context.Context, s logical.Storage, name strin
 		return nil, nil
 	}
 
-	var role gcpRole
+	role := &gcpRole{
+		IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
+		GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+	}
 	if err := entry.DecodeJSON(&role); err != nil {
 		return nil, err
 	}
@@ -597,7 +649,7 @@ func (b *GcpAuthBackend) role(ctx context.Context, s logical.Storage, name strin
 		}
 	}
 
-	return &role, nil
+	return role, nil
 }
 
 // storeRole saves the gcpRole to storage.
