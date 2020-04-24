@@ -2,16 +2,19 @@ package gcpauth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
-	"reflect"
-
+	"github.com/golang/mock/gomock"
+	"github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/helper/policyutil"
 	"github.com/hashicorp/vault/sdk/helper/strutil"
+	"github.com/hashicorp/vault/sdk/helper/tokenutil"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
@@ -64,6 +67,7 @@ func TestRoleUpdateIam(t *testing.T) {
 		"name":                   roleName,
 		"type":                   iamRoleType,
 		"bound_service_accounts": serviceAccounts,
+		"iam_alias":              defaultIAMAlias,
 	})
 
 	serviceAccounts = append(serviceAccounts, "testaccount@google.com")
@@ -93,6 +97,7 @@ func TestRoleUpdateIam(t *testing.T) {
 		"allow_gce_inference":    false,
 		"add_group_aliases":      true,
 		"bound_service_accounts": serviceAccounts,
+		"iam_alias":              defaultIAMAlias,
 	})
 }
 
@@ -123,6 +128,7 @@ func TestRoleIam_Wildcard(t *testing.T) {
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"type":                   iamRoleType,
 		"bound_service_accounts": serviceAccounts,
+		"iam_alias":              defaultIAMAlias,
 	})
 }
 
@@ -145,6 +151,7 @@ func TestRoleIam_EditServiceAccounts(t *testing.T) {
 		"type":                   iamRoleType,
 		"bound_projects":         projects,
 		"bound_service_accounts": initial,
+		"iam_alias":              defaultIAMAlias,
 	}
 
 	testRoleCreate(t, b, reqStorage, data)
@@ -233,6 +240,7 @@ func TestRoleGce(t *testing.T) {
 		"type":                   gceRoleType,
 		"bound_projects":         []string{},
 		"bound_service_accounts": []string{},
+		"gce_alias":              defaultGCEAlias,
 	})
 
 	serviceAccounts := []string{"aserviceaccountid", "testaccount@google.com"}
@@ -270,6 +278,7 @@ func TestRoleGce(t *testing.T) {
 		"bound_instance_groups":  []string{"devGroup"},
 		"bound_service_accounts": serviceAccounts,
 		"add_group_aliases":      true,
+		"gce_alias":              defaultGCEAlias,
 	})
 }
 
@@ -295,6 +304,7 @@ func TestRoleGce_EditLabels(t *testing.T) {
 		"type":           gceRoleType,
 		"bound_projects": []string{projectId},
 		"bound_labels":   labels,
+		"gce_alias":      defaultGCEAlias,
 	})
 
 	testRoleEditLabels(t, b, reqStorage, map[string]interface{}{
@@ -308,6 +318,7 @@ func TestRoleGce_EditLabels(t *testing.T) {
 		"type":           gceRoleType,
 		"bound_projects": []string{projectId},
 		"bound_labels":   labels,
+		"gce_alias":      defaultGCEAlias,
 	})
 
 	testRoleEditLabels(t, b, reqStorage, map[string]interface{}{
@@ -323,6 +334,7 @@ func TestRoleGce_EditLabels(t *testing.T) {
 		"type":           gceRoleType,
 		"bound_projects": []string{projectId},
 		"bound_labels":   labels,
+		"gce_alias":      defaultGCEAlias,
 	})
 }
 
@@ -354,6 +366,7 @@ func TestRoleGce_DeprecatedFields(t *testing.T) {
 			"bound_regions":         []string{"us-east1"},
 			"bound_zones":           []string{"us-east1-a"},
 			"bound_instance_groups": []string{"my-ig"},
+			"gce_alias":             defaultGCEAlias,
 		})
 	})
 
@@ -449,6 +462,511 @@ func TestRole_InvalidRoleType(t *testing.T) {
 		"type":           invalidRoleType,
 		"bound_projects": projectId,
 	}, []string{"role type", invalidRoleType, "is invalid"})
+}
+
+func TestRetrieveRole(t *testing.T) {
+	type testCase struct {
+		name string
+
+		getName  string
+		getResp  *logical.StorageEntry
+		getErr   error
+		getTimes int
+
+		localMount            bool
+		localMountTimes       int
+		replicationState      consts.ReplicationState
+		replicationStateTimes int
+
+		putTimes int
+
+		expectedRole *gcpRole
+		expectErr    bool
+	}
+
+	tests := map[string]testCase{
+		"not found": {
+			name: "testrole",
+
+			getName:  "role/testrole",
+			getResp:  nil,
+			getErr:   nil,
+			getTimes: 1,
+
+			localMountTimes:       0,
+			replicationStateTimes: 0,
+
+			expectedRole: nil,
+			expectErr:    false,
+		},
+		"storage error": {
+			name: "testrole",
+
+			getName:  "role/testrole",
+			getResp:  nil,
+			getErr:   fmt.Errorf("test error"),
+			getTimes: 1,
+
+			localMountTimes:       0,
+			replicationStateTimes: 0,
+
+			expectedRole: nil,
+			expectErr:    true,
+		},
+		"bad data": {
+			name: "testrole",
+
+			getName: "role/testrole",
+			getResp: &logical.StorageEntry{
+				Key:   "role/testrole",
+				Value: []byte("asdfhoiasndf"),
+			},
+			getErr:   nil,
+			getTimes: 1,
+
+			localMountTimes:       0,
+			replicationStateTimes: 0,
+
+			expectedRole: nil,
+			expectErr:    true,
+		},
+		"iam nothing modified": {
+			name: "testrole",
+
+			getName: "role/testrole",
+			getResp: &logical.StorageEntry{
+				Key: "testrole",
+				Value: toJSON(t,
+					gcpRole{
+						RoleID:       "testroleid",
+						RoleType:     "iam",
+						IAMAliasType: defaultIAMAlias,
+					}),
+			},
+			getErr:   nil,
+			getTimes: 1,
+
+			localMountTimes:       0,
+			replicationStateTimes: 0,
+
+			expectedRole: &gcpRole{
+				RoleID:       "testroleid",
+				RoleType:     "iam",
+				IAMAliasType: defaultIAMAlias,
+			},
+			expectErr: false,
+		},
+		"gce nothing modified": {
+			name: "testrole",
+
+			getName: "role/testrole",
+			getResp: &logical.StorageEntry{
+				Key: "testrole",
+				Value: toJSON(t,
+					gcpRole{
+						RoleID:       "testroleid",
+						RoleType:     "gce",
+						GCEAliasType: defaultGCEAlias,
+					}),
+			},
+			getErr:   nil,
+			getTimes: 1,
+
+			localMountTimes:       0,
+			replicationStateTimes: 0,
+
+			expectedRole: &gcpRole{
+				RoleID:       "testroleid",
+				RoleType:     "gce",
+				GCEAliasType: defaultGCEAlias,
+			},
+			expectErr: false,
+		},
+		"projectID upgrade": {
+			name: "testrole",
+
+			getName: "role/testrole",
+			getResp: &logical.StorageEntry{
+				Key: "testrole",
+				Value: toJSON(t,
+					gcpRole{
+						RoleID:        "testroleid",
+						ProjectId:     "projectID",
+						BoundProjects: []string{},
+					}),
+			},
+			getErr:   nil,
+			getTimes: 1,
+
+			localMount:            true,
+			localMountTimes:       1,
+			replicationStateTimes: 0,
+
+			putTimes: 1,
+
+			expectedRole: &gcpRole{
+				RoleID:        "testroleid",
+				BoundProjects: []string{"projectID"},
+			},
+			expectErr: false,
+		},
+		"boundRegion upgrade": {
+			name: "testrole",
+
+			getName: "role/testrole",
+			getResp: &logical.StorageEntry{
+				Key: "testrole",
+				Value: toJSON(t,
+					gcpRole{
+						RoleID:       "testroleid",
+						BoundRegion:  "boundRegion",
+						BoundRegions: []string{},
+					}),
+			},
+			getErr:   nil,
+			getTimes: 1,
+
+			localMount:            true,
+			localMountTimes:       1,
+			replicationStateTimes: 0,
+
+			putTimes: 1,
+
+			expectedRole: &gcpRole{
+				RoleID:       "testroleid",
+				BoundRegions: []string{"boundRegion"},
+			},
+			expectErr: false,
+		},
+		"boundZone upgrade": {
+			name: "testrole",
+
+			getName: "role/testrole",
+			getResp: &logical.StorageEntry{
+				Key: "testrole",
+				Value: toJSON(t,
+					gcpRole{
+						RoleID:     "testroleid",
+						BoundZone:  "boundZone",
+						BoundZones: []string{},
+					}),
+			},
+			getErr:   nil,
+			getTimes: 1,
+
+			localMount:            true,
+			localMountTimes:       1,
+			replicationStateTimes: 0,
+
+			putTimes: 1,
+
+			expectedRole: &gcpRole{
+				RoleID:     "testroleid",
+				BoundZones: []string{"boundZone"},
+			},
+			expectErr: false,
+		},
+		"boundInstanceGroup upgrade": {
+			name: "testrole",
+
+			getName: "role/testrole",
+			getResp: &logical.StorageEntry{
+				Key: "testrole",
+				Value: toJSON(t,
+					gcpRole{
+						RoleID:              "testroleid",
+						BoundInstanceGroup:  "boundInstanceGroup",
+						BoundInstanceGroups: []string{},
+					}),
+			},
+			getErr:   nil,
+			getTimes: 1,
+
+			localMount:            true,
+			localMountTimes:       1,
+			replicationStateTimes: 0,
+
+			putTimes: 1,
+
+			expectedRole: &gcpRole{
+				RoleID:              "testroleid",
+				BoundInstanceGroups: []string{"boundInstanceGroup"},
+			},
+			expectErr: false,
+		},
+		"TTL upgrade": {
+			name: "testrole",
+
+			getName: "role/testrole",
+			getResp: &logical.StorageEntry{
+				Key: "testrole",
+				Value: toJSON(t,
+					gcpRole{
+						RoleID:      "testroleid",
+						TokenParams: tokenutil.TokenParams{},
+						TTL:         1 * time.Second,
+					}),
+			},
+			getErr:   nil,
+			getTimes: 1,
+
+			localMount:            true,
+			localMountTimes:       1,
+			replicationStateTimes: 0,
+
+			putTimes: 1,
+
+			expectedRole: &gcpRole{
+				RoleID: "testroleid",
+				TokenParams: tokenutil.TokenParams{
+					TokenTTL: 1 * time.Second,
+				},
+				TTL: 1 * time.Second,
+			},
+			expectErr: false,
+		},
+		"MaxTTL upgrade": {
+			name: "testrole",
+
+			getName: "role/testrole",
+			getResp: &logical.StorageEntry{
+				Key: "testrole",
+				Value: toJSON(t,
+					gcpRole{
+						RoleID:      "testroleid",
+						TokenParams: tokenutil.TokenParams{},
+						MaxTTL:      1 * time.Second,
+					}),
+			},
+			getErr:   nil,
+			getTimes: 1,
+
+			localMount:            true,
+			localMountTimes:       1,
+			replicationStateTimes: 0,
+
+			putTimes: 1,
+
+			expectedRole: &gcpRole{
+				RoleID: "testroleid",
+				TokenParams: tokenutil.TokenParams{
+					TokenMaxTTL: 1 * time.Second,
+				},
+				MaxTTL: 1 * time.Second,
+			},
+			expectErr: false,
+		},
+		"TokenPeriod upgrade": {
+			name: "testrole",
+
+			getName: "role/testrole",
+			getResp: &logical.StorageEntry{
+				Key: "testrole",
+				Value: toJSON(t,
+					gcpRole{
+						RoleID:      "testroleid",
+						TokenParams: tokenutil.TokenParams{},
+						Period:      1 * time.Second,
+					}),
+			},
+			getErr:   nil,
+			getTimes: 1,
+
+			localMount:            true,
+			localMountTimes:       1,
+			replicationStateTimes: 0,
+
+			putTimes: 1,
+
+			expectedRole: &gcpRole{
+				RoleID: "testroleid",
+				TokenParams: tokenutil.TokenParams{
+					TokenPeriod: 1 * time.Second,
+				},
+				Period: 1 * time.Second,
+			},
+			expectErr: false,
+		},
+		"TokenPolicies upgrade": {
+			name: "testrole",
+
+			getName: "role/testrole",
+			getResp: &logical.StorageEntry{
+				Key: "testrole",
+				Value: toJSON(t,
+					gcpRole{
+						RoleID:      "testroleid",
+						TokenParams: tokenutil.TokenParams{},
+						Policies:    []string{"policy1", "policy2"},
+					}),
+			},
+			getErr:   nil,
+			getTimes: 1,
+
+			localMount:            true,
+			localMountTimes:       1,
+			replicationStateTimes: 0,
+
+			putTimes: 1,
+
+			expectedRole: &gcpRole{
+				RoleID: "testroleid",
+				TokenParams: tokenutil.TokenParams{
+					TokenPolicies: []string{"policy1", "policy2"},
+				},
+				Policies: []string{"policy1", "policy2"},
+			},
+			expectErr: false,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+			defer cancel()
+
+			storage := NewMockStorage(ctrl)
+			storage.EXPECT().Get(ctx, test.getName).Return(test.getResp, test.getErr).Times(test.getTimes)
+
+			putReq := &logical.StorageEntry{
+				Key:   fmt.Sprintf("role/%s", test.name),
+				Value: append(toJSON(t, test.expectedRole), '\n'), // Add a newline because StorageEntryJSON somehow adds it
+			}
+			storage.EXPECT().Put(ctx, putReq).Return(nil).Times(test.putTimes)
+
+			systemView := NewMockSystemView(ctrl)
+			systemView.EXPECT().LocalMount().Return(test.localMount).Times(test.localMountTimes)
+			systemView.EXPECT().ReplicationState().Return(test.replicationState).Times(test.replicationStateTimes)
+
+			be, err := Factory(ctx, &logical.BackendConfig{System: systemView})
+			if err != nil {
+				t.Fatalf("no error expected, got: %s", err)
+			}
+			b := be.(*GcpAuthBackend)
+
+			actualResp, err := b.role(ctx, storage, test.name)
+			if test.expectErr && err == nil {
+				t.Fatalf("err expected, got nil")
+			}
+			if !test.expectErr && err != nil {
+				t.Fatalf("no error expected, got: %s", err)
+			}
+			if !reflect.DeepEqual(actualResp, test.expectedRole) {
+				t.Fatalf("Actual role: %#v\nExpected role: %#v", actualResp, test.expectedRole)
+			}
+		})
+	}
+
+	t.Run("storage put error", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		defer cancel()
+
+		name := "testrole"
+
+		getResp := &logical.StorageEntry{
+			Key: "testrole",
+			Value: toJSON(t,
+				gcpRole{
+					RoleID:    "testroleid",
+					ProjectId: "projectID",
+				}),
+		}
+
+		putReq := &logical.StorageEntry{
+			Key: fmt.Sprintf("role/%s", name),
+			Value: append(toJSON(t,
+				gcpRole{
+					RoleID:        "testroleid",
+					BoundProjects: []string{"projectID"},
+				},
+			), '\n'), // Add a newline because StorageEntryJSON somehow adds it
+		}
+
+		storage := NewMockStorage(ctrl)
+		storage.EXPECT().Get(ctx, fmt.Sprintf("role/%s", name)).Return(getResp, nil)
+		storage.EXPECT().Put(ctx, putReq).Return(fmt.Errorf("test error"))
+
+		systemView := NewMockSystemView(ctrl)
+		systemView.EXPECT().LocalMount().Return(true)
+
+		be, err := Factory(ctx, &logical.BackendConfig{System: systemView})
+		if err != nil {
+			t.Fatalf("no error expected, got: %s", err)
+		}
+		b := be.(*GcpAuthBackend)
+
+		actualResp, err := b.role(ctx, storage, name)
+		if err == nil {
+			t.Fatalf("err expected, got nil")
+		}
+		if actualResp != nil {
+			t.Fatalf("no role expected, but got: %#v", actualResp)
+		}
+	})
+
+	t.Run("roleID is generated when one does not exist", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		defer cancel()
+
+		name := "testrole"
+
+		getResp := &logical.StorageEntry{
+			Key: "testrole",
+			Value: toJSON(t,
+				gcpRole{}),
+		}
+
+		storage := NewMockStorage(ctrl)
+		storage.EXPECT().Get(ctx, fmt.Sprintf("role/%s", name)).Return(getResp, nil)
+
+		var actualRawPut *logical.StorageEntry
+		storage.EXPECT().Put(ctx, gomock.Any()).DoAndReturn(func(_ context.Context, put *logical.StorageEntry) error {
+			actualRawPut = put
+			return nil
+		})
+
+		systemView := NewMockSystemView(ctrl)
+		systemView.EXPECT().LocalMount().Return(true)
+
+		be, err := Factory(ctx, &logical.BackendConfig{System: systemView})
+		if err != nil {
+			t.Fatalf("no error expected, got: %s", err)
+		}
+		b := be.(*GcpAuthBackend)
+
+		actualRole, err := b.role(ctx, storage, name)
+		if err != nil {
+			t.Fatalf("no err expected, got: %s", err)
+		}
+
+		if actualRole.RoleID == "" {
+			t.Fatalf("RoleID not set on returned role")
+		}
+
+		expectedPutKey := fmt.Sprintf("role/%s", name)
+		if actualRawPut.Key != expectedPutKey {
+			t.Fatalf("Actual put key: %s Expected put key: %s", actualRawPut.Key, expectedPutKey)
+		}
+
+		putRole := gcpRole{}
+		err = json.Unmarshal(actualRawPut.Value, &putRole)
+		if err != nil {
+			t.Fatalf("no err expected, got: %s", err)
+		}
+
+		if putRole.RoleID != actualRole.RoleID {
+			t.Fatalf("Saved RoleID [%s] does not match returned RoleID [%s]", putRole.RoleID, actualRole.RoleID)
+		}
+	})
 }
 
 //-- Utils --
@@ -558,6 +1076,13 @@ func testRoleRead(tb testing.TB, b logical.Backend, s logical.Storage, roleName 
 		tb.Fatal(resp.Error())
 	}
 
+	// Because role_id is generated, ensure that it exists but don't worry about the specific value
+	roleID, exists := resp.Data["role_id"]
+	if !exists || roleID == "" {
+		tb.Fatal("missing or empty role_id")
+	}
+	delete(resp.Data, "role_id")
+
 	if err := checkData(resp, expected, expectedDefaults); err != nil {
 		tb.Fatal(err)
 	}
@@ -641,4 +1166,14 @@ func testRoleAndProject(tb testing.TB) (string, string) {
 	projectId := "v-project-" + suffix
 
 	return roleName, projectId
+}
+
+func toJSON(t testing.TB, val interface{}) []byte {
+	t.Helper()
+
+	b, err := json.Marshal(val)
+	if err != nil {
+		t.Fatalf("Failed to marshal to JSON: %s", err)
+	}
+	return b
 }
