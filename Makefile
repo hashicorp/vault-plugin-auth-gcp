@@ -51,5 +51,8 @@ fmtcheck:
 fmt:
 	gofmt -w $(GOFMT_FILES)
 
+mocks:
+	mockgen -destination ${CURDIR}/plugin/mocks_test.go -package gcpauth github.com/hashicorp/vault/sdk/logical SystemView,Storage
+
 
 .PHONY: bin default generate test vet bootstrap fmt fmtcheck

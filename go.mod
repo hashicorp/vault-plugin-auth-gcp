@@ -3,6 +3,7 @@ module github.com/hashicorp/vault-plugin-auth-gcp
 go 1.12
 
 require (
+	github.com/golang/mock v1.4.3
 	github.com/hashicorp/errwrap v1.0.0
 	github.com/hashicorp/go-cleanhttp v0.5.1
 	github.com/hashicorp/go-gcp-common v0.6.0
