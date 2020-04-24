@@ -62,6 +62,7 @@ func TestRoleUpdateIam(t *testing.T) {
 		"name":                   roleName,
 		"type":                   iamRoleType,
 		"bound_service_accounts": strings.Join(serviceAccounts, ","),
+		"iam_metadata":           []string{"project_id"},
 	})
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"name":                   roleName,
@@ -70,9 +71,6 @@ func TestRoleUpdateIam(t *testing.T) {
 		"iam_alias":              defaultIAMAlias,
 		"iam_metadata": []string{
 			"project_id",
-			"role",
-			"service_account_id",
-			"service_account_email",
 		},
 	})
 
@@ -87,6 +85,7 @@ func TestRoleUpdateIam(t *testing.T) {
 		"allow_gce_inference":    false,
 		"add_group_aliases":      true,
 		"bound_service_accounts": strings.Join(serviceAccounts, ","),
+		"iam_metadata":           []string{"project_id", "role"},
 	})
 
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
@@ -104,12 +103,7 @@ func TestRoleUpdateIam(t *testing.T) {
 		"add_group_aliases":      true,
 		"bound_service_accounts": serviceAccounts,
 		"iam_alias":              defaultIAMAlias,
-		"iam_metadata": []string{
-			"project_id",
-			"role",
-			"service_account_id",
-			"service_account_email",
-		},
+		"iam_metadata":           []string{"project_id", "role"},
 	})
 }
 
@@ -256,8 +250,9 @@ func TestRoleGce(t *testing.T) {
 	roleName, projectId := testRoleAndProject(t)
 
 	testRoleCreate(t, b, reqStorage, map[string]interface{}{
-		"name": roleName,
-		"type": gceRoleType,
+		"name":         roleName,
+		"type":         gceRoleType,
+		"gce_metadata": "default",
 	})
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"name":                   roleName,
@@ -291,6 +286,7 @@ func TestRoleGce(t *testing.T) {
 		"bound_labels":           "label1:foo,prod:true",
 		"bound_service_accounts": strings.Join(serviceAccounts, ","),
 		"add_group_aliases":      true,
+		"gce_metadata":           []string{},
 	})
 
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
@@ -314,17 +310,7 @@ func TestRoleGce(t *testing.T) {
 		"bound_service_accounts": serviceAccounts,
 		"add_group_aliases":      true,
 		"gce_alias":              defaultGCEAlias,
-		"gce_metadata": []string{
-			"instance_creation_timestamp",
-			"instance_id",
-			"instance_name",
-			"project_id",
-			"project_number",
-			"role",
-			"service_account_id",
-			"service_account_email",
-			"zone",
-		},
+		"gce_metadata":           []string{},
 	})
 }
 
