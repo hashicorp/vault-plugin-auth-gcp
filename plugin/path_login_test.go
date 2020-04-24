@@ -160,7 +160,7 @@ func TestLogin_IAM(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
+		tc := tc // Since the t.Run is parallel, this is needed to prevent scope sharing between loops
 
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

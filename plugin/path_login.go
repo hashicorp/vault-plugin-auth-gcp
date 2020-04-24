@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -59,7 +60,7 @@ GCE identity metadata token ('iam', 'gce' roles).`,
 func (b *GcpAuthBackend) pathLogin(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	// Validate we didn't get extraneous fields
 	if err := validateFields(req, data); err != nil {
-		return nil, logical.CodedError(422, err.Error())
+		return nil, logical.CodedError(http.StatusUnprocessableEntity, err.Error())
 	}
 
 	loginInfo, err := b.parseAndValidateJwt(ctx, req, data)
@@ -315,14 +316,20 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 		return nil, errors.New("service account is empty")
 	}
 
+	alias, err := getIAMAlias(role, serviceAccount)
+	if err != nil {
+		return logical.ErrorResponse("unable to create alias: %s", err), nil
+	}
+
 	if req.Operation == logical.AliasLookaheadOperation {
-		return &logical.Response{
+		resp := &logical.Response{
 			Auth: &logical.Auth{
 				Alias: &logical.Alias{
-					Name: serviceAccount.UniqueId,
+					Name: alias,
 				},
 			},
-		}, nil
+		}
+		return resp, nil
 	}
 
 	// Validate service account can login against role.
@@ -332,7 +339,7 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 
 	auth := &logical.Auth{
 		Alias: &logical.Alias{
-			Name: serviceAccount.UniqueId,
+			Name: alias,
 		},
 		Metadata:    authMetadata(loginInfo, serviceAccount),
 		DisplayName: serviceAccount.Email,
@@ -449,11 +456,16 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
+	alias, err := getGCEAlias(role, instance)
+	if err != nil {
+		return logical.ErrorResponse("unable to create alias: %s", err), nil
+	}
+
 	if req.Operation == logical.AliasLookaheadOperation {
 		return &logical.Response{
 			Auth: &logical.Auth{
 				Alias: &logical.Alias{
-					Name: fmt.Sprintf("gce-%s", strconv.FormatUint(instance.Id, 10)),
+					Name: alias,
 				},
 			},
 		}, nil
@@ -475,7 +487,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	auth := &logical.Auth{
 		InternalData: map[string]interface{}{},
 		Alias: &logical.Alias{
-			Name: fmt.Sprintf("gce-%s", strconv.FormatUint(instance.Id, 10)),
+			Name: alias,
 		},
 		Metadata:    authMetadata(loginInfo, serviceAccount),
 		DisplayName: instance.Name,
