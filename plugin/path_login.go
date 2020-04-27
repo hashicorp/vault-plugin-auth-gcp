@@ -316,7 +316,12 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 		return nil, errors.New("service account is empty")
 	}
 
-	alias, err := getIAMAlias(role, serviceAccount)
+	conf, err := b.config(ctx, req.Storage)
+	if err != nil {
+		return logical.ErrorResponse("unable to retrieve GCP configuration"), nil
+	}
+
+	alias, err := conf.getIAMAlias(role, serviceAccount)
 	if err != nil {
 		return logical.ErrorResponse("unable to create alias: %s", err), nil
 	}
@@ -456,7 +461,12 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	alias, err := getGCEAlias(role, instance)
+	conf, err := b.config(ctx, req.Storage)
+	if err != nil {
+		return logical.ErrorResponse("unable to retrieve GCP configuration"), nil
+	}
+
+	alias, err := conf.getGCEAlias(role, instance)
 	if err != nil {
 		return logical.ErrorResponse("unable to create alias: %s", err), nil
 	}

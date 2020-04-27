@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
@@ -72,20 +71,4 @@ func getGCEInstanceID(_ *gcpRole, instance *compute.Instance) (alias string) {
 
 func getGCERoleID(role *gcpRole, _ *compute.Instance) (alias string) {
 	return role.RoleID
-}
-
-func getIAMAlias(role *gcpRole, svcAccount *iam.ServiceAccount) (alias string, err error) {
-	aliaser, exists := allowedIAMAliases[role.IAMAliasType]
-	if !exists {
-		return "", fmt.Errorf("invalid IAM alias type: must be one of: %s", strings.Join(allowedIAMAliasesSlice, ", "))
-	}
-	return aliaser(role, svcAccount), nil
-}
-
-func getGCEAlias(role *gcpRole, instance *compute.Instance) (alias string, err error) {
-	aliaser, exists := allowedGCEAliases[role.GCEAliasType]
-	if !exists {
-		return "", fmt.Errorf("invalid GCE alias type: must be one of: %s", strings.Join(allowedIAMAliasesSlice, ", "))
-	}
-	return aliaser(role, instance), nil
 }

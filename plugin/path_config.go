@@ -25,6 +25,18 @@ If not specified, will use application default credentials`,
 					Name: "Credentials",
 				},
 			},
+			"iam_alias": {
+				Type:        framework.TypeString,
+				Default:     defaultIAMAlias,
+				Description: "Indicates what value to use when generating an alias for IAM authentications.",
+			},
+			"gce_alias": {
+				Type:        framework.TypeString,
+				Default:     defaultGCEAlias,
+				Description: "Indicates what value to use when generating an alias for GCE authentications.",
+			},
+
+			// Deprecated
 			"google_certs_endpoint": {
 				Type: framework.TypeString,
 				Description: `
@@ -124,11 +136,6 @@ iam AUTH:
 * iam.serviceAccountKeys.get
 `
 
-// gcpConfig contains all config required for the GCP backend.
-type gcpConfig struct {
-	Credentials *gcputil.GcpCredentials `json:"credentials"`
-}
-
 // standardizedCreds wraps gcputil.GcpCredentials with a type to allow
 // parsing through Google libraries, since the google libraries struct is not
 // exposed.
@@ -172,6 +179,24 @@ func (c *gcpConfig) Update(d *framework.FieldData) (bool, error) {
 
 		c.Credentials = creds
 		changed = true
+	}
+
+	rawIamAlias, exists := d.GetOk("iam_alias")
+	if exists {
+		iamAlias := rawIamAlias.(string)
+		if iamAlias != c.IAMAliasType {
+			c.IAMAliasType = iamAlias
+			changed = true
+		}
+	}
+
+	rawGceAlias, exists := d.GetOk("gce_alias")
+	if exists {
+		gceAlias := rawGceAlias.(string)
+		if gceAlias != c.GCEAliasType {
+			c.GCEAliasType = gceAlias
+			changed = true
+		}
 	}
 
 	return changed, nil

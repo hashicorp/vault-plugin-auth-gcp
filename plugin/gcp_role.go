@@ -3,7 +3,6 @@ package gcpauth
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/go-gcp-common/gcputil"
@@ -70,16 +69,6 @@ type gcpRole struct {
 
 	// BoundLabels that instances must currently have set in order to login under this role.
 	BoundLabels map[string]string `json:"bound_labels,omitempty"`
-
-	// IAMAliasType specifies the alias name to use with IAM roles. Can be either "unique_id" (default) or "role_id"
-	IAMAliasType string `json:"iam_alias,omitempty"`
-
-	// GCEAliasType specifies the alias name to use with GCE roles. Can be either "instance_id" (default) or "role_id"
-	GCEAliasType string `json:"gce_alias,omitempty"`
-
-	// Version indicates the version of this configuration. Allows for more advanced logic around
-	// upgrades and different behavior between config versions.
-	Version int `json:"version,omitempty"`
 
 	// Deprecated fields
 	// TODO: Remove in 0.5.0+
@@ -199,20 +188,12 @@ func (role *gcpRole) updateRole(sys logical.SystemView, req *logical.Request, da
 		if warnings, err = role.updateIamFields(data, req.Operation); err != nil {
 			return warnings, err
 		}
-		iamAliasType, ok := data.GetOk("iam_alias")
-		if ok {
-			role.IAMAliasType = iamAliasType.(string)
-		}
 	case gceRoleType:
 		if err = checkInvalidRoleTypeArgs(data, iamOnlyFieldSchema); err != nil {
 			return warnings, err
 		}
 		if warnings, err = role.updateGceFields(data, req.Operation); err != nil {
 			return warnings, err
-		}
-		gceAliasType, ok := data.GetOk("gce_alias")
-		if ok {
-			role.GCEAliasType = gceAliasType.(string)
 		}
 	}
 
@@ -261,13 +242,6 @@ func (role *gcpRole) validate(sys logical.SystemView) (warnings []string, err er
 		return warnings, fmt.Errorf("'period' of '%s' is greater than the backend's maximum lease TTL of '%s'", role.TokenPeriod.String(), sys.MaxLeaseTTL().String())
 	}
 
-	if _, exists := allowedIAMAliases[role.IAMAliasType]; !exists {
-		return warnings, fmt.Errorf("iam_alias must be one of: %s", strings.Join(allowedIAMAliasesSlice, ", "))
-	}
-	if _, exists := allowedGCEAliases[role.GCEAliasType]; !exists {
-		return warnings, fmt.Errorf("gce_alias must be one of: %s", strings.Join(allowedGCEAliasesSlice, ", "))
-	}
-
 	return warnings, nil
 }
 
@@ -283,10 +257,6 @@ func (role *gcpRole) updateIamFields(data *framework.FieldData, op logical.Opera
 		role.MaxJwtExp = time.Duration(maxJwtExp.(int)) * time.Second
 	} else if op == logical.CreateOperation {
 		role.MaxJwtExp = time.Duration(defaultIamMaxJwtExpMinutes) * time.Minute
-	}
-
-	if role.IAMAliasType == "" {
-		role.IAMAliasType = defaultIAMAlias
 	}
 
 	return warnings, nil
@@ -377,10 +347,6 @@ func (role *gcpRole) updateGceFields(data *framework.FieldData, op logical.Opera
 	if len(role.BoundInstanceGroups) > 0 {
 		role.BoundInstanceGroups = strutil.TrimStrings(role.BoundInstanceGroups)
 		role.BoundInstanceGroups = strutil.RemoveDuplicates(role.BoundInstanceGroups, false)
-	}
-
-	if role.GCEAliasType == "" {
-		role.GCEAliasType = defaultGCEAlias
 	}
 
 	return warnings, nil
