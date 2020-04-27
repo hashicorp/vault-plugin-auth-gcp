@@ -1,10 +1,14 @@
 package gcpauth
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-gcp-common/gcputil"
+	"github.com/hashicorp/vault/sdk/framework"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
 )
@@ -14,6 +18,72 @@ type gcpConfig struct {
 	Credentials  *gcputil.GcpCredentials `json:"credentials"`
 	IAMAliasType string                  `json:"iam_alias"`
 	GCEAliasType string                  `json:"gce_alias"`
+}
+
+// standardizedCreds wraps gcputil.GcpCredentials with a type to allow
+// parsing through Google libraries, since the google libraries struct is not
+// exposed.
+type standardizedCreds struct {
+	*gcputil.GcpCredentials
+	CredType string `json:"type"`
+}
+
+const serviceAccountCredsType = "service_account"
+
+// formatAsCredentialJSON converts and marshals the config credentials
+// into a parsable format by Google libraries.
+func (c *gcpConfig) formatAndMarshalCredentials() ([]byte, error) {
+	if c == nil || c.Credentials == nil {
+		return []byte{}, nil
+	}
+
+	return json.Marshal(standardizedCreds{
+		GcpCredentials: c.Credentials,
+		CredType:       serviceAccountCredsType,
+	})
+}
+
+// Update sets gcpConfig values parsed from the FieldData.
+func (c *gcpConfig) Update(d *framework.FieldData) (bool, error) {
+	if d == nil {
+		return false, nil
+	}
+
+	changed := false
+
+	if v, ok := d.GetOk("credentials"); ok {
+		creds, err := gcputil.Credentials(v.(string))
+		if err != nil {
+			return false, errwrap.Wrapf("failed to read credentials: {{err}}", err)
+		}
+
+		if len(creds.PrivateKeyId) == 0 {
+			return false, errors.New("missing private key in credentials")
+		}
+
+		c.Credentials = creds
+		changed = true
+	}
+
+	rawIamAlias, exists := d.GetOk("iam_alias")
+	if exists {
+		iamAlias := rawIamAlias.(string)
+		if iamAlias != c.IAMAliasType {
+			c.IAMAliasType = iamAlias
+			changed = true
+		}
+	}
+
+	rawGceAlias, exists := d.GetOk("gce_alias")
+	if exists {
+		gceAlias := rawGceAlias.(string)
+		if gceAlias != c.GCEAliasType {
+			c.GCEAliasType = gceAlias
+			changed = true
+		}
+	}
+
+	return changed, nil
 }
 
 func (c *gcpConfig) getIAMAlias(role *gcpRole, svcAccount *iam.ServiceAccount) (alias string, err error) {
