@@ -107,7 +107,7 @@ func (c *gcpConfig) getGCEAlias(role *gcpRole, instance *compute.Instance) (alia
 
 	aliaser, exists := allowedGCEAliases[aliasType]
 	if !exists {
-		return "", fmt.Errorf("invalid GCE alias type: must be one of: %s", strings.Join(allowedIAMAliasesSlice, ", "))
+		return "", fmt.Errorf("invalid GCE alias type: must be one of: %s", strings.Join(allowedGCEAliasesSlice, ", "))
 	}
 	return aliaser(role, instance), nil
 }
