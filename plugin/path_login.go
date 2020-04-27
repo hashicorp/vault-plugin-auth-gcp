@@ -320,6 +320,9 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 	if err != nil {
 		return logical.ErrorResponse("unable to retrieve GCP configuration"), nil
 	}
+	if conf == nil {
+		return logical.ErrorResponse("no configuration found"), nil
+	}
 
 	alias, err := conf.getIAMAlias(role, serviceAccount)
 	if err != nil {
@@ -464,6 +467,9 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	conf, err := b.config(ctx, req.Storage)
 	if err != nil {
 		return logical.ErrorResponse("unable to retrieve GCP configuration"), nil
+	}
+	if conf == nil {
+		return logical.ErrorResponse("no configuration found"), nil
 	}
 
 	alias, err := conf.getGCEAlias(role, instance)
