@@ -125,6 +125,13 @@ func (b *GcpAuthBackend) pathConfigRead(ctx context.Context, req *logical.Reques
 		resp["project_id"] = v
 	}
 
+	if v := config.IAMAliasType; v != "" {
+		resp["iam_alias"] = v
+	}
+	if v := config.GCEAliasType; v != "" {
+		resp["gce_alias"] = v
+	}
+
 	return &logical.Response{
 		Data: resp,
 	}, nil
