@@ -504,7 +504,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	}
 	role.PopulateTokenAuth(auth)
 	if err := conf.GCEAuthMetadata.PopulateDesiredMetadata(auth, authMetadata(loginInfo, serviceAccount)); err != nil {
-		b.Logger().Warn("unable to populate gce metadata due", "err", err.Error())
+		b.Logger().Warn("unable to populate gce metadata", "err", err.Error())
 	}
 
 	resp := &logical.Response{
