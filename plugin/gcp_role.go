@@ -12,10 +12,6 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-const (
-	currentGCPRoleVersion = 1
-)
-
 type gcpRole struct {
 	tokenutil.TokenParams
 
