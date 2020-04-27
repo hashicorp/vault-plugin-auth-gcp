@@ -9,15 +9,18 @@ import (
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/authmetadata"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
 )
 
 // gcpConfig contains all config required for the GCP backend.
 type gcpConfig struct {
-	Credentials  *gcputil.GcpCredentials `json:"credentials"`
-	IAMAliasType string                  `json:"iam_alias"`
-	GCEAliasType string                  `json:"gce_alias"`
+	Credentials     *gcputil.GcpCredentials `json:"credentials"`
+	IAMAliasType    string                  `json:"iam_alias"`
+	IAMAuthMetadata *authmetadata.Handler   `json:"iam_auth_metadata_handler"`
+	GCEAliasType    string                  `json:"gce_alias"`
+	GCEAuthMetadata *authmetadata.Handler   `json:"gce_auth_metadata_handler"`
 }
 
 // standardizedCreds wraps gcputil.GcpCredentials with a type to allow
@@ -44,25 +47,22 @@ func (c *gcpConfig) formatAndMarshalCredentials() ([]byte, error) {
 }
 
 // Update sets gcpConfig values parsed from the FieldData.
-func (c *gcpConfig) Update(d *framework.FieldData) (bool, error) {
+func (c *gcpConfig) Update(d *framework.FieldData) error {
 	if d == nil {
-		return false, nil
+		return nil
 	}
-
-	changed := false
 
 	if v, ok := d.GetOk("credentials"); ok {
 		creds, err := gcputil.Credentials(v.(string))
 		if err != nil {
-			return false, errwrap.Wrapf("failed to read credentials: {{err}}", err)
+			return errwrap.Wrapf("failed to read credentials: {{err}}", err)
 		}
 
 		if len(creds.PrivateKeyId) == 0 {
-			return false, errors.New("missing private key in credentials")
+			return errors.New("missing private key in credentials")
 		}
 
 		c.Credentials = creds
-		changed = true
 	}
 
 	rawIamAlias, exists := d.GetOk("iam_alias")
@@ -70,8 +70,10 @@ func (c *gcpConfig) Update(d *framework.FieldData) (bool, error) {
 		iamAlias := rawIamAlias.(string)
 		if iamAlias != c.IAMAliasType {
 			c.IAMAliasType = iamAlias
-			changed = true
 		}
+	}
+	if err := c.IAMAuthMetadata.ParseAuthMetadata(d); err != nil {
+		return errwrap.Wrapf("failed to parse iam metadata: {{err}}", err)
 	}
 
 	rawGceAlias, exists := d.GetOk("gce_alias")
@@ -79,11 +81,12 @@ func (c *gcpConfig) Update(d *framework.FieldData) (bool, error) {
 		gceAlias := rawGceAlias.(string)
 		if gceAlias != c.GCEAliasType {
 			c.GCEAliasType = gceAlias
-			changed = true
 		}
 	}
-
-	return changed, nil
+	if err := c.GCEAuthMetadata.ParseAuthMetadata(d); err != nil {
+		return errwrap.Wrapf("failed to parse gce metadata: {{err}}", err)
+	}
+	return nil
 }
 
 func (c *gcpConfig) getIAMAlias(role *gcpRole, svcAccount *iam.ServiceAccount) (alias string, err error) {
