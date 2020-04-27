@@ -180,10 +180,11 @@ func (b *GcpAuthBackend) config(ctx context.Context, s logical.Storage) (*gcpCon
 	if err != nil {
 		return nil, err
 	}
-	if entry != nil {
-		if err := entry.DecodeJSON(config); err != nil {
-			return nil, err
-		}
+	if entry == nil {
+		return config, nil
+	}
+	if err := entry.DecodeJSON(config); err != nil {
+		return nil, err
 	}
 	return config, nil
 }
