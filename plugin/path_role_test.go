@@ -12,7 +12,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/vault/sdk/helper/consts"
-	"github.com/hashicorp/vault/sdk/helper/policyutil"
 	"github.com/hashicorp/vault/sdk/helper/strutil"
 	"github.com/hashicorp/vault/sdk/helper/tokenutil"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -67,7 +66,6 @@ func TestRoleUpdateIam(t *testing.T) {
 		"name":                   roleName,
 		"type":                   iamRoleType,
 		"bound_service_accounts": serviceAccounts,
-		"iam_alias":              defaultIAMAlias,
 	})
 
 	serviceAccounts = append(serviceAccounts, "testaccount@google.com")
@@ -97,7 +95,6 @@ func TestRoleUpdateIam(t *testing.T) {
 		"allow_gce_inference":    false,
 		"add_group_aliases":      true,
 		"bound_service_accounts": serviceAccounts,
-		"iam_alias":              defaultIAMAlias,
 	})
 }
 
@@ -128,7 +125,6 @@ func TestRoleIam_Wildcard(t *testing.T) {
 	testRoleRead(t, b, reqStorage, roleName, map[string]interface{}{
 		"type":                   iamRoleType,
 		"bound_service_accounts": serviceAccounts,
-		"iam_alias":              defaultIAMAlias,
 	})
 }
 
@@ -151,7 +147,6 @@ func TestRoleIam_EditServiceAccounts(t *testing.T) {
 		"type":                   iamRoleType,
 		"bound_projects":         projects,
 		"bound_service_accounts": initial,
-		"iam_alias":              defaultIAMAlias,
 	}
 
 	testRoleCreate(t, b, reqStorage, data)
@@ -240,7 +235,6 @@ func TestRoleGce(t *testing.T) {
 		"type":                   gceRoleType,
 		"bound_projects":         []string{},
 		"bound_service_accounts": []string{},
-		"gce_alias":              defaultGCEAlias,
 	})
 
 	serviceAccounts := []string{"aserviceaccountid", "testaccount@google.com"}
@@ -278,7 +272,6 @@ func TestRoleGce(t *testing.T) {
 		"bound_instance_groups":  []string{"devGroup"},
 		"bound_service_accounts": serviceAccounts,
 		"add_group_aliases":      true,
-		"gce_alias":              defaultGCEAlias,
 	})
 }
 
@@ -304,7 +297,6 @@ func TestRoleGce_EditLabels(t *testing.T) {
 		"type":           gceRoleType,
 		"bound_projects": []string{projectId},
 		"bound_labels":   labels,
-		"gce_alias":      defaultGCEAlias,
 	})
 
 	testRoleEditLabels(t, b, reqStorage, map[string]interface{}{
@@ -318,7 +310,6 @@ func TestRoleGce_EditLabels(t *testing.T) {
 		"type":           gceRoleType,
 		"bound_projects": []string{projectId},
 		"bound_labels":   labels,
-		"gce_alias":      defaultGCEAlias,
 	})
 
 	testRoleEditLabels(t, b, reqStorage, map[string]interface{}{
@@ -334,7 +325,6 @@ func TestRoleGce_EditLabels(t *testing.T) {
 		"type":           gceRoleType,
 		"bound_projects": []string{projectId},
 		"bound_labels":   labels,
-		"gce_alias":      defaultGCEAlias,
 	})
 }
 
@@ -366,7 +356,6 @@ func TestRoleGce_DeprecatedFields(t *testing.T) {
 			"bound_regions":         []string{"us-east1"},
 			"bound_zones":           []string{"us-east1-a"},
 			"bound_instance_groups": []string{"my-ig"},
-			"gce_alias":             defaultGCEAlias,
 		})
 	})
 
@@ -529,58 +518,6 @@ func TestRetrieveRole(t *testing.T) {
 
 			expectedRole: nil,
 			expectErr:    true,
-		},
-		"iam nothing modified": {
-			name: "testrole",
-
-			getName: "role/testrole",
-			getResp: &logical.StorageEntry{
-				Key: "testrole",
-				Value: toJSON(t,
-					gcpRole{
-						RoleID:       "testroleid",
-						RoleType:     "iam",
-						IAMAliasType: defaultIAMAlias,
-					}),
-			},
-			getErr:   nil,
-			getTimes: 1,
-
-			localMountTimes:       0,
-			replicationStateTimes: 0,
-
-			expectedRole: &gcpRole{
-				RoleID:       "testroleid",
-				RoleType:     "iam",
-				IAMAliasType: defaultIAMAlias,
-			},
-			expectErr: false,
-		},
-		"gce nothing modified": {
-			name: "testrole",
-
-			getName: "role/testrole",
-			getResp: &logical.StorageEntry{
-				Key: "testrole",
-				Value: toJSON(t,
-					gcpRole{
-						RoleID:       "testroleid",
-						RoleType:     "gce",
-						GCEAliasType: defaultGCEAlias,
-					}),
-			},
-			getErr:   nil,
-			getTimes: 1,
-
-			localMountTimes:       0,
-			replicationStateTimes: 0,
-
-			expectedRole: &gcpRole{
-				RoleID:       "testroleid",
-				RoleType:     "gce",
-				GCEAliasType: defaultGCEAlias,
-			},
-			expectErr: false,
 		},
 		"projectID upgrade": {
 			name: "testrole",
@@ -1123,27 +1060,6 @@ func checkData(resp *logical.Response, expected map[string]interface{}, expected
 		if !isEqual {
 			return fmt.Errorf("%s mismatch, expected: %v but got %v", k, expectedVal, actualVal)
 		}
-	}
-	return nil
-}
-
-func testBaseRoleRead(resp *logical.Response, expected map[string]interface{}) error {
-	expectedVal, ok := expected["type"]
-	if ok && resp.Data["type"].(string) != expectedVal.(string) {
-		return fmt.Errorf("role type mismatch, expected %s but got %s", expectedVal, resp.Data["type"])
-	}
-
-	expectedVal, ok = expected["bound_projects"]
-	if ok && resp.Data["bound_projects"].(string) != expectedVal.(string) {
-		return fmt.Errorf("bound_projects mismatch, expected %s but got %s", expectedVal, resp.Data["bound_projects"])
-	}
-
-	expectedVal, ok = expected["policies"]
-	if !ok {
-		expectedVal = []string{}
-	}
-	if !policyutil.EquivalentPolicies(resp.Data["policies"].([]string), expectedVal.([]string)) {
-		return fmt.Errorf("policies mismatch, expected %v but got %v", expectedVal, resp.Data["policies"])
 	}
 	return nil
 }
