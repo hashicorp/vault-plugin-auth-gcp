@@ -51,6 +51,8 @@ func TestBackend_PathConfigRead(t *testing.T) {
 				PrivateKey:   "key",
 				ProjectId:    "project",
 			},
+			IAMAliasType: defaultIAMAlias,
+			GCEAliasType: defaultGCEAlias,
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -68,24 +70,17 @@ func TestBackend_PathConfigRead(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if v, exp := resp.Data["client_email"].(string), "user@test.com"; v != exp {
-			t.Errorf("expected %q to be %q", v, exp)
+		expectedData := map[string]interface{}{
+			"client_email":   "user@test.com",
+			"client_id":      "user",
+			"private_key_id": "key_id",
+			"project_id":     "project",
+			"iam_alias":      defaultIAMAlias,
+			"gce_alias":      defaultGCEAlias,
 		}
 
-		if v, exp := resp.Data["client_id"].(string), "user"; v != exp {
-			t.Errorf("expected %q to be %q", v, exp)
-		}
-
-		if v, exp := resp.Data["private_key_id"].(string), "key_id"; v != exp {
-			t.Errorf("expected %q to be %q", v, exp)
-		}
-
-		if v, exp := resp.Data["project_id"].(string), "project"; v != exp {
-			t.Errorf("expected %q to be %q", v, exp)
-		}
-
-		if v, ok := resp.Data["private_key"]; ok {
-			t.Errorf("expected %q to be missing", v)
+		if !reflect.DeepEqual(resp.Data, expectedData) {
+			t.Fatalf("Actual: %#v\nExpected: %#v", resp.Data, expectedData)
 		}
 	})
 }
