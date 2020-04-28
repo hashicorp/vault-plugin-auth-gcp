@@ -2,12 +2,9 @@ package gcpauth
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/hashicorp/errwrap"
-	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -25,6 +22,18 @@ If not specified, will use application default credentials`,
 					Name: "Credentials",
 				},
 			},
+			"iam_alias": {
+				Type:        framework.TypeString,
+				Default:     defaultIAMAlias,
+				Description: "Indicates what value to use when generating an alias for IAM authentications.",
+			},
+			"gce_alias": {
+				Type:        framework.TypeString,
+				Default:     defaultGCEAlias,
+				Description: "Indicates what value to use when generating an alias for GCE authentications.",
+			},
+
+			// Deprecated
 			"google_certs_endpoint": {
 				Type: framework.TypeString,
 				Description: `
@@ -37,8 +46,15 @@ Deprecated. This field does nothing and be removed in a future release`,
 			logical.UpdateOperation: b.pathConfigWrite,
 		},
 
-		HelpSynopsis:    confHelpSyn,
-		HelpDescription: confHelpDesc,
+		HelpSynopsis: `Configure credentials used to query the GCP IAM API to verify authenticating service accounts`,
+		HelpDescription: `
+The GCP IAM auth backend makes queries to the GCP IAM auth backend to verify a service account
+attempting login. It verifies the service account exists and retrieves a public key to verify
+signed JWT requests passed in on login. The credentials should have the following permissions:
+
+iam AUTH:
+* iam.serviceAccountKeys.get
+`,
 	}
 }
 
@@ -109,72 +125,16 @@ func (b *GcpAuthBackend) pathConfigRead(ctx context.Context, req *logical.Reques
 		resp["project_id"] = v
 	}
 
+	if v := config.IAMAliasType; v != "" {
+		resp["iam_alias"] = v
+	}
+	if v := config.GCEAliasType; v != "" {
+		resp["gce_alias"] = v
+	}
+
 	return &logical.Response{
 		Data: resp,
 	}, nil
-}
-
-const confHelpSyn = `Configure credentials used to query the GCP IAM API to verify authenticating service accounts`
-const confHelpDesc = `
-The GCP IAM auth backend makes queries to the GCP IAM auth backend to verify a service account
-attempting login. It verifies the service account exists and retrieves a public key to verify
-signed JWT requests passed in on login. The credentials should have the following permissions:
-
-iam AUTH:
-* iam.serviceAccountKeys.get
-`
-
-// gcpConfig contains all config required for the GCP backend.
-type gcpConfig struct {
-	Credentials *gcputil.GcpCredentials `json:"credentials"`
-}
-
-// standardizedCreds wraps gcputil.GcpCredentials with a type to allow
-// parsing through Google libraries, since the google libraries struct is not
-// exposed.
-type standardizedCreds struct {
-	*gcputil.GcpCredentials
-	CredType string `json:"type"`
-}
-
-const serviceAccountCredsType = "service_account"
-
-// formatAsCredentialJSON converts and marshals the config credentials
-// into a parsable format by Google libraries.
-func (config *gcpConfig) formatAndMarshalCredentials() ([]byte, error) {
-	if config == nil || config.Credentials == nil {
-		return []byte{}, nil
-	}
-
-	return json.Marshal(standardizedCreds{
-		GcpCredentials: config.Credentials,
-		CredType:       serviceAccountCredsType,
-	})
-}
-
-// Update sets gcpConfig values parsed from the FieldData.
-func (c *gcpConfig) Update(d *framework.FieldData) (bool, error) {
-	if d == nil {
-		return false, nil
-	}
-
-	changed := false
-
-	if v, ok := d.GetOk("credentials"); ok {
-		creds, err := gcputil.Credentials(v.(string))
-		if err != nil {
-			return false, errwrap.Wrapf("failed to read credentials: {{err}}", err)
-		}
-
-		if len(creds.PrivateKeyId) == 0 {
-			return false, errors.New("missing private key in credentials")
-		}
-
-		c.Credentials = creds
-		changed = true
-	}
-
-	return changed, nil
 }
 
 // config reads the backend's gcpConfig from storage.
