@@ -104,11 +104,6 @@ var iamOnlyFieldSchema = map[string]*framework.FieldSchema{
 		Default:     true,
 		Description: `'iam' roles only. If false, Vault will not not allow GCE instances to login in against this role`,
 	},
-	"iam_alias": {
-		Type:        framework.TypeString,
-		Default:     defaultIAMAlias,
-		Description: "Indicates what value to use when generating an alias for IAM authentications.",
-	},
 }
 
 var gceOnlyFieldSchema = map[string]*framework.FieldSchema{
@@ -139,11 +134,6 @@ var gceOnlyFieldSchema = map[string]*framework.FieldSchema{
 		Description: "Comma-separated list of GCP labels formatted as" +
 			"\"key:value\" strings that must be present on the GCE instance " +
 			"in order to authenticate. This option only applies to \"gce\" roles.",
-	},
-	"gce_alias": {
-		Type:        framework.TypeString,
-		Default:     defaultGCEAlias,
-		Description: "Indicates what value to use when generating an alias for GCE authentications.",
 	},
 }
 
@@ -305,7 +295,6 @@ func (b *GcpAuthBackend) pathRoleRead(ctx context.Context, req *logical.Request,
 			respData["max_jwt_exp"] = int64(role.MaxJwtExp.Seconds())
 		}
 		respData["allow_gce_inference"] = role.AllowGCEInference
-		respData["iam_alias"] = role.IAMAliasType
 	case gceRoleType:
 		if len(role.BoundRegions) > 0 {
 			respData["bound_regions"] = role.BoundRegions
@@ -319,7 +308,6 @@ func (b *GcpAuthBackend) pathRoleRead(ctx context.Context, req *logical.Request,
 		if len(role.BoundLabels) > 0 {
 			respData["bound_labels"] = role.BoundLabels
 		}
-		respData["gce_alias"] = role.GCEAliasType
 	}
 
 	// Upgrade vals
@@ -562,15 +550,6 @@ func (b *GcpAuthBackend) role(ctx context.Context, s logical.Storage, name strin
 		modified = true
 	}
 
-	if role.RoleType == "iam" && role.IAMAliasType == "" {
-		role.IAMAliasType = defaultIAMAlias
-		modified = true
-	}
-	if role.RoleType == "gce" && role.GCEAliasType == "" {
-		role.GCEAliasType = defaultGCEAlias
-		modified = true
-	}
-
 	// Ensure the role has a RoleID
 	if role.RoleID == "" {
 		roleID, err := uuid.GenerateUUID()
@@ -615,19 +594,6 @@ func (b *GcpAuthBackend) storeRole(ctx context.Context, s logical.Storage, roleN
 	}
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
-	}
-
-	// Set default alias names
-	if role.IAMAliasType == "" {
-		role.IAMAliasType = defaultIAMAlias
-	}
-	if role.GCEAliasType == "" {
-		role.GCEAliasType = defaultGCEAlias
-	}
-
-	// Ensure a version is specified
-	if role.Version == 0 {
-		role.Version = currentGCPRoleVersion
 	}
 
 	entry, err := logical.StorageEntryJSON(fmt.Sprintf("role/%s", roleName), role)
