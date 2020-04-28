@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/authmetadata"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
@@ -31,9 +32,35 @@ func TestBackend_PathConfigRead(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		if resp != nil {
-			t.Errorf("expected response data to be empty, got %v", resp.Data)
+		if resp == nil {
+			t.Fatal("expected non-nil response")
+		}
+		if len(resp.Data) != 2 {
+			t.Fatal("expected 2 fields")
+		}
+		expectedResp := &logical.Response{
+			Data: map[string]interface{}{
+				"iam_metadata": []string{
+					"project_id",
+					"role",
+					"service_account_id",
+					"service_account_email",
+				},
+				"gce_metadata": []string{
+					"instance_creation_timestamp",
+					"instance_id",
+					"instance_name",
+					"project_id",
+					"project_number",
+					"role",
+					"service_account_id",
+					"service_account_email",
+					"zone",
+				},
+			},
+		}
+		if !reflect.DeepEqual(resp, expectedResp) {
+			t.Fatalf("Actual: %#v\nExpected: %#v", resp, expectedResp)
 		}
 	})
 
@@ -51,8 +78,10 @@ func TestBackend_PathConfigRead(t *testing.T) {
 				PrivateKey:   "key",
 				ProjectId:    "project",
 			},
-			IAMAliasType: defaultIAMAlias,
-			GCEAliasType: defaultGCEAlias,
+			IAMAliasType:    defaultIAMAlias,
+			IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
+			GCEAliasType:    defaultGCEAlias,
+			GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -76,7 +105,24 @@ func TestBackend_PathConfigRead(t *testing.T) {
 			"private_key_id": "key_id",
 			"project_id":     "project",
 			"iam_alias":      defaultIAMAlias,
-			"gce_alias":      defaultGCEAlias,
+			"iam_metadata": []string{
+				"project_id",
+				"role",
+				"service_account_id",
+				"service_account_email",
+			},
+			"gce_alias": defaultGCEAlias,
+			"gce_metadata": []string{
+				"instance_creation_timestamp",
+				"instance_id",
+				"instance_name",
+				"project_id",
+				"project_number",
+				"role",
+				"service_account_id",
+				"service_account_email",
+				"zone",
+			},
 		}
 
 		if !reflect.DeepEqual(resp.Data, expectedData) {
@@ -160,6 +206,8 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 				PrivateKey:   "key",
 				ProjectId:    "project",
 			},
+			GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+			IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -230,9 +278,15 @@ func TestConfig_Update(t *testing.T) {
 	}{
 		{
 			"empty",
-			&gcpConfig{},
+			&gcpConfig{
+				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
+			},
 			nil,
-			&gcpConfig{},
+			&gcpConfig{
+				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
+			},
 			false,
 			false,
 		},
@@ -242,12 +296,16 @@ func TestConfig_Update(t *testing.T) {
 				Credentials: &gcputil.GcpCredentials{
 					ClientId: "foo",
 				},
+				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 			},
 			nil,
 			&gcpConfig{
 				Credentials: &gcputil.GcpCredentials{
 					ClientId: "foo",
 				},
+				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 			},
 			false,
 			false,
@@ -258,6 +316,8 @@ func TestConfig_Update(t *testing.T) {
 				Credentials: &gcputil.GcpCredentials{
 					ClientId: "foo",
 				},
+				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 			},
 			&framework.FieldData{
 				Raw: map[string]interface{}{
@@ -272,6 +332,8 @@ func TestConfig_Update(t *testing.T) {
 					ClientId:     "bar",
 					PrivateKeyId: "aaa",
 				},
+				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 			},
 			true,
 			false,
@@ -282,6 +344,8 @@ func TestConfig_Update(t *testing.T) {
 				Credentials: &gcputil.GcpCredentials{
 					ClientId: "foo",
 				},
+				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 			},
 			&framework.FieldData{
 				Raw: map[string]interface{}{
@@ -296,6 +360,8 @@ func TestConfig_Update(t *testing.T) {
 					ClientId:     "foo",
 					PrivateKeyId: "aaa",
 				},
+				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 			},
 			true,
 			false,
@@ -313,13 +379,12 @@ func TestConfig_Update(t *testing.T) {
 				tc.d.Schema = pathConfig(&b).Fields
 			}
 
-			changed, err := tc.new.Update(tc.d)
-			if (err != nil) != tc.err {
-				t.Fatal(err)
+			err := tc.new.Update(tc.d)
+			if tc.err && err == nil {
+				t.Fatalf("err expected, got nil")
 			}
-
-			if changed != tc.changed {
-				t.Errorf("expected %t to be %t", changed, tc.changed)
+			if !tc.err && err != nil {
+				t.Fatalf("no error expected, got: %s", err)
 			}
 
 			if v, exp := tc.new.Credentials, tc.r.Credentials; !reflect.DeepEqual(v, exp) {

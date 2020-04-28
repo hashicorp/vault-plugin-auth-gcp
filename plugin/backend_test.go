@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/vault/sdk/helper/authmetadata"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
@@ -40,7 +41,9 @@ func testBackendWithCreds(tb testing.TB) (*GcpAuthBackend, logical.Storage, *gcp
 	ctx := context.Background()
 
 	entry, err := logical.StorageEntryJSON("config", &gcpConfig{
-		Credentials: creds,
+		Credentials:     creds,
+		GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+		IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 	})
 	if err != nil {
 		tb.Fatal(err)

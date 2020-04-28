@@ -320,9 +320,6 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 	if err != nil {
 		return logical.ErrorResponse("unable to retrieve GCP configuration"), nil
 	}
-	if conf == nil {
-		return logical.ErrorResponse("no configuration found"), nil
-	}
 
 	alias, err := conf.getIAMAlias(role, serviceAccount)
 	if err != nil {
@@ -349,11 +346,12 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 		Alias: &logical.Alias{
 			Name: alias,
 		},
-		Metadata:    authMetadata(loginInfo, serviceAccount),
 		DisplayName: serviceAccount.Email,
 	}
-
 	role.PopulateTokenAuth(auth)
+	if err := conf.IAMAuthMetadata.PopulateDesiredMetadata(auth, authMetadata(loginInfo, serviceAccount)); err != nil {
+		b.Logger().Warn("unable to populate iam metadata", "err", err.Error())
+	}
 
 	resp := &logical.Response{
 		Auth: auth,
@@ -468,9 +466,6 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	if err != nil {
 		return logical.ErrorResponse("unable to retrieve GCP configuration"), nil
 	}
-	if conf == nil {
-		return logical.ErrorResponse("no configuration found"), nil
-	}
 
 	alias, err := conf.getGCEAlias(role, instance)
 	if err != nil {
@@ -505,11 +500,12 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		Alias: &logical.Alias{
 			Name: alias,
 		},
-		Metadata:    authMetadata(loginInfo, serviceAccount),
 		DisplayName: instance.Name,
 	}
-
 	role.PopulateTokenAuth(auth)
+	if err := conf.GCEAuthMetadata.PopulateDesiredMetadata(auth, authMetadata(loginInfo, serviceAccount)); err != nil {
+		b.Logger().Warn("unable to populate gce metadata", "err", err.Error())
+	}
 
 	resp := &logical.Response{
 		Auth: auth,
