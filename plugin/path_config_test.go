@@ -38,27 +38,29 @@ func TestBackend_PathConfigRead(t *testing.T) {
 		if len(resp.Data) != 2 {
 			t.Fatal("expected 2 fields")
 		}
-		if !reflect.DeepEqual(resp.Data["iam_metadata"], []string{
-			"project_id",
-			"role",
-			"service_account_id",
-			"service_account_email",
-		}) {
-			t.Fatalf("expected the default iam_metadata but received %s", resp.Data["iam_metadata"])
+		expectedResp := &logical.Response{
+			Data: map[string]interface{}{
+				"iam_metadata": []string{
+					"project_id",
+					"role",
+					"service_account_id",
+					"service_account_email",
+				},
+				"gce_metadata": []string{
+					"instance_creation_timestamp",
+					"instance_id",
+					"instance_name",
+					"project_id",
+					"project_number",
+					"role",
+					"service_account_id",
+					"service_account_email",
+					"zone",
+				},
+			},
 		}
-
-		if !reflect.DeepEqual(resp.Data["gce_metadata"], []string{
-			"instance_creation_timestamp",
-			"instance_id",
-			"instance_name",
-			"project_id",
-			"project_number",
-			"role",
-			"service_account_id",
-			"service_account_email",
-			"zone",
-		}) {
-			t.Fatalf("expected the default gce_metadata but received %s", resp.Data["gce_metadata"])
+		if !reflect.DeepEqual(resp, expectedResp) {
+			t.Fatalf("Actual: %#v\nExpected: %#v", resp, expectedResp)
 		}
 	})
 
