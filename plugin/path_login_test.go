@@ -217,13 +217,14 @@ func TestLogin_IAM(t *testing.T) {
 				}
 				tc.exp.Auth.DisplayName = creds.ClientEmail
 
-				tc.exp.Auth.Metadata = map[string]string{
+				metadata := map[string]string{
 					"role":                  role,
 					"project_id":            creds.ProjectId,
 					"service_account_email": creds.ClientEmail,
 					"service_account_id":    creds.ClientId,
 				}
-
+				tc.exp.Auth.Metadata = metadata
+				tc.exp.Auth.Alias.Metadata = metadata
 				tc.exp.Auth.LeaseOptions.Renewable = true
 				tc.exp.Auth.Policies = tc.role.Policies
 
