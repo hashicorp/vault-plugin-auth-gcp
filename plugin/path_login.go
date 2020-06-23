@@ -511,15 +511,42 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		Auth: auth,
 	}
 
-	if role.AddGroupAliases {
-		crmClient, err := b.CRMClient(req.Storage)
-		if err != nil {
-			return nil, err
+	if role.AddGroupAliases || role.AddGroupLabelAliases {
+		aliases := []*logical.Alias{}
+		if role.AddGroupAliases {
+			ancestryAliases := []*logical.Alias{}
+			crmClient, err := b.CRMClient(req.Storage)
+			if err != nil {
+				return nil, err
+			}
+			ancestryAliases, err = b.groupAliases(crmClient, ctx, metadata.ProjectId)
+			if err != nil {
+				return nil, err
+			}
+			aliases = append(aliases, ancestryAliases...)
 		}
-
-		aliases, err := b.groupAliases(crmClient, ctx, metadata.ProjectId)
-		if err != nil {
-			return nil, err
+		if role.AddGroupLabelAliases {
+			labels, err := b.groupLabelAliases(computeClient, ctx, metadata.ProjectId, metadata.Zone, metadata.InstanceName)
+			if err != nil {
+				return nil, err
+			}
+			for k, v := range labels {
+				if len(role.BlocklistGroupLabelAliases) > 0 {
+					for _, blocklistLabel := range role.BlocklistGroupLabelAliases {
+						if k != blocklistLabel {
+							labelAlias := &logical.Alias{
+								Name: fmt.Sprintf("%s", v),
+							}
+							aliases = append(aliases, labelAlias)
+						}
+					}
+				} else {
+					labelAlias := &logical.Alias{
+						Name: fmt.Sprintf("%s", v),
+					}
+					aliases = append(aliases, labelAlias)
+				}
+			}
 		}
 		resp.Auth.GroupAliases = aliases
 	}
@@ -555,6 +582,16 @@ func (b *GcpAuthBackend) groupAliases(crmClient *cloudresourcemanager.Service, c
 		}
 	}
 	return aliases, nil
+}
+
+func (b *GcpAuthBackend) groupLabelAliases(compSvc *compute.Service, ctx context.Context, projectId string, zone string, instanceName string) (map[string]string, error) {
+	resp, err := compSvc.Instances.Get(projectId, zone, instanceName).
+		Context(ctx).
+		Do()
+	if err != nil {
+		return nil, err
+	}
+	return resp.Labels, nil
 }
 
 func authMetadata(loginInfo *gcpLoginInfo, serviceAccount *iam.ServiceAccount) map[string]string {

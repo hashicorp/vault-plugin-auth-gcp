@@ -76,9 +76,9 @@ func baseRoleFieldSchema() map[string]*framework.FieldSchema {
 		"bound_service_accounts": {
 			Type: framework.TypeCommaStringSlice,
 			Description: `
-	Can be set for both 'iam' and 'gce' roles (required for 'iam'). A comma-seperated list of authorized service accounts.
-	If the single value "*" is given, this is assumed to be all service accounts under the role's project. If this
-	is set on a GCE role, the inferred service account from the instance metadata token will be used.`,
+				Can be set for both 'iam' and 'gce' roles (required for 'iam'). A comma-seperated list of authorized service accounts.
+				If the single value "*" is given, this is assumed to be all service accounts under the role's project. If this
+				is set on a GCE role, the inferred service account from the instance metadata token will be used.`,
 		},
 		"add_group_aliases": {
 			Type:    framework.TypeBool,
@@ -87,6 +87,18 @@ func baseRoleFieldSchema() map[string]*framework.FieldSchema {
 				"This will add the full list of ancestors (projects, folders, organizations) " +
 				"for the given entity's project. Requires IAM permission `resourcemanager.projects.get` " +
 				"on this project.",
+		},
+		"add_group_label_aliases": {
+			Type:    framework.TypeBool,
+			Default: false,
+			Description: "If true, will add group aliases from instance labels values to auth tokens generated under this role. " +
+				"You need to create an external group in Vault which you will associate the gcp auth method" +
+				"and an internal group that will be the parent of the external group",
+		},
+		"blocklist_group_label_aliases": {
+			Type: framework.TypeCommaStringSlice,
+			Description: "Comma separated list of Instance labels keys that you don't want their values in the result." +
+				"Works in conjuction with `add_group_label_aliases`",
 		},
 	}
 	tokenutil.AddTokenFields(d)
@@ -288,6 +300,10 @@ func (b *GcpAuthBackend) pathRoleRead(ctx context.Context, req *logical.Request,
 		respData["bound_projects"] = role.BoundProjects
 	}
 	respData["add_group_aliases"] = role.AddGroupAliases
+	respData["add_group_label_aliases"] = role.AddGroupLabelAliases
+	if len(role.BlocklistGroupLabelAliases) > 0 {
+		respData["blocklist_group_label_aliases"] = role.BlocklistGroupLabelAliases
+	}
 
 	switch role.RoleType {
 	case iamRoleType:
