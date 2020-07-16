@@ -34,6 +34,8 @@ func TestLogin_IAM(t *testing.T) {
 
 	// defaultRole fills in values unless they are already filled in
 	defaultRole := func(r *gcpRole) *gcpRole {
+		r.RoleID = "testRoleID"
+
 		if r.RoleType == "" {
 			r.RoleType = "iam"
 		}
@@ -213,7 +215,7 @@ func TestLogin_IAM(t *testing.T) {
 
 			if tc.exp != nil && tc.exp.Auth != nil {
 				tc.exp.Auth.Alias = &logical.Alias{
-					Name: creds.ClientId,
+					Name: tc.role.RoleID,
 				}
 				tc.exp.Auth.DisplayName = creds.ClientEmail
 

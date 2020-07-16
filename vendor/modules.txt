@@ -60,6 +60,7 @@ github.com/hashicorp/hcl/json/token
 github.com/hashicorp/vault/api
 # github.com/hashicorp/vault/sdk v0.1.14-0.20200427170607-03332aaf8d18
 github.com/hashicorp/vault/sdk/framework
+github.com/hashicorp/vault/sdk/helper/authmetadata
 github.com/hashicorp/vault/sdk/helper/certutil
 github.com/hashicorp/vault/sdk/helper/cidrutil
 github.com/hashicorp/vault/sdk/helper/compressutil
