@@ -40,7 +40,7 @@ func TestGetIAMAlias(t *testing.T) {
 			svcAccount: &iam.ServiceAccount{
 				UniqueId: "iamUniqueID",
 			},
-			expectedAlias: "iamUniqueID",
+			expectedAlias: "testRoleID",
 			expectErr:     false,
 		},
 		"default type": {
@@ -53,12 +53,12 @@ func TestGetIAMAlias(t *testing.T) {
 			svcAccount: &iam.ServiceAccount{
 				UniqueId: "iamUniqueID",
 			},
-			expectedAlias: "iamUniqueID",
+			expectedAlias: "testRoleID",
 			expectErr:     false,
 		},
-		"role_id": {
+		"unique_id": {
 			config: &gcpConfig{
-				IAMAliasType: "role_id",
+				IAMAliasType: "unique_id",
 			},
 			role: &gcpRole{
 				RoleID: "testRoleID",
@@ -66,7 +66,7 @@ func TestGetIAMAlias(t *testing.T) {
 			svcAccount: &iam.ServiceAccount{
 				UniqueId: "iamUniqueID",
 			},
-			expectedAlias: "testRoleID",
+			expectedAlias: "iamUniqueID",
 			expectErr:     false,
 		},
 	}
@@ -120,7 +120,7 @@ func TestGetGCEAlias(t *testing.T) {
 			instance: &compute.Instance{
 				Id: 123,
 			},
-			expectedAlias: "gce-123",
+			expectedAlias: "testRoleID",
 			expectErr:     false,
 		},
 		"default type": {
@@ -133,12 +133,12 @@ func TestGetGCEAlias(t *testing.T) {
 			instance: &compute.Instance{
 				Id: 123,
 			},
-			expectedAlias: "gce-123",
+			expectedAlias: "testRoleID",
 			expectErr:     false,
 		},
-		"role_id": {
+		"instance_id": {
 			config: &gcpConfig{
-				GCEAliasType: "role_id",
+				GCEAliasType: "instance_id",
 			},
 			role: &gcpRole{
 				RoleID: "testRoleID",
@@ -146,7 +146,7 @@ func TestGetGCEAlias(t *testing.T) {
 			instance: &compute.Instance{
 				Id: 123,
 			},
-			expectedAlias: "testRoleID",
+			expectedAlias: "gce-123",
 			expectErr:     false,
 		},
 	}
