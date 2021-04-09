@@ -79,9 +79,14 @@ Deprecated. This field does nothing and be removed in a future release`,
 				Deprecated: true,
 			},
 		},
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ReadOperation:   b.pathConfigRead,
-			logical.UpdateOperation: b.pathConfigWrite,
+		Operations: map[logical.Operation]framework.OperationHandler{
+			logical.ReadOperation: &framework.PathOperation{
+				Callback: b.pathConfigRead,
+			},
+
+			logical.UpdateOperation: &framework.PathOperation{
+				Callback: b.pathConfigWrite,
+			},
 		},
 
 		HelpSynopsis: `Configure credentials used to query the GCP IAM API to verify authenticating service accounts`,
