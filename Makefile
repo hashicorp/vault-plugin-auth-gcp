@@ -32,7 +32,7 @@ test:
 	@go test -short -parallel=40 ./...
 
 test-acc:
-	@go test -parallel=40 $(TESTARGS)
+	@go test -parallel=40 $(TEST) $(TESTARGS)
 # generate runs `go generate` to build the dynamically generated
 # source files.
 generate:
