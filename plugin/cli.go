@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/helper/parseutil"
 	"golang.org/x/oauth2"
-	"google.golang.org/api/iam/v1"
-	"strings"
-	"time"
+	"google.golang.org/api/iamcredentials/v1"
 )
 
 type CLIHandler struct{}
@@ -20,7 +21,7 @@ type CLIHandler struct{}
 func getSignedJwt(role string, m map[string]string) (string, error) {
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, cleanhttp.DefaultClient())
 
-	credentials, tokenSource, err := gcputil.FindCredentials(m["credentials"], ctx, iam.CloudPlatformScope)
+	credentials, tokenSource, err := gcputil.FindCredentials(m["credentials"], ctx, iamcredentials.CloudPlatformScope)
 	if err != nil {
 		return "", fmt.Errorf("could not obtain credentials: %v", err)
 	}
@@ -44,7 +45,7 @@ func getSignedJwt(role string, m map[string]string) (string, error) {
 		}
 	}
 
-	var ttl = time.Duration(defaultIamMaxJwtExpMinutes) * time.Minute
+	ttl := time.Duration(defaultIamMaxJwtExpMinutes) * time.Minute
 	jwtExpStr, ok := m["jwt_exp"]
 	if ok {
 		ttl, err = parseutil.ParseDurationSecond(jwtExpStr)
@@ -63,11 +64,11 @@ func getSignedJwt(role string, m map[string]string) (string, error) {
 		return "", fmt.Errorf("could not convert JWT payload to JSON string: %v", err)
 	}
 
-	jwtReq := &iam.SignJwtRequest{
+	jwtReq := &iamcredentials.SignJwtRequest{
 		Payload: string(payloadBytes),
 	}
 
-	iamClient, err := iam.New(httpClient)
+	iamClient, err := iamcredentials.New(httpClient)
 	if err != nil {
 		return "", fmt.Errorf("could not create IAM client: %v", err)
 	}
@@ -104,7 +105,6 @@ func (h *CLIHandler) Auth(c *api.Client, m map[string]string) (*api.Secret, erro
 			"role": role,
 			"jwt":  loginToken,
 		})
-
 	if err != nil {
 		return nil, err
 	}
