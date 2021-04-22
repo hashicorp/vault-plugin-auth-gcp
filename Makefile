@@ -29,7 +29,7 @@ testcompile: fmtcheck generate
 	done
 
 test:
-	@go test -short -parallel=40 ./...
+	@go test -short -parallel=40 ./... $(TESTARGS)
 
 test-acc:
 	@go test -parallel=40 $(TEST) $(TESTARGS)
