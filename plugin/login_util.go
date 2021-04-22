@@ -3,14 +3,15 @@ package gcpauth
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/go-gcp-common/gcputil"
-	"google.golang.org/api/iam/v1"
 	"time"
+
+	"github.com/hashicorp/go-gcp-common/gcputil"
+	"google.golang.org/api/iamcredentials/v1"
 )
 
 func ServiceAccountLoginJwt(
-	iamClient *iam.Service, exp time.Time, aud, project, serviceAccount string) (*iam.SignJwtResponse, error) {
-	accountResource := fmt.Sprintf(gcputil.ServiceAccountTemplate, project, serviceAccount)
+	iamClient *iamcredentials.Service, exp time.Time, aud, serviceAccount string) (*iamcredentials.SignJwtResponse, error) {
+	accountResource := fmt.Sprintf(gcputil.ServiceAccountTemplate, serviceAccount)
 
 	payload, err := json.Marshal(map[string]interface{}{
 		"sub": serviceAccount,
@@ -20,7 +21,7 @@ func ServiceAccountLoginJwt(
 	if err != nil {
 		return nil, err
 	}
-	jwtReq := &iam.SignJwtRequest{
+	jwtReq := &iamcredentials.SignJwtRequest{
 		Payload: string(payload),
 	}
 	return iamClient.Projects.ServiceAccounts.SignJwt(accountResource, jwtReq).Do()
