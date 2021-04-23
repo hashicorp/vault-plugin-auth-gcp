@@ -3,14 +3,22 @@ package gcputil
 import (
 	"fmt"
 
-	// iam "google.golang.org/api/iamcredentials/v1"
 	"google.golang.org/api/iam/v1"
 )
 
 const (
-	ServiceAccountTemplate    = "projects/-/serviceAccounts/%s"
-	ServiceAccountKeyTemplate = "projects/%s/serviceAccounts/%s/keys/%s"
-	ServiceAccountKeyFileType = "TYPE_X509_PEM_FILE"
+	// ServiceAccountTemplate is used with Google IAM v1 and is deprecated. Use
+	// ServiceAccountCredentialsTemplate with  Service Account Credentials API v1
+	// instead. See https://cloud.google.com/iam/docs/migrating-to-credentials-api
+	// ServiceAccountTemplate is used with
+	// https://pkg.go.dev/google.golang.org/api@v0.3.0/iam/v1
+	ServiceAccountTemplate = "projects/%s/serviceAccounts/%s"
+
+	// ServiceAccountTemplate is used with
+	// https://pkg.go.dev/google.golang.org/api@v0.3.0/iamcredentials/v1
+	ServiceAccountCredentialsTemplate = "projects/-/serviceAccounts/%s"
+	ServiceAccountKeyTemplate         = "projects/%s/serviceAccounts/%s/keys/%s"
+	ServiceAccountKeyFileType         = "TYPE_X509_PEM_FILE"
 )
 
 type ServiceAccountId struct {
@@ -19,7 +27,7 @@ type ServiceAccountId struct {
 }
 
 func (id *ServiceAccountId) ResourceName() string {
-	return fmt.Sprintf(ServiceAccountTemplate, id.EmailOrId)
+	return fmt.Sprintf(ServiceAccountTemplate, id.Project, id.EmailOrId)
 }
 
 type ServiceAccountKeyId struct {
