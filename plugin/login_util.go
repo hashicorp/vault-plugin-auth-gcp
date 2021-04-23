@@ -10,7 +10,7 @@ import (
 )
 
 func ServiceAccountLoginJwt(iamClient *iamcredentials.Service, exp time.Time, aud, serviceAccount string) (*iamcredentials.SignJwtResponse, error) {
-	accountResource := fmt.Sprintf(gcputil.ServiceAccountTemplate, serviceAccount)
+	accountResource := fmt.Sprintf(gcputil.ServiceAccountCredentialsTemplate, serviceAccount)
 
 	payload, err := json.Marshal(map[string]interface{}{
 		"sub": serviceAccount,
