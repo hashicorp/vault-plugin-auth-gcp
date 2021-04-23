@@ -9,8 +9,7 @@ import (
 	"google.golang.org/api/iamcredentials/v1"
 )
 
-func ServiceAccountLoginJwt(
-	iamClient *iamcredentials.Service, exp time.Time, aud, serviceAccount string) (*iamcredentials.SignJwtResponse, error) {
+func ServiceAccountLoginJwt(iamClient *iamcredentials.Service, exp time.Time, aud, serviceAccount string) (*iamcredentials.SignJwtResponse, error) {
 	accountResource := fmt.Sprintf(gcputil.ServiceAccountTemplate, serviceAccount)
 
 	payload, err := json.Marshal(map[string]interface{}{
