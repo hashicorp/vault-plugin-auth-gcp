@@ -89,7 +89,7 @@ github.com/hashicorp/vault/sdk/physical/inmem
 github.com/hashicorp/vault/sdk/plugin
 github.com/hashicorp/vault/sdk/plugin/pb
 github.com/hashicorp/vault/sdk/version
-# github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb
+# github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
 github.com/hashicorp/yamux
 # github.com/mattn/go-colorable v0.1.4
 github.com/mattn/go-colorable
@@ -154,7 +154,7 @@ golang.org/x/oauth2/jwt
 # golang.org/x/sys v0.0.0-20191008105621-543471e840be
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
-# golang.org/x/text v0.3.0
+# golang.org/x/text v0.3.1-0.20181227161524-e6919f6577db
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
@@ -185,7 +185,7 @@ google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20190307195333-5fe7a883aa19
+# google.golang.org/genproto v0.0.0-20190404172233-64821d5d2107
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.22.0
 google.golang.org/grpc
