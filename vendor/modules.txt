@@ -20,7 +20,7 @@ github.com/golang/snappy
 github.com/hashicorp/errwrap
 # github.com/hashicorp/go-cleanhttp v0.5.1
 github.com/hashicorp/go-cleanhttp
-# github.com/hashicorp/go-gcp-common v0.6.0
+# github.com/hashicorp/go-gcp-common v0.6.1-0.20210423193334-340d60975ea3
 github.com/hashicorp/go-gcp-common/gcputil
 # github.com/hashicorp/go-hclog v0.12.0
 github.com/hashicorp/go-hclog

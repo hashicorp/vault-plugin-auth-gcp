@@ -2,11 +2,13 @@ package gcputil
 
 import (
 	"fmt"
+
+	// iam "google.golang.org/api/iamcredentials/v1"
 	"google.golang.org/api/iam/v1"
 )
 
 const (
-	ServiceAccountTemplate    = "projects/%s/serviceAccounts/%s"
+	ServiceAccountTemplate    = "projects/-/serviceAccounts/%s"
 	ServiceAccountKeyTemplate = "projects/%s/serviceAccounts/%s/keys/%s"
 	ServiceAccountKeyFileType = "TYPE_X509_PEM_FILE"
 )
@@ -17,7 +19,7 @@ type ServiceAccountId struct {
 }
 
 func (id *ServiceAccountId) ResourceName() string {
-	return fmt.Sprintf(ServiceAccountTemplate, id.Project, id.EmailOrId)
+	return fmt.Sprintf(ServiceAccountTemplate, id.EmailOrId)
 }
 
 type ServiceAccountKeyId struct {
