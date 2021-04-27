@@ -36,15 +36,6 @@ func getSignedJwt(role string, m map[string]string) (string, error) {
 		return "", errors.New("could not obtain service account from credentials (are you using Application Default Credentials?). You must provide a service account to authenticate as")
 	}
 
-	project, ok := m["project"]
-	if !ok {
-		if credentials != nil {
-			project = credentials.ProjectId
-		} else {
-			project = "-"
-		}
-	}
-
 	ttl := time.Duration(defaultIamMaxJwtExpMinutes) * time.Minute
 	jwtExpStr, ok := m["jwt_exp"]
 	if ok {
@@ -73,7 +64,7 @@ func getSignedJwt(role string, m map[string]string) (string, error) {
 		return "", fmt.Errorf("could not create IAM client: %v", err)
 	}
 
-	resourceName := fmt.Sprintf("projects/%s/serviceAccounts/%s", project, serviceAccount)
+	resourceName := fmt.Sprintf(gcputil.ServiceAccountCredentialsTemplate, serviceAccount)
 	resp, err := iamClient.Projects.ServiceAccounts.SignJwt(resourceName, jwtReq).Do()
 	if err != nil {
 		return "", fmt.Errorf("unable to sign JWT for %s using given Vault credentials: %v", resourceName, err)
