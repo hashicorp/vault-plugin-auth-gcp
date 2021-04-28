@@ -152,10 +152,6 @@ Configuration:
 	"client_email" if "credentials" specified and this value is not. 
 	The actual credential must have the "iam.serviceAccounts.signJWT" 
 	permissions on this service account. 
-  
-  project=<string>                                
-	Project for the service account who will be authenticating to Vault.
-    Defaults to the credential's "project_id" (if credentials are specified)."
 `
 
 	return strings.TrimSpace(help)
