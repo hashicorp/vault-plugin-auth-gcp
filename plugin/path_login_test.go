@@ -178,12 +178,12 @@ func TestLogin_IAM(t *testing.T) {
 			}
 
 			// Build the JWT token
-			iamClient, err := b.IAMClient(storage)
+			iamClient, err := b.IAMCredentialsClient(storage)
 			if err != nil {
 				t.Fatal(err)
 			}
 			exp := time.Now().Add(10 * time.Minute)
-			jwt, err := ServiceAccountLoginJwt(iamClient, exp, "vault/"+role, creds.ProjectId, creds.ClientEmail)
+			jwt, err := ServiceAccountLoginJwt(iamClient, exp, "vault/"+role, creds.ClientEmail)
 			if err != nil {
 				t.Fatal(err)
 			}
