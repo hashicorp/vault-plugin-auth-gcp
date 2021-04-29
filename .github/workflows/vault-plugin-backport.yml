@@ -4,6 +4,7 @@
     pull_request_target:
       types:
         - closed
+        - labeled
   
   jobs:
     backport:
