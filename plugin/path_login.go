@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/cidrutil"
-	"github.com/hashicorp/vault/sdk/helper/policyutil"
 	"github.com/hashicorp/vault/sdk/helper/strutil"
 	"github.com/hashicorp/vault/sdk/logical"
 	"google.golang.org/api/cloudresourcemanager/v1"
@@ -100,8 +99,6 @@ func (b *GcpAuthBackend) pathLoginRenew(ctx context.Context, req *logical.Reques
 		return nil, err
 	} else if role == nil {
 		return logical.ErrorResponse("role '%s' no longer exists"), nil
-	} else if !policyutil.EquivalentPolicies(role.Policies, req.Auth.Policies) {
-		return logical.ErrorResponse("policies on role '%s' have changed, cannot renew"), nil
 	}
 
 	switch role.RoleType {
