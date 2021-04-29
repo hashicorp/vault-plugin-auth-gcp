@@ -158,11 +158,21 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 			Pattern:        fmt.Sprintf("role/%s", framework.GenericNameRegex("name")),
 			Fields:         roleFieldSchema,
 			ExistenceCheck: b.pathRoleExistenceCheck,
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.DeleteOperation: b.pathRoleDelete,
-				logical.ReadOperation:   b.pathRoleRead,
-				logical.CreateOperation: b.pathRoleCreateUpdate,
-				logical.UpdateOperation: b.pathRoleCreateUpdate,
+			Operations: map[logical.Operation]framework.OperationHandler{
+				logical.ReadOperation: &framework.PathOperation{
+					Callback: b.pathRoleRead,
+				},
+
+				logical.UpdateOperation: &framework.PathOperation{
+					Callback: b.pathRoleCreateUpdate,
+				},
+
+				logical.CreateOperation: &framework.PathOperation{
+					Callback: b.pathRoleCreateUpdate,
+				},
+				logical.DeleteOperation: &framework.PathOperation{
+					Callback: b.pathRoleDelete,
+				},
 			},
 			HelpSynopsis:    pathRoleHelpSyn,
 			HelpDescription: pathRoleHelpDesc,
@@ -170,8 +180,10 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 		// Paths for listing roles
 		{
 			Pattern: "role/?",
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.ListOperation: b.pathRoleList,
+			Operations: map[logical.Operation]framework.OperationHandler{
+				logical.ListOperation: &framework.PathOperation{
+					Callback: b.pathRoleList,
+				},
 			},
 
 			HelpSynopsis:    pathListRolesHelpSyn,
@@ -179,8 +191,10 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 		},
 		{
 			Pattern: "roles/?",
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.ListOperation: b.pathRoleList,
+			Operations: map[logical.Operation]framework.OperationHandler{
+				logical.ListOperation: &framework.PathOperation{
+					Callback: b.pathRoleList,
+				},
 			},
 
 			HelpSynopsis:    pathListRolesHelpSyn,
@@ -204,9 +218,12 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 					Description: "Service-account emails or IDs to remove.",
 				},
 			},
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.UpdateOperation: b.pathRoleEditIamServiceAccounts,
+			Operations: map[logical.Operation]framework.OperationHandler{
+				logical.UpdateOperation: &framework.PathOperation{
+					Callback: b.pathRoleEditIamServiceAccounts,
+				},
 			},
+
 			HelpSynopsis:    "Add or remove service accounts for an existing `iam` role",
 			HelpDescription: "Add or remove service accounts from the list bound to an existing `iam` role",
 		},
@@ -228,8 +245,10 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 					Description: "Label key values to remove",
 				},
 			},
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.UpdateOperation: b.pathRoleEditGceLabels,
+			Operations: map[logical.Operation]framework.OperationHandler{
+				logical.UpdateOperation: &framework.PathOperation{
+					Callback: b.pathRoleEditGceLabels,
+				},
 			},
 			HelpSynopsis: "Add or remove labels for an existing 'gce' role",
 			HelpDescription: `Add or remove labels for an existing 'gce' role. 'add' labels should be
@@ -376,16 +395,20 @@ func (b *GcpAuthBackend) pathRoleList(ctx context.Context, req *logical.Request,
 	return logical.ListResponse(roles), nil
 }
 
-const pathRoleHelpSyn = `Create a GCP role with associated policies and required attributes.`
-const pathRoleHelpDesc = `
+const (
+	pathRoleHelpSyn  = `Create a GCP role with associated policies and required attributes.`
+	pathRoleHelpDesc = `
 A role is required to login under the GCP auth backend. A role binds Vault policies and has
 required attributes that an authenticating entity must fulfill to login against this role.
 After authenticating the instance, Vault uses the bound policies to determine which resources
 the authorization token for the instance can access.
 `
+)
 
-const pathListRolesHelpSyn = `Lists all the roles that are registered with Vault.`
-const pathListRolesHelpDesc = `Lists all roles under the GCP backends by name.`
+const (
+	pathListRolesHelpSyn  = `Lists all the roles that are registered with Vault.`
+	pathListRolesHelpDesc = `Lists all roles under the GCP backends by name.`
+)
 
 func (b *GcpAuthBackend) pathRoleEditIamServiceAccounts(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	// Validate we didn't get extraneous fields
