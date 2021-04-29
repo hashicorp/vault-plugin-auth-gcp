@@ -44,6 +44,12 @@ type gcpRole struct {
 	// AddGroupAliases adds Vault group aliases to the response.
 	AddGroupAliases bool `json:"add_group_aliases,omitempty"`
 
+	// AddGroupLabelAliases adds Vault group label aliases to the response.
+	AddGroupLabelAliases bool `json:"add_group_label_aliases,omitempty"`
+
+	// BlocklistGroupLabelAliases blocklists what key values you don't want to be added to the response.
+	BlocklistGroupLabelAliases []string `json:"blocklist_group_label_aliases,omitempty"`
+
 	// --| IAM-only attributes |--
 	// MaxJwtExp is the duration from time of authentication that a JWT used to authenticate to role must expire within.
 	// TODO(emilymye): Allow this to be updated for GCE roles once 'exp' parameter has been allowed for GCE metadata.
@@ -173,6 +179,20 @@ func (role *gcpRole) updateRole(sys logical.SystemView, req *logical.Request, da
 	addGroupAliases, ok := data.GetOk("add_group_aliases")
 	if ok {
 		role.AddGroupAliases = addGroupAliases.(bool)
+	}
+
+	// Add group aliases names based on labels
+	addGroupLabelAliases, ok := data.GetOk("add_group_label_aliases")
+	if ok {
+		role.AddGroupLabelAliases = addGroupLabelAliases.(bool)
+	}
+
+	if blocklistGroupLabelAliases, ok := data.GetOk("blocklist_group_label_aliases"); ok {
+		role.BlocklistGroupLabelAliases = blocklistGroupLabelAliases.([]string)
+	}
+	if len(role.BlocklistGroupLabelAliases) > 0 {
+		role.BlocklistGroupLabelAliases = strutil.TrimStrings(role.BlocklistGroupLabelAliases)
+		role.BlocklistGroupLabelAliases = strutil.RemoveDuplicates(role.BlocklistGroupLabelAliases, false)
 	}
 
 	// Update fields specific to this type
