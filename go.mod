@@ -6,7 +6,7 @@ require (
 	github.com/golang/mock v1.4.3
 	github.com/hashicorp/errwrap v1.0.0
 	github.com/hashicorp/go-cleanhttp v0.5.1
-	github.com/hashicorp/go-gcp-common v0.6.0
+	github.com/hashicorp/go-gcp-common v0.7.0
 	github.com/hashicorp/go-hclog v0.12.0
 	github.com/hashicorp/go-uuid v1.0.2
 	github.com/hashicorp/vault/api v1.0.5-0.20200215224050-f6547fa8e820

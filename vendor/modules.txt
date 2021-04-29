@@ -20,7 +20,7 @@ github.com/golang/snappy
 github.com/hashicorp/errwrap
 # github.com/hashicorp/go-cleanhttp v0.5.1
 github.com/hashicorp/go-cleanhttp
-# github.com/hashicorp/go-gcp-common v0.6.0
+# github.com/hashicorp/go-gcp-common v0.7.0
 github.com/hashicorp/go-gcp-common/gcputil
 # github.com/hashicorp/go-hclog v0.12.0
 github.com/hashicorp/go-hclog
@@ -169,6 +169,7 @@ google.golang.org/api/googleapi
 google.golang.org/api/googleapi/internal/uritemplates
 google.golang.org/api/googleapi/transport
 google.golang.org/api/iam/v1
+google.golang.org/api/iamcredentials/v1
 google.golang.org/api/internal
 google.golang.org/api/option
 google.golang.org/api/transport/http
