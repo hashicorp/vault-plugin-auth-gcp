@@ -35,8 +35,8 @@ func validateFields(req *logical.Request, data *framework.FieldData) error {
 //
 // If the zone is a self-link, it is converted into a human name first. If the
 // zone cannot be converted to a region, an error is returned.
-func zoneToRegion(zone string) (string, error) {
-	zone, err := zoneFromSelfLink(zone)
+func zoneToRegion(input string) (string, error) {
+	zone, _, err := zoneOrRegionFromSelfLink(input)
 	if err != nil {
 		return "", err
 	}
@@ -44,24 +44,31 @@ func zoneToRegion(zone string) (string, error) {
 	if i := strings.LastIndex(zone, "-"); i > -1 {
 		return zone[0:i], nil
 	}
-	return "", fmt.Errorf("failed to extract region from zone name %q", zone)
+	return "", fmt.Errorf("failed to extract region from zone name %q", input)
 }
 
-// zoneFromSelfLink converts a zone self-link into the human zone name.
-func zoneFromSelfLink(zone string) (string, error) {
-	prefix := "zones/"
+// zoneOrRegionFromSelfLink converts a zone or region self-link into the human
+// zone or region names.
+func zoneOrRegionFromSelfLink(selfLink string) (string, string, error) {
+	zPrefix := "zones/"
+	rPrefix := "regions/"
+	var zone, region string
 
-	if zone == "" {
-		return "", fmt.Errorf("failed to extract zone from self-link %q", zone)
+	if selfLink == "" {
+		return "", "", fmt.Errorf("failed to extract zone or region from self-link %q", selfLink)
 	}
 
-	if strings.Contains(zone, "/") {
-		if i := strings.LastIndex(zone, prefix); i > -1 {
-			zone = zone[i+len(prefix) : len(zone)]
+	if strings.Contains(selfLink, "/") {
+		if i := strings.LastIndex(selfLink, zPrefix); i > -1 {
+			zone = selfLink[i+len(zPrefix) : len(selfLink)]
+		} else if i := strings.LastIndex(selfLink, rPrefix); i > -1 {
+			region = selfLink[i+len(rPrefix) : len(selfLink)]
 		} else {
-			return "", fmt.Errorf("failed to extract zone from self-link %q", zone)
+			return "", "", fmt.Errorf("failed to extract zone or region from self-link %q", selfLink)
 		}
+	} else {
+		return selfLink, "", nil
 	}
 
-	return zone, nil
+	return zone, region, nil
 }

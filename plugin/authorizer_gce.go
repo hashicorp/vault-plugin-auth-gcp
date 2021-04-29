@@ -10,8 +10,8 @@ import (
 )
 
 type client interface {
-	InstanceGroups(context.Context, string, []string) (map[string][]string, error)
-	InstanceGroupContainsInstance(context.Context, string, string, string, string) (bool, error)
+	InstanceGroups(context.Context, string, []string) (map[string][]string, map[string][]string, error)
+	InstanceGroupContainsInstance(context.Context, string, string, string, string, string) (bool, error)
 	ServiceAccount(context.Context, string) (string, string, error)
 }
 
@@ -41,8 +41,9 @@ func AuthorizeGCE(ctx context.Context, i *AuthorizeGCEInput) error {
 		}
 	}
 
-	// Parse the zone name from the self-link URI if given.
-	zone, err := zoneFromSelfLink(i.instanceZone)
+	// Parse the zone name from the self-link URI if given; compute
+	// instances are always zonal.
+	zone, _, err := zoneOrRegionFromSelfLink(i.instanceZone)
 	if err != nil {
 		return err
 	}
@@ -68,7 +69,7 @@ func AuthorizeGCE(ctx context.Context, i *AuthorizeGCEInput) error {
 	// For each bound instance group, verify the group exists and that the
 	// instance is a member of that group.
 	if len(i.boundInstanceGroups) > 0 {
-		igz, err := i.client.InstanceGroups(ctx, i.project, i.boundInstanceGroups)
+		igz, igr, err := i.client.InstanceGroups(ctx, i.project, i.boundInstanceGroups)
 		if err != nil {
 			return fmt.Errorf("failed to list instance groups for project %q: %s", i.project, err)
 		}
@@ -82,7 +83,7 @@ func AuthorizeGCE(ctx context.Context, i *AuthorizeGCEInput) error {
 				break
 			}
 
-			var group, zone string
+			var group, zone, region string
 
 			switch {
 			case len(i.boundZones) > 0:
@@ -112,6 +113,14 @@ func AuthorizeGCE(ctx context.Context, i *AuthorizeGCEInput) error {
 							}
 						}
 					}
+					for r, groups := range igr {
+						for _, grp := range groups {
+							if grp == g {
+								group = g
+								region = r
+							}
+						}
+					}
 				}
 				if group == "" {
 					return fmt.Errorf("instance group %q does not exist in regions %q for project %q",
@@ -121,7 +130,7 @@ func AuthorizeGCE(ctx context.Context, i *AuthorizeGCEInput) error {
 				return fmt.Errorf("instance group %q is not bound to any zones or regions", g)
 			}
 
-			ok, err := i.client.InstanceGroupContainsInstance(ctx, i.project, zone, group, i.instanceSelfLink)
+			ok, err := i.client.InstanceGroupContainsInstance(ctx, i.project, zone, region, group, i.instanceSelfLink)
 			if err != nil {
 				return fmt.Errorf("failed to list instances in instance group %q for project %q: %s",
 					group, i.project, err)

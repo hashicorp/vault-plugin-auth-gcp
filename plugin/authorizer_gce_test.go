@@ -240,6 +240,38 @@ func TestAuthorizeGCE(t *testing.T) {
 			true,
 			`instance is not part of instance groups ["my-instance-group"]`,
 		},
+		{
+			"bound_regional_instance_groups_no_exist_bound_regions",
+			&AuthorizeGCEInput{
+				client: &stubbedClient{
+					instanceGroupsByRegion: map[string][]string{
+						"us-east1": []string{"other-instance-group"},
+					},
+					instanceGroupContainsInstance: true,
+				},
+				instanceZone:        "us-east1-a",
+				boundInstanceGroups: []string{"my-instance-group"},
+				boundRegions:        []string{"us-east1"},
+			},
+			true,
+			`instance group "my-instance-group" does not exist in regions ["us-east1"]`,
+		},
+		{
+			"bound_regional_instance_groups_no_contains_instance",
+			&AuthorizeGCEInput{
+				client: &stubbedClient{
+					instanceGroupsByRegion: map[string][]string{
+						"us-east1": []string{"my-instance-group"},
+					},
+					instanceGroupContainsInstance: false,
+				},
+				instanceZone:        "us-east1-a",
+				boundInstanceGroups: []string{"my-instance-group"},
+				boundRegions:        []string{"us-east1"},
+			},
+			true,
+			`instance is not part of instance groups ["my-instance-group"]`,
+		},
 
 		// service account
 		{
@@ -328,6 +360,22 @@ func TestAuthorizeGCE(t *testing.T) {
 					instanceGroupsByZone: map[string][]string{
 						"us-east1-a": []string{"my-instance-group"},
 						"us-east1-b": []string{"my-instance-group", "my-other-group"},
+					},
+					instanceGroupContainsInstance: true,
+				},
+				instanceZone:        "us-east1-a",
+				boundInstanceGroups: []string{"my-instance-group"},
+				boundRegions:        []string{"us-east1"},
+			},
+			false,
+			"",
+		},
+		{
+			"success_regional_instance_group_region_binding",
+			&AuthorizeGCEInput{
+				client: &stubbedClient{
+					instanceGroupsByRegion: map[string][]string{
+						"us-east1": []string{"my-instance-group"},
 					},
 					instanceGroupContainsInstance: true,
 				},
