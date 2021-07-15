@@ -11,10 +11,10 @@ import (
 
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-gcp-common/gcputil"
+	"github.com/hashicorp/go-secure-stdlib/strutil"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/cidrutil"
 	"github.com/hashicorp/vault/sdk/helper/policyutil"
-	"github.com/hashicorp/vault/sdk/helper/strutil"
 	"github.com/hashicorp/vault/sdk/logical"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
@@ -690,8 +690,9 @@ func (b *GcpAuthBackend) authorizeGCEInstance(ctx context.Context, project strin
 	})
 }
 
-const pathLoginHelpSyn = `Authenticates Google Cloud Platform entities with Vault.`
-const pathLoginHelpDesc = `
+const (
+	pathLoginHelpSyn  = `Authenticates Google Cloud Platform entities with Vault.`
+	pathLoginHelpDesc = `
 Authenticate Google Cloud Platform (GCP) entities.
 
 Currently supports authentication for:
@@ -705,3 +706,4 @@ Vault verifies the signed JWT and parses the identity of the account.
 
 Renewal is rejected if the role, service account, or original signing key no longer exists.
 `
+)
