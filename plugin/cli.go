@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -37,19 +36,20 @@ func getSignedJwt(role string, m map[string]string) (string, error) {
 	}
 	if serviceAccount == "" {
 		// Check if the metadata server is available.
-		if metadata.OnGCE() {
-			metadataClient := metadata.NewClient(&http.Client{})
-			v := url.Values{}
-			v.Set("audience", fmt.Sprintf("http://vault/%s", role))
-			v.Set("format", "full")
-			path := "instance/service-accounts/default/identity?" + v.Encode()
-			instanceJwt, err := metadataClient.Get(path)
-			if err != nil {
-				return "", fmt.Errorf("unable to read the identity token: %v", err)
-			}
-			return instanceJwt, nil
+		if !metadata.OnGCE() {
+			return "", errors.New("could not obtain service account from credentials (are you using Application Default Credentials?). You must provide a service account to authenticate as")
 		}
-		return "", errors.New("could not obtain service account from credentials (are you using Application Default Credentials?). You must provide a service account to authenticate as")
+		metadataClient := metadata.NewClient(cleanhttp.DefaultClient())
+		v := url.Values{}
+		v.Set("audience", fmt.Sprintf("http://vault/%s", role))
+		v.Set("format", "full")
+		path := "instance/service-accounts/default/identity?" + v.Encode()
+		instanceJwt, err := metadataClient.Get(path)
+		if err != nil {
+			return "", fmt.Errorf("unable to read the identity token: %w", err)
+		}
+		return instanceJwt, nil
+
 	} else {
 		ttl := time.Duration(defaultIamMaxJwtExpMinutes) * time.Minute
 		jwtExpStr, ok := m["jwt_exp"]
