@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/go-secure-stdlib/parseutil"
@@ -33,44 +35,54 @@ func getSignedJwt(role string, m map[string]string) (string, error) {
 		serviceAccount = credentials.ClientEmail
 	}
 	if serviceAccount == "" {
-		return "", errors.New("could not obtain service account from credentials (are you using Application Default Credentials?). You must provide a service account to authenticate as")
-	}
-
-	ttl := time.Duration(defaultIamMaxJwtExpMinutes) * time.Minute
-	jwtExpStr, ok := m["jwt_exp"]
-	if ok {
-		ttl, err = parseutil.ParseDurationSecond(jwtExpStr)
-		if err != nil {
-			return "", fmt.Errorf("could not parse jwt_exp '%s' into integer value", jwtExpStr)
+		// Check if the metadata server is available.
+		if metadata.OnGCE() {
+			metadataClient := metadata.NewClient(&http.Client{})
+			path := "instance/service-accounts/default/identity?audience=http%3A%2F%2Fvault%2F" + role + "&format=full"
+			instanceJwt, err := metadataClient.Get(path)
+			if err != nil {
+				return "", err
+			}
+			return instanceJwt, nil
 		}
-	}
+		return "", errors.New("could not obtain service account from credentials (are you using Application Default Credentials?). You must provide a service account to authenticate as")
+	} else {
+		ttl := time.Duration(defaultIamMaxJwtExpMinutes) * time.Minute
+		jwtExpStr, ok := m["jwt_exp"]
+		if ok {
+			ttl, err = parseutil.ParseDurationSecond(jwtExpStr)
+			if err != nil {
+				return "", fmt.Errorf("could not parse jwt_exp '%s' into integer value", jwtExpStr)
+			}
+		}
 
-	jwtPayload := map[string]interface{}{
-		"aud": fmt.Sprintf("http://vault/%s", role),
-		"sub": serviceAccount,
-		"exp": time.Now().Add(ttl).Unix(),
-	}
-	payloadBytes, err := json.Marshal(jwtPayload)
-	if err != nil {
-		return "", fmt.Errorf("could not convert JWT payload to JSON string: %v", err)
-	}
+		jwtPayload := map[string]interface{}{
+			"aud": fmt.Sprintf("http://vault/%s", role),
+			"sub": serviceAccount,
+			"exp": time.Now().Add(ttl).Unix(),
+		}
+		payloadBytes, err := json.Marshal(jwtPayload)
+		if err != nil {
+			return "", fmt.Errorf("could not convert JWT payload to JSON string: %v", err)
+		}
 
-	jwtReq := &iamcredentials.SignJwtRequest{
-		Payload: string(payloadBytes),
-	}
+		jwtReq := &iamcredentials.SignJwtRequest{
+			Payload: string(payloadBytes),
+		}
 
-	iamClient, err := iamcredentials.New(httpClient)
-	if err != nil {
-		return "", fmt.Errorf("could not create IAM client: %v", err)
-	}
+		iamClient, err := iamcredentials.New(httpClient)
+		if err != nil {
+			return "", fmt.Errorf("could not create IAM client: %v", err)
+		}
 
-	resourceName := fmt.Sprintf(gcputil.ServiceAccountCredentialsTemplate, serviceAccount)
-	resp, err := iamClient.Projects.ServiceAccounts.SignJwt(resourceName, jwtReq).Do()
-	if err != nil {
-		return "", fmt.Errorf("unable to sign JWT for %s using given Vault credentials: %v", resourceName, err)
-	}
+		resourceName := fmt.Sprintf(gcputil.ServiceAccountCredentialsTemplate, serviceAccount)
+		resp, err := iamClient.Projects.ServiceAccounts.SignJwt(resourceName, jwtReq).Do()
+		if err != nil {
+			return "", fmt.Errorf("unable to sign JWT for %s using given Vault credentials: %v", resourceName, err)
+		}
 
-	return resp.SignedJwt, nil
+		return resp.SignedJwt, nil
+	}
 }
 
 func (h *CLIHandler) Auth(c *api.Client, m map[string]string) (*api.Secret, error) {
