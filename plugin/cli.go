@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -38,10 +39,13 @@ func getSignedJwt(role string, m map[string]string) (string, error) {
 		// Check if the metadata server is available.
 		if metadata.OnGCE() {
 			metadataClient := metadata.NewClient(&http.Client{})
-			path := "instance/service-accounts/default/identity?audience=http%3A%2F%2Fvault%2F" + role + "&format=full"
+			v := url.Values{}
+			v.Set("audience", fmt.Sprintf("http://vault/%s", role))
+			v.Set("format", "full")
+			path := "instance/service-accounts/default/identity?" + v.Encode()
 			instanceJwt, err := metadataClient.Get(path)
 			if err != nil {
-				return "", err
+				return "", fmt.Errorf("unable to read the identity token: %v", err)
 			}
 			return instanceJwt, nil
 		}
