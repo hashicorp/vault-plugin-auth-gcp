@@ -187,11 +187,8 @@ func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, req *logical.R
 	if err = validateBaseJWTClaims(baseClaims, loginInfo.RoleName); err != nil {
 		return nil, err
 	}
-	loginInfo.JWTClaims = baseClaims
 
-	if len(baseClaims.Subject) == 0 {
-		return nil, errors.New("expected JWT to have non-empty 'sub' claim")
-	}
+	loginInfo.JWTClaims = baseClaims
 	loginInfo.EmailOrId = baseClaims.Subject
 
 	if loginInfo.Role.RoleType == gceRoleType {
@@ -270,8 +267,7 @@ func validateBaseJWTClaims(c *jwt.Claims, roleName string) error {
 		return fmt.Errorf("JWT must expire in %d minutes, expires in %v", maxJwtExpMaxMinutes, expIn)
 	}
 
-	sub := c.Subject
-	if len(sub) < 0 {
+	if len(c.Subject) == 0 {
 		return errors.New("expected JWT to have 'sub' claim with service account id or email")
 	}
 
