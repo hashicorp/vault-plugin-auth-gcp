@@ -6,40 +6,41 @@ package gcpauth
 
 import (
 	context "context"
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	consts "github.com/hashicorp/vault/sdk/helper/consts"
 	license "github.com/hashicorp/vault/sdk/helper/license"
 	pluginutil "github.com/hashicorp/vault/sdk/helper/pluginutil"
 	wrapping "github.com/hashicorp/vault/sdk/helper/wrapping"
 	logical "github.com/hashicorp/vault/sdk/logical"
-	reflect "reflect"
-	time "time"
 )
 
-// MockSystemView is a mock of SystemView interface
+// MockSystemView is a mock of SystemView interface.
 type MockSystemView struct {
 	ctrl     *gomock.Controller
 	recorder *MockSystemViewMockRecorder
 }
 
-// MockSystemViewMockRecorder is the mock recorder for MockSystemView
+// MockSystemViewMockRecorder is the mock recorder for MockSystemView.
 type MockSystemViewMockRecorder struct {
 	mock *MockSystemView
 }
 
-// NewMockSystemView creates a new mock instance
+// NewMockSystemView creates a new mock instance.
 func NewMockSystemView(ctrl *gomock.Controller) *MockSystemView {
 	mock := &MockSystemView{ctrl: ctrl}
 	mock.recorder = &MockSystemViewMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSystemView) EXPECT() *MockSystemViewMockRecorder {
 	return m.recorder
 }
 
-// CachingDisabled mocks base method
+// CachingDisabled mocks base method.
 func (m *MockSystemView) CachingDisabled() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CachingDisabled")
@@ -47,13 +48,13 @@ func (m *MockSystemView) CachingDisabled() bool {
 	return ret0
 }
 
-// CachingDisabled indicates an expected call of CachingDisabled
+// CachingDisabled indicates an expected call of CachingDisabled.
 func (mr *MockSystemViewMockRecorder) CachingDisabled() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CachingDisabled", reflect.TypeOf((*MockSystemView)(nil).CachingDisabled))
 }
 
-// DefaultLeaseTTL mocks base method
+// DefaultLeaseTTL mocks base method.
 func (m *MockSystemView) DefaultLeaseTTL() time.Duration {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DefaultLeaseTTL")
@@ -61,13 +62,13 @@ func (m *MockSystemView) DefaultLeaseTTL() time.Duration {
 	return ret0
 }
 
-// DefaultLeaseTTL indicates an expected call of DefaultLeaseTTL
+// DefaultLeaseTTL indicates an expected call of DefaultLeaseTTL.
 func (mr *MockSystemViewMockRecorder) DefaultLeaseTTL() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultLeaseTTL", reflect.TypeOf((*MockSystemView)(nil).DefaultLeaseTTL))
 }
 
-// EntityInfo mocks base method
+// EntityInfo mocks base method.
 func (m *MockSystemView) EntityInfo(arg0 string) (*logical.Entity, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EntityInfo", arg0)
@@ -76,13 +77,28 @@ func (m *MockSystemView) EntityInfo(arg0 string) (*logical.Entity, error) {
 	return ret0, ret1
 }
 
-// EntityInfo indicates an expected call of EntityInfo
+// EntityInfo indicates an expected call of EntityInfo.
 func (mr *MockSystemViewMockRecorder) EntityInfo(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EntityInfo", reflect.TypeOf((*MockSystemView)(nil).EntityInfo), arg0)
 }
 
-// GroupsForEntity mocks base method
+// GeneratePasswordFromPolicy mocks base method.
+func (m *MockSystemView) GeneratePasswordFromPolicy(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GeneratePasswordFromPolicy", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GeneratePasswordFromPolicy indicates an expected call of GeneratePasswordFromPolicy.
+func (mr *MockSystemViewMockRecorder) GeneratePasswordFromPolicy(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GeneratePasswordFromPolicy", reflect.TypeOf((*MockSystemView)(nil).GeneratePasswordFromPolicy), arg0, arg1)
+}
+
+// GroupsForEntity mocks base method.
 func (m *MockSystemView) GroupsForEntity(arg0 string) ([]*logical.Group, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GroupsForEntity", arg0)
@@ -91,13 +107,13 @@ func (m *MockSystemView) GroupsForEntity(arg0 string) ([]*logical.Group, error) 
 	return ret0, ret1
 }
 
-// GroupsForEntity indicates an expected call of GroupsForEntity
+// GroupsForEntity indicates an expected call of GroupsForEntity.
 func (mr *MockSystemViewMockRecorder) GroupsForEntity(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GroupsForEntity", reflect.TypeOf((*MockSystemView)(nil).GroupsForEntity), arg0)
 }
 
-// HasFeature mocks base method
+// HasFeature mocks base method.
 func (m *MockSystemView) HasFeature(arg0 license.Features) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HasFeature", arg0)
@@ -105,13 +121,13 @@ func (m *MockSystemView) HasFeature(arg0 license.Features) bool {
 	return ret0
 }
 
-// HasFeature indicates an expected call of HasFeature
+// HasFeature indicates an expected call of HasFeature.
 func (mr *MockSystemViewMockRecorder) HasFeature(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasFeature", reflect.TypeOf((*MockSystemView)(nil).HasFeature), arg0)
 }
 
-// LocalMount mocks base method
+// LocalMount mocks base method.
 func (m *MockSystemView) LocalMount() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LocalMount")
@@ -119,13 +135,13 @@ func (m *MockSystemView) LocalMount() bool {
 	return ret0
 }
 
-// LocalMount indicates an expected call of LocalMount
+// LocalMount indicates an expected call of LocalMount.
 func (mr *MockSystemViewMockRecorder) LocalMount() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalMount", reflect.TypeOf((*MockSystemView)(nil).LocalMount))
 }
 
-// LookupPlugin mocks base method
+// LookupPlugin mocks base method.
 func (m *MockSystemView) LookupPlugin(arg0 context.Context, arg1 string, arg2 consts.PluginType) (*pluginutil.PluginRunner, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LookupPlugin", arg0, arg1, arg2)
@@ -134,13 +150,13 @@ func (m *MockSystemView) LookupPlugin(arg0 context.Context, arg1 string, arg2 co
 	return ret0, ret1
 }
 
-// LookupPlugin indicates an expected call of LookupPlugin
+// LookupPlugin indicates an expected call of LookupPlugin.
 func (mr *MockSystemViewMockRecorder) LookupPlugin(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookupPlugin", reflect.TypeOf((*MockSystemView)(nil).LookupPlugin), arg0, arg1, arg2)
 }
 
-// MaxLeaseTTL mocks base method
+// MaxLeaseTTL mocks base method.
 func (m *MockSystemView) MaxLeaseTTL() time.Duration {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MaxLeaseTTL")
@@ -148,13 +164,13 @@ func (m *MockSystemView) MaxLeaseTTL() time.Duration {
 	return ret0
 }
 
-// MaxLeaseTTL indicates an expected call of MaxLeaseTTL
+// MaxLeaseTTL indicates an expected call of MaxLeaseTTL.
 func (mr *MockSystemViewMockRecorder) MaxLeaseTTL() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaxLeaseTTL", reflect.TypeOf((*MockSystemView)(nil).MaxLeaseTTL))
 }
 
-// MlockEnabled mocks base method
+// MlockEnabled mocks base method.
 func (m *MockSystemView) MlockEnabled() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MlockEnabled")
@@ -162,13 +178,13 @@ func (m *MockSystemView) MlockEnabled() bool {
 	return ret0
 }
 
-// MlockEnabled indicates an expected call of MlockEnabled
+// MlockEnabled indicates an expected call of MlockEnabled.
 func (mr *MockSystemViewMockRecorder) MlockEnabled() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MlockEnabled", reflect.TypeOf((*MockSystemView)(nil).MlockEnabled))
 }
 
-// PluginEnv mocks base method
+// PluginEnv mocks base method.
 func (m *MockSystemView) PluginEnv(arg0 context.Context) (*logical.PluginEnvironment, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PluginEnv", arg0)
@@ -177,13 +193,13 @@ func (m *MockSystemView) PluginEnv(arg0 context.Context) (*logical.PluginEnviron
 	return ret0, ret1
 }
 
-// PluginEnv indicates an expected call of PluginEnv
+// PluginEnv indicates an expected call of PluginEnv.
 func (mr *MockSystemViewMockRecorder) PluginEnv(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PluginEnv", reflect.TypeOf((*MockSystemView)(nil).PluginEnv), arg0)
 }
 
-// ReplicationState mocks base method
+// ReplicationState mocks base method.
 func (m *MockSystemView) ReplicationState() consts.ReplicationState {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReplicationState")
@@ -191,13 +207,13 @@ func (m *MockSystemView) ReplicationState() consts.ReplicationState {
 	return ret0
 }
 
-// ReplicationState indicates an expected call of ReplicationState
+// ReplicationState indicates an expected call of ReplicationState.
 func (mr *MockSystemViewMockRecorder) ReplicationState() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplicationState", reflect.TypeOf((*MockSystemView)(nil).ReplicationState))
 }
 
-// ResponseWrapData mocks base method
+// ResponseWrapData mocks base method.
 func (m *MockSystemView) ResponseWrapData(arg0 context.Context, arg1 map[string]interface{}, arg2 time.Duration, arg3 bool) (*wrapping.ResponseWrapInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResponseWrapData", arg0, arg1, arg2, arg3)
@@ -206,13 +222,13 @@ func (m *MockSystemView) ResponseWrapData(arg0 context.Context, arg1 map[string]
 	return ret0, ret1
 }
 
-// ResponseWrapData indicates an expected call of ResponseWrapData
+// ResponseWrapData indicates an expected call of ResponseWrapData.
 func (mr *MockSystemViewMockRecorder) ResponseWrapData(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResponseWrapData", reflect.TypeOf((*MockSystemView)(nil).ResponseWrapData), arg0, arg1, arg2, arg3)
 }
 
-// Tainted mocks base method
+// Tainted mocks base method.
 func (m *MockSystemView) Tainted() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tainted")
@@ -220,36 +236,36 @@ func (m *MockSystemView) Tainted() bool {
 	return ret0
 }
 
-// Tainted indicates an expected call of Tainted
+// Tainted indicates an expected call of Tainted.
 func (mr *MockSystemViewMockRecorder) Tainted() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tainted", reflect.TypeOf((*MockSystemView)(nil).Tainted))
 }
 
-// MockStorage is a mock of Storage interface
+// MockStorage is a mock of Storage interface.
 type MockStorage struct {
 	ctrl     *gomock.Controller
 	recorder *MockStorageMockRecorder
 }
 
-// MockStorageMockRecorder is the mock recorder for MockStorage
+// MockStorageMockRecorder is the mock recorder for MockStorage.
 type MockStorageMockRecorder struct {
 	mock *MockStorage
 }
 
-// NewMockStorage creates a new mock instance
+// NewMockStorage creates a new mock instance.
 func NewMockStorage(ctrl *gomock.Controller) *MockStorage {
 	mock := &MockStorage{ctrl: ctrl}
 	mock.recorder = &MockStorageMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStorage) EXPECT() *MockStorageMockRecorder {
 	return m.recorder
 }
 
-// Delete mocks base method
+// Delete mocks base method.
 func (m *MockStorage) Delete(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
@@ -257,13 +273,13 @@ func (m *MockStorage) Delete(arg0 context.Context, arg1 string) error {
 	return ret0
 }
 
-// Delete indicates an expected call of Delete
+// Delete indicates an expected call of Delete.
 func (mr *MockStorageMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockStorage)(nil).Delete), arg0, arg1)
 }
 
-// Get mocks base method
+// Get mocks base method.
 func (m *MockStorage) Get(arg0 context.Context, arg1 string) (*logical.StorageEntry, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1)
@@ -272,13 +288,13 @@ func (m *MockStorage) Get(arg0 context.Context, arg1 string) (*logical.StorageEn
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get
+// Get indicates an expected call of Get.
 func (mr *MockStorageMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockStorage)(nil).Get), arg0, arg1)
 }
 
-// List mocks base method
+// List mocks base method.
 func (m *MockStorage) List(arg0 context.Context, arg1 string) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", arg0, arg1)
@@ -287,13 +303,13 @@ func (m *MockStorage) List(arg0 context.Context, arg1 string) ([]string, error) 
 	return ret0, ret1
 }
 
-// List indicates an expected call of List
+// List indicates an expected call of List.
 func (mr *MockStorageMockRecorder) List(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockStorage)(nil).List), arg0, arg1)
 }
 
-// Put mocks base method
+// Put mocks base method.
 func (m *MockStorage) Put(arg0 context.Context, arg1 *logical.StorageEntry) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", arg0, arg1)
@@ -301,7 +317,7 @@ func (m *MockStorage) Put(arg0 context.Context, arg1 *logical.StorageEntry) erro
 	return ret0
 }
 
-// Put indicates an expected call of Put
+// Put indicates an expected call of Put.
 func (mr *MockStorageMockRecorder) Put(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockStorage)(nil).Put), arg0, arg1)
