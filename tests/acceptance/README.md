@@ -14,12 +14,11 @@ The following BATs tests can be used to test basic functionality of the GCP Auth
 
 First, set the following env variables from your GCP project 
 
-* SERVICE_ACCOUNT_ID env variable set
+* SERVICE_ACCOUNT_ID
 * PATH_TO_CREDS env variable pointing to service account credentials JSON file
-* The following Google environment variables set:
-    * GOOGLE_APPLICATION_CREDENTIALS
-    * GOOGLE_PROJECT
-    * GOOGLE_REGION
+* GOOGLE_APPLICATION_CREDENTIALS
+* GOOGLE_PROJECT
+* GOOGLE_REGION
 
 Next, set the following environment variable to specify the version of Vault to test
 
