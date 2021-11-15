@@ -38,8 +38,8 @@ setup(){
       --privileged \
       --detach ${VAULT_IMAGE?}
 
-    # Replace with a check
-    sleep 2
+    echo -n "waiting for vault"
+    while ! vault status >/dev/null 2>&1; do sleep 1; echo -n .; done; echo
 
     vault login ${VAULT_TOKEN?}
 
@@ -104,4 +104,4 @@ teardown(){
           credentials="@${PATH_TO_CREDS?}"
 
    [ "${status?}" -eq 0 ]
-} >> $SETUP_TEARDOWN_OUTFILE
+}
