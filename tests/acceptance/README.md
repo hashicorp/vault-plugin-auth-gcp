@@ -31,6 +31,6 @@ Finally, run the tests:
 
 ```bash
 $ cd ./test/acceptance
-$ bats gcp-auth.bat
+$ bats gcp-auth.bats
 ```
 
