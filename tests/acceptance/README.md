@@ -30,7 +30,7 @@ $ export VAULT_IMAGE='hashicorp/vault:1.9.0-rc1'
 Finally, run the tests:
 
 ```bash
-$ cd ./test/acceptance
+$ cd ./tests/acceptance
 $ bats gcp-auth.bats
 ```
 
