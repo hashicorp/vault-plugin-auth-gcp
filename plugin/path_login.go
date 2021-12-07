@@ -99,7 +99,7 @@ func (b *GcpAuthBackend) pathLoginRenew(ctx context.Context, req *logical.Reques
 		return nil, err
 	} else if role == nil {
 		return logical.ErrorResponse(fmt.Sprintf("role '%s' no longer exists", roleName)), nil
-	} else if !policyutil.EquivalentPolicies(role.TokenPolicies, req.Auth.Policies) {
+	} else if !policyutil.EquivalentPolicies(role.TokenPolicies, req.Auth.TokenPolicies) {
 		return logical.ErrorResponse(fmt.Sprintf("policies on role '%s' have changed, cannot renew", roleName)), nil
 	}
 
