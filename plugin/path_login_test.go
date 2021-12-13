@@ -280,12 +280,12 @@ func Test_Renew(t *testing.T) {
 	b, storage, creds := testBackendWithCreds(t)
 
 	// Build the JWT token
-	iamClient, err := b.IAMClient(storage)
+	iamClient, err := b.IAMCredentialsClient(storage)
 	if err != nil {
 		t.Fatal(err)
 	}
 	exp := time.Now().Add(10 * time.Minute)
-	jwt, err := ServiceAccountLoginJwt(iamClient, exp, "vault/test", creds.ProjectId, creds.ClientEmail)
+	jwt, err := ServiceAccountLoginJwt(iamClient, exp, "vault/test", creds.ClientEmail)
 	if err != nil {
 		t.Fatal(err)
 	}
