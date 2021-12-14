@@ -55,6 +55,9 @@ teardown(){
         return
     fi
 
+    # Remove temp credentials file
+    rm ./creds.json
+
     { # Braces used to redirect all teardown logs.
 
     vault auth disable gcp
@@ -69,13 +72,13 @@ teardown(){
 }
 
 @test "Can successfully write GCP Auth Config" {
-    vault write auth/gcp/config \
+    run vault write auth/gcp/config \
           credentials="@creds.json"
     [ "${status?}" -eq 0 ]
 }
 
 @test "Can successfully write IAM role" {
-    vault write auth/gcp/role/my-iam-role \
+    run vault write auth/gcp/role/my-iam-role \
           type="iam" \
           policies="dev,prod" \
           bound_service_accounts=${SERVICE_ACCOUNT_ID?}
@@ -83,7 +86,7 @@ teardown(){
 }
 
 @test "Can successfully write GCE role" {
-    vault write auth/gcp/role/my-gce-role \
+    run vault write auth/gcp/role/my-gce-role \
           type="gce" \
           policies="dev,prod" \
           bound_service_accounts=${SERVICE_ACCOUNT_ID?}
@@ -99,7 +102,7 @@ teardown(){
           policies="dev,prod" \
           bound_service_accounts=${SERVICE_ACCOUNT_ID?}
 
-    vault login -method=gcp \
+    run vault login -method=gcp \
           role="my-iam-role" \
           service_account=${SERVICE_ACCOUNT_ID?} \
           jwt_exp="15m" \
