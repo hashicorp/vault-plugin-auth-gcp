@@ -23,7 +23,7 @@ The following are the environment variables that need to be set for the BATs scr
 Run the tests:
 
 ```bash
-$ cd ./test/acceptance
+$ cd ./tests/acceptance
 $ bats gcp-auth.bats
 ```
 
