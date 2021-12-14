@@ -3,22 +3,24 @@
 #load _helpers
 #
 #SKIP_TEARDOWN=true
-VAULT_ADDR='http://127.0.0.1:8200'
-VAULT_IMAGE="${VAULT_IMAGE:-hashicorp/vault:1.9.0-rc1}"
+export VAULT_ADDR='http://127.0.0.1:8200'
+export VAULT_IMAGE="${VAULT_IMAGE:-hashicorp/vault:1.9.1}"
 
-if [[ -z SERVICE_ACCOUNT_ID ]]
+if [[ -z $SERVICE_ACCOUNT_ID ]]
 then
     echo "SERVICE_ACCOUNT_ID env is not set. Exiting.."
     exit 1
 fi
 
-if [[ -z PATH_TO_CREDS ]]
+if [[ -z $GOOGLE_APPLICATION_CREDENTIALS ]]
 then
-    echo "PATH_TO_CREDS env is not set. Exiting.."
+    echo "GOOGLE_APPLICATION_CREDENTIALS env is not set. Exiting.."
     exit 1
 fi
 
 export SETUP_TEARDOWN_OUTFILE=/tmp/output.log
+
+cp $GOOGLE_APPLICATION_CREDENTIALS ./creds.json
 
 setup(){
     { # Braces used to redirect all setup logs.
@@ -66,14 +68,14 @@ teardown(){
     } >> $SETUP_TEARDOWN_OUTFILE
 }
 
-@test "Can successfuly write GCP Auth Config" {
-    run vault write auth/gcp/config \
-          credentials="@${PATH_TO_CREDS?}"
+@test "Can successfully write GCP Auth Config" {
+    vault write auth/gcp/config \
+          credentials="@creds.json"
     [ "${status?}" -eq 0 ]
 }
 
 @test "Can successfully write IAM role" {
-    run vault write auth/gcp/role/my-iam-role \
+    vault write auth/gcp/role/my-iam-role \
           type="iam" \
           policies="dev,prod" \
           bound_service_accounts=${SERVICE_ACCOUNT_ID?}
@@ -81,7 +83,7 @@ teardown(){
 }
 
 @test "Can successfully write GCE role" {
-    run vault write auth/gcp/role/my-gce-role \
+    vault write auth/gcp/role/my-gce-role \
           type="gce" \
           policies="dev,prod" \
           bound_service_accounts=${SERVICE_ACCOUNT_ID?}
@@ -89,19 +91,19 @@ teardown(){
 }
 
 @test "Can successfully login using IAM role" {
-   run vault write auth/gcp/config \
-          credentials="@${PATH_TO_CREDS?}"
+    vault write auth/gcp/config \
+          credentials="@creds.json"
 
-   run vault write auth/gcp/role/my-iam-role \
+    vault write auth/gcp/role/my-iam-role \
           type="iam" \
           policies="dev,prod" \
           bound_service_accounts=${SERVICE_ACCOUNT_ID?}
 
-   run vault login -method=gcp \
+    vault login -method=gcp \
           role="my-iam-role" \
           service_account=${SERVICE_ACCOUNT_ID?} \
           jwt_exp="15m" \
-          credentials="@${PATH_TO_CREDS?}"
+          credentials="@creds.json"
 
    [ "${status?}" -eq 0 ]
 }

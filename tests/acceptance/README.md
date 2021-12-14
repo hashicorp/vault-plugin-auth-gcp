@@ -12,25 +12,18 @@ The following BATs tests can be used to test basic functionality of the GCP Auth
 
 ### GCP Testing
 
-First, set the following env variables from your GCP project 
+The following are the environment variables that need to be set for the BATs scripts and the Go SDK
 
 * SERVICE_ACCOUNT_ID
-* PATH_TO_CREDS env variable pointing to service account credentials JSON file
-* GOOGLE_APPLICATION_CREDENTIALS
-* GOOGLE_PROJECT
+* GOOGLE_APPLICATION_CREDENTIALS (path to the credentials file)
+* GOOGLE_CLOUD_PROJECT (ID of the Google Project)
 * GOOGLE_REGION
 
-Next, set the following environment variable to specify the version of Vault to test
 
-
-```bash
-$ export VAULT_IMAGE='hashicorp/vault:1.9.0-rc1'
-```
-
-Finally, run the tests:
+Run the tests:
 
 ```bash
 $ cd ./test/acceptance
-$ bats gcp-auth.bat
+$ bats gcp-auth.bats
 ```
 
