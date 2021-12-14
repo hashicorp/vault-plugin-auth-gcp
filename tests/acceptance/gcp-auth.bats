@@ -20,11 +20,12 @@ fi
 
 export SETUP_TEARDOWN_OUTFILE=/tmp/output.log
 
-cp $GOOGLE_APPLICATION_CREDENTIALS ./creds.json
-
 setup(){
     { # Braces used to redirect all setup logs.
-    # 1. Configure Vault.
+    # 1. Copy credentials file
+    cp $GOOGLE_APPLICATION_CREDENTIALS ./creds.json
+
+    # 2. Configure Vault.
     VAULT_TOKEN='root'
     DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -55,10 +56,11 @@ teardown(){
         return
     fi
 
-    # Remove temp credentials file
-    rm ./creds.json
 
     { # Braces used to redirect all teardown logs.
+
+    # Remove temp credentials file
+    rm ./creds.json
 
     vault auth disable gcp
     # If the test failed, print some debug output
