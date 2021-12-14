@@ -16,7 +16,7 @@ The following are the environment variables that need to be set for the BATs scr
 
 * SERVICE_ACCOUNT_ID
 * GOOGLE_APPLICATION_CREDENTIALS (path to the credentials file)
-* GOOGLE_CLOUD_PROJECT (ID of the Google Project)
+* GOOGLE_CLOUD_PROJECT (ID of the Google Project, used internally by Go SDK)
 * GOOGLE_REGION
 
 
