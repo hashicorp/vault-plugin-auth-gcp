@@ -22,13 +22,10 @@ jobs:
           # Check if there's a diff on CHANGELOG.md
           changelog_diff=$(git --no-pager diff --name-only HEAD "$(git merge-base HEAD "origin/${{ github.event.pull_request.base.ref }}")" -- CHANGELOG.md)
 
-          if [ -z "changelog_diff" ]; then
+          if [ -z "$changelog_diff" ]; then
             echo "Did not detect changes in CHANGELOG.md"
             echo "If no changelog entry is needed, skip this check with the 'pr/no-changelog' label"
             exit 1
           else
             echo "Found changelog entry in PR!"
           fi
-
-
-
