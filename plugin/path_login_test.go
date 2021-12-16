@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-gcp-common/gcputil"
+	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/assert"
 	jose "gopkg.in/square/go-jose.v2"
@@ -273,6 +274,120 @@ func TestLogin_IAM(t *testing.T) {
 			t.Errorf("expected %q to contain %q", str, exp)
 		}
 	})
+}
+
+func Test_Renew(t *testing.T) {
+	b, storage, creds := testBackendWithCreds(t)
+
+	// Build the JWT token
+	iamClient, err := b.IAMCredentialsClient(storage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exp := time.Now().Add(10 * time.Minute)
+	jwt, err := ServiceAccountLoginJwt(iamClient, exp, "vault/test", creds.ClientEmail)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := &logical.Request{
+		Storage: storage,
+		Auth:    &logical.Auth{},
+	}
+
+	roleFieldSchema := map[string]*framework.FieldSchema{}
+	for k, v := range baseRoleFieldSchema() {
+		roleFieldSchema[k] = v
+	}
+	for k, v := range iamOnlyFieldSchema {
+		roleFieldSchema[k] = v
+	}
+
+	fd := &framework.FieldData{
+		Raw: map[string]interface{}{
+			"name":                   "test",
+			"type":                   "iam",
+			"max_jwt_exp":            30 * time.Minute,
+			"bound_service_accounts": creds.ClientEmail,
+			// Use the deprecated `policies` field
+			"policies": "foo,bar",
+		},
+		Schema: roleFieldSchema,
+	}
+
+	resp, err := b.pathRoleCreateUpdate(context.Background(), req, fd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	loginFd := &framework.FieldData{
+		Raw: map[string]interface{}{
+			"role": "test",
+			"jwt":  jwt.SignedJwt,
+		},
+		Schema: pathLogin(b).Fields,
+	}
+	resp, err = b.pathLogin(context.Background(), req, loginFd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.IsError() {
+		t.Fatalf("got error: %#v", *resp)
+	}
+	req.Auth.InternalData = resp.Auth.InternalData
+	req.Auth.Metadata = resp.Auth.Metadata
+	req.Auth.LeaseOptions = resp.Auth.LeaseOptions
+	req.Auth.Policies = resp.Auth.Policies
+	req.Auth.TokenPolicies = req.Auth.Policies
+	req.Auth.Period = resp.Auth.Period
+
+	// Normal renewal
+	renewFd := &framework.FieldData{}
+	resp, err = b.pathLoginRenew(context.Background(), req, renewFd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp == nil {
+		t.Fatal("got nil response from renew")
+	}
+	if resp.IsError() {
+		t.Fatalf("got error: %#v", *resp)
+	}
+
+	// Change the policies -- this should fail
+	fd.Raw["policies"] = "zip,zap"
+	resp, err = b.pathRoleCreateUpdate(context.Background(), req, fd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err = b.pathLoginRenew(context.Background(), req, renewFd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !resp.IsError() {
+		t.Fatal("expected error")
+	}
+
+	// Put the policies back using the non-deprecated `token_policies` field, this should be okay
+	delete(fd.Raw, "policies")
+	fd.Raw["token_policies"] = "bar,foo"
+
+	resp, err = b.pathRoleCreateUpdate(context.Background(), req, fd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err = b.pathLoginRenew(context.Background(), req, renewFd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp == nil {
+		t.Fatal("got nil response from renew")
+	}
+	if resp.IsError() {
+		t.Fatalf("got error: %#v", *resp)
+	}
 }
 
 // testCreateExpiredJwtToken creates an expired IAM JWT token
