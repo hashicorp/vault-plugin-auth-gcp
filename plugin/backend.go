@@ -17,6 +17,7 @@ import (
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
 	"google.golang.org/api/iamcredentials/v1"
+	"google.golang.org/api/option"
 )
 
 // cacheTime is the duration for which to cache clients and credentials. This
@@ -78,14 +79,15 @@ func Backend() *GcpAuthBackend {
 // https://cloud.google.com/iam/docs/migrating-to-credentials-api#iam-sign-jwt-go
 //
 // The client is cached.
-func (b *GcpAuthBackend) IAMClient(s logical.Storage) (*iam.Service, error) {
+func (b *GcpAuthBackend) IAMClient(ctx context.Context, s logical.Storage) (*iam.Service, error) {
 	httpClient, err := b.httpClient(s)
 	if err != nil {
 		return nil, errwrap.Wrapf("failed to create IAM HTTP client: {{err}}", err)
 	}
 
 	client, err := b.cache.Fetch("iam", cacheTime, func() (interface{}, error) {
-		client, err := iam.New(httpClient)
+		opts := b.options(httpClient)
+		client, err := iam.NewService(ctx, opts...)
 		if err != nil {
 			return nil, errwrap.Wrapf("failed to create IAM client: {{err}}", err)
 		}
@@ -107,14 +109,15 @@ func (b *GcpAuthBackend) IAMClient(s logical.Storage) (*iam.Service, error) {
 // https://pkg.go.dev/google.golang.org/api@v0.45.0/iamcredentials/v1#pkg-overview
 //
 // The client is cached.
-func (b *GcpAuthBackend) IAMCredentialsClient(s logical.Storage) (*iamcredentials.Service, error) {
+func (b *GcpAuthBackend) IAMCredentialsClient(ctx context.Context, s logical.Storage) (*iamcredentials.Service, error) {
 	httpClient, err := b.httpClient(s)
 	if err != nil {
 		return nil, errwrap.Wrapf("failed to create IAM Service Account Credentials HTTP client: {{err}}", err)
 	}
 
 	client, err := b.cache.Fetch("iamcredentials", cacheTime, func() (interface{}, error) {
-		client, err := iamcredentials.New(httpClient)
+		opts := b.options(httpClient)
+		client, err := iamcredentials.NewService(ctx, opts...)
 		if err != nil {
 			return nil, errwrap.Wrapf("failed to create IAM Service Account Credentials client: {{err}}", err)
 		}
@@ -130,14 +133,15 @@ func (b *GcpAuthBackend) IAMCredentialsClient(s logical.Storage) (*iamcredential
 }
 
 // ComputeClient returns a new Compute client. The client is cached.
-func (b *GcpAuthBackend) ComputeClient(s logical.Storage) (*compute.Service, error) {
+func (b *GcpAuthBackend) ComputeClient(ctx context.Context, s logical.Storage) (*compute.Service, error) {
 	httpClient, err := b.httpClient(s)
 	if err != nil {
 		return nil, errwrap.Wrapf("failed to create Compute HTTP client: {{err}}", err)
 	}
 
 	client, err := b.cache.Fetch("compute", cacheTime, func() (interface{}, error) {
-		client, err := compute.New(httpClient)
+		opts := b.options(httpClient)
+		client, err := compute.NewService(ctx, opts...)
 		if err != nil {
 			return nil, errwrap.Wrapf("failed to create Compute client: {{err}}", err)
 		}
@@ -153,14 +157,15 @@ func (b *GcpAuthBackend) ComputeClient(s logical.Storage) (*compute.Service, err
 }
 
 // CRMClient returns a new Cloud Resource Manager client. The client is cached.
-func (b *GcpAuthBackend) CRMClient(s logical.Storage) (*cloudresourcemanager.Service, error) {
+func (b *GcpAuthBackend) CRMClient(ctx context.Context, s logical.Storage) (*cloudresourcemanager.Service, error) {
 	httpClient, err := b.httpClient(s)
 	if err != nil {
 		return nil, errwrap.Wrapf("failed to create Cloud Resource Manager HTTP client: {{err}}", err)
 	}
 
 	client, err := b.cache.Fetch("crm", cacheTime, func() (interface{}, error) {
-		client, err := cloudresourcemanager.New(httpClient)
+		opts := b.options(httpClient)
+		client, err := cloudresourcemanager.NewService(ctx, opts...)
 		if err != nil {
 			return nil, errwrap.Wrapf("failed to create Cloud Resource Manager client: {{err}}", err)
 		}
@@ -193,6 +198,17 @@ func (b *GcpAuthBackend) httpClient(s logical.Storage) (*http.Client, error) {
 	}
 
 	return client.(*http.Client), nil
+}
+
+func (b *GcpAuthBackend) options(client *http.Client) []option.ClientOption {
+	// TODO: placeholder. We'll need to load this from storage.
+	var endpoint string
+
+	opts := []option.ClientOption{option.WithHTTPClient(client)}
+	if endpoint != "" {
+		opts = append(opts, option.WithEndpoint(endpoint))
+	}
+	return opts
 }
 
 // credentials returns the credentials which were specified in the

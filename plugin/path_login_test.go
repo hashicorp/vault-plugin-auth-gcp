@@ -179,7 +179,7 @@ func TestLogin_IAM(t *testing.T) {
 			}
 
 			// Build the JWT token
-			iamClient, err := b.IAMCredentialsClient(storage)
+			iamClient, err := b.IAMCredentialsClient(ctx, storage)
 			if err != nil {
 				t.Fatal(err)
 			}

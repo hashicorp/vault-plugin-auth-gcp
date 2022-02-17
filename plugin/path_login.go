@@ -284,7 +284,7 @@ func validateBaseJWTClaims(c *jwt.Claims, roleName string) error {
 // ---- IAM login domain ----
 // pathIamLogin attempts a login operation using the parsed login info.
 func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request, loginInfo *gcpLoginInfo) (*logical.Response, error) {
-	iamClient, err := b.IAMClient(req.Storage)
+	iamClient, err := b.IAMClient(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -357,7 +357,7 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 	}
 
 	if role.AddGroupAliases {
-		crmClient, err := b.CRMClient(req.Storage)
+		crmClient, err := b.CRMClient(ctx, req.Storage)
 		if err != nil {
 			return nil, err
 		}
@@ -375,7 +375,7 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 // pathIamRenew returns an error if the service account referenced in the auth token metadata cannot renew the
 // auth token for the given role.
 func (b *GcpAuthBackend) pathIamRenew(ctx context.Context, req *logical.Request, roleName string, role *gcpRole) error {
-	iamClient, err := b.IAMClient(req.Storage)
+	iamClient, err := b.IAMClient(ctx, req.Storage)
 	if err != nil {
 		return err
 	}
@@ -446,7 +446,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	}
 
 	// Verify instance exists.
-	computeClient, err := b.ComputeClient(req.Storage)
+	computeClient, err := b.ComputeClient(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -481,7 +481,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		}, nil
 	}
 
-	iamClient, err := b.IAMClient(req.Storage)
+	iamClient, err := b.IAMClient(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -511,7 +511,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	}
 
 	if role.AddGroupAliases {
-		crmClient, err := b.CRMClient(req.Storage)
+		crmClient, err := b.CRMClient(ctx, req.Storage)
 		if err != nil {
 			return nil, err
 		}
@@ -579,7 +579,7 @@ func authMetadata(loginInfo *gcpLoginInfo, serviceAccount *iam.ServiceAccount) m
 // pathGceRenew returns an error if the instance referenced in the auth token metadata cannot renew the
 // auth token for the given role.
 func (b *GcpAuthBackend) pathGceRenew(ctx context.Context, req *logical.Request, roleName string, role *gcpRole) error {
-	computeClient, err := b.ComputeClient(req.Storage)
+	computeClient, err := b.ComputeClient(ctx, req.Storage)
 	if err != nil {
 		return err
 	}
@@ -655,12 +655,12 @@ func getInstanceMetadataFromAuth(authMetadata map[string]string) (*gcputil.GCEId
 // authorizeGCEInstance returns an error if the given GCE instance is not
 // authorized for the role.
 func (b *GcpAuthBackend) authorizeGCEInstance(ctx context.Context, project string, instance *compute.Instance, s logical.Storage, role *gcpRole, serviceAccountId string) error {
-	iamClient, err := b.IAMClient(s)
+	iamClient, err := b.IAMClient(ctx, s)
 	if err != nil {
 		return err
 	}
 
-	computeClient, err := b.ComputeClient(s)
+	computeClient, err := b.ComputeClient(ctx, s)
 	if err != nil {
 		return nil
 	}
