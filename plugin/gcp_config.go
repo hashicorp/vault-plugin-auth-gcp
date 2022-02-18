@@ -21,6 +21,7 @@ type gcpConfig struct {
 	IAMAuthMetadata *authmetadata.Handler   `json:"iam_auth_metadata_handler"`
 	GCEAliasType    string                  `json:"gce_alias"`
 	GCEAuthMetadata *authmetadata.Handler   `json:"gce_auth_metadata_handler"`
+	Endpoint        string                  `json:"endpoint"`
 }
 
 // standardizedCreds wraps gcputil.GcpCredentials with a type to allow
@@ -67,25 +68,27 @@ func (c *gcpConfig) Update(d *framework.FieldData) error {
 
 	rawIamAlias, exists := d.GetOk("iam_alias")
 	if exists {
-		iamAlias := rawIamAlias.(string)
-		if iamAlias != c.IAMAliasType {
-			c.IAMAliasType = iamAlias
-		}
+		c.IAMAliasType = rawIamAlias.(string)
 	}
+
 	if err := c.IAMAuthMetadata.ParseAuthMetadata(d); err != nil {
 		return errwrap.Wrapf("failed to parse iam metadata: {{err}}", err)
 	}
 
 	rawGceAlias, exists := d.GetOk("gce_alias")
 	if exists {
-		gceAlias := rawGceAlias.(string)
-		if gceAlias != c.GCEAliasType {
-			c.GCEAliasType = gceAlias
-		}
+		c.GCEAliasType = rawGceAlias.(string)
 	}
+
 	if err := c.GCEAuthMetadata.ParseAuthMetadata(d); err != nil {
 		return errwrap.Wrapf("failed to parse gce metadata: {{err}}", err)
 	}
+
+	rawEndpoint, exists := d.GetOk("endpoint")
+	if exists {
+		c.Endpoint = rawEndpoint.(string)
+	}
+
 	return nil
 }
 

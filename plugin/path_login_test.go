@@ -24,7 +24,7 @@ func TestLogin_IAM(t *testing.T) {
 	ctx := context.Background()
 
 	// Calculate group aliases here once
-	crmClient, err := b.CRMClient(storage)
+	crmClient, err := b.CRMClient(ctx, storage)
 	if err != nil {
 		t.Fatal(err)
 	}

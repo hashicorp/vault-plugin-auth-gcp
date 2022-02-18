@@ -71,6 +71,11 @@ If not specified, will use application default credentials`,
 			},
 			gceAuthMetadataFields.FieldName: authmetadata.FieldSchema(gceAuthMetadataFields),
 
+			"endpoint": {
+				Type:        framework.TypeString,
+				Description: "Custom Google API endpoint base URL.",
+			},
+
 			// Deprecated
 			"google_certs_endpoint": {
 				Type: framework.TypeString,
@@ -162,6 +167,9 @@ func (b *GcpAuthBackend) pathConfigRead(ctx context.Context, req *logical.Reques
 	}
 	if v := config.GCEAliasType; v != "" {
 		resp["gce_alias"] = v
+	}
+	if v := config.Endpoint; v != "" {
+		resp["endpoint"] = v
 	}
 
 	return &logical.Response{
