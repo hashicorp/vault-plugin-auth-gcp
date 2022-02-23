@@ -33,4 +33,4 @@ gcloud iam service-accounts keys create vault-tester.json \
 export GOOGLE_CREDENTIALS="$(cat vault-tester.json)"
 printf "\nUpdated the GOOGLE_CREDENTIALS environment variable."
 
-printf "\n\nYou may now run 'make test', but note that it may take some time (e.g. over a minute) for the new credentials to work."
+printf "\n\nYou may now run 'make test', but note that it may take some time (e.g. over a minute) for the new credentials to work.\n"

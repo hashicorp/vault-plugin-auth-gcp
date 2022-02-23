@@ -185,4 +185,6 @@ You can also specify a `TESTARGS` variable to filter tests like so:
 $ make test TESTARGS='--run=TestConfig'
 ```
 
+Note that it may take some time (e.g. over a minute) for the new credentials to work.
+
 [install-gcloud]: https://cloud.google.com/sdk

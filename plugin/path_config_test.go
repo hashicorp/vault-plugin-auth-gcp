@@ -82,6 +82,7 @@ func TestBackend_PathConfigRead(t *testing.T) {
 			IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 			GCEAliasType:    defaultGCEAlias,
 			GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+			Endpoint:        "https://example.com",
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -123,6 +124,7 @@ func TestBackend_PathConfigRead(t *testing.T) {
 				"service_account_email",
 				"zone",
 			},
+			"endpoint": "https://example.com",
 		}
 
 		if !reflect.DeepEqual(resp.Data, expectedData) {
@@ -156,6 +158,7 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 				  "client_email": "user@test.com",
 				  "client_id": "client_id"
 				}`,
+				"endpoint": "https://example.com",
 			},
 		}); err != nil {
 			t.Fatal(err)
@@ -190,6 +193,10 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 		if v, exp := creds.ProjectId, "project_id"; v != exp {
 			t.Errorf("expected %q to be %q", v, exp)
 		}
+
+		if v, exp := config.Endpoint, "https://example.com"; v != exp {
+			t.Errorf("expected %q to be %q", v, exp)
+		}
 	})
 
 	t.Run("exist", func(t *testing.T) {
@@ -208,6 +215,7 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 			},
 			GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
 			IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
+			Endpoint:        "https://example.com",
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -228,6 +236,7 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 				  "client_email": "2user@test.com",
 				  "client_id": "2client_id"
 				}`,
+				"endpoint": "https://example2.com",
 			},
 		}); err != nil {
 			t.Fatal(err)
@@ -260,6 +269,9 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 		}
 
 		if v, exp := creds.ProjectId, "2project_id"; v != exp {
+			t.Errorf("expected %q to be %q", v, exp)
+		}
+		if v, exp := config.Endpoint, "https://example2.com"; v != exp {
 			t.Errorf("expected %q to be %q", v, exp)
 		}
 	})
