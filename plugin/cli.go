@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/iamcredentials/v1"
+	"google.golang.org/api/option"
 )
 
 type CLIHandler struct{}
@@ -74,7 +75,7 @@ func getSignedJwt(role string, m map[string]string) (string, error) {
 			Payload: string(payloadBytes),
 		}
 
-		iamClient, err := iamcredentials.New(httpClient)
+		iamClient, err := iamcredentials.NewService(ctx, option.WithHTTPClient(httpClient))
 		if err != nil {
 			return "", fmt.Errorf("could not create IAM client: %v", err)
 		}

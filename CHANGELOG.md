@@ -1,7 +1,8 @@
 ## 0.11.3
 ### Unreleased
 
-BUG FIXES:
+IMPROVEMENTS:
 * Vault CLI now infers the service account email when running on Google Cloud [[GH-115](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/115)]
 
+BUG FIXES:
 * Fix token renewals when TokenPolicies have been configured [[GH-82](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/82)]
