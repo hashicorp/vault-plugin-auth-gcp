@@ -16,12 +16,15 @@ import (
 
 // gcpConfig contains all config required for the GCP backend.
 type gcpConfig struct {
-	Credentials     *gcputil.GcpCredentials `json:"credentials"`
-	IAMAliasType    string                  `json:"iam_alias"`
-	IAMAuthMetadata *authmetadata.Handler   `json:"iam_auth_metadata_handler"`
-	GCEAliasType    string                  `json:"gce_alias"`
-	GCEAuthMetadata *authmetadata.Handler   `json:"gce_auth_metadata_handler"`
-	Endpoint        string                  `json:"endpoint"`
+	Credentials            *gcputil.GcpCredentials `json:"credentials"`
+	IAMAliasType           string                  `json:"iam_alias"`
+	IAMAuthMetadata        *authmetadata.Handler   `json:"iam_auth_metadata_handler"`
+	GCEAliasType           string                  `json:"gce_alias"`
+	GCEAuthMetadata        *authmetadata.Handler   `json:"gce_auth_metadata_handler"`
+	IAMCustomEndpoint      string                  `json:"iam_custom_endpoint"`
+	IAMCredsCustomEndpoint string                  `json:"iam_creds_custom_endpoint"`
+	ComputeCustomEndpoint  string                  `json:"compute_custom_endpoint"`
+	CRMCustomEndpoint      string                  `json:"crm_custom_endpoint"`
 }
 
 // standardizedCreds wraps gcputil.GcpCredentials with a type to allow
@@ -84,9 +87,22 @@ func (c *gcpConfig) Update(d *framework.FieldData) error {
 		return errwrap.Wrapf("failed to parse gce metadata: {{err}}", err)
 	}
 
-	rawEndpoint, exists := d.GetOk("endpoint")
+	rawEndpoint, exists := d.GetOk("custom_endpoint")
 	if exists {
-		c.Endpoint = rawEndpoint.(string)
+		for k, v := range rawEndpoint.(map[string]string) {
+			switch k {
+			case "iam":
+				c.IAMCustomEndpoint = v
+			case "iam_creds":
+				c.IAMCredsCustomEndpoint = v
+			case "compute":
+				c.ComputeCustomEndpoint = v
+			case "crm":
+				c.CRMCustomEndpoint = v
+			default:
+				return fmt.Errorf("invalid custom endpoint type %q. Available types are: 'iam', 'iam_creds', 'compute', 'crm'", k)
+			}
+		}
 	}
 
 	return nil

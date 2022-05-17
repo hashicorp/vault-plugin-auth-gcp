@@ -2,6 +2,7 @@ package gcpauth
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -80,7 +81,12 @@ func Backend() *GcpAuthBackend {
 //
 // The client is cached.
 func (b *GcpAuthBackend) IAMClient(ctx context.Context, s logical.Storage) (*iam.Service, error) {
-	opts, err := b.clientOptions(ctx, s)
+	cfg, err := b.config(ctx, s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create IAM HTTP client: %w", err)
+	}
+
+	opts, err := b.clientOptions(ctx, s, cfg.IAMCustomEndpoint)
 	if err != nil {
 		return nil, errwrap.Wrapf("failed to create IAM HTTP client: {{err}}", err)
 	}
@@ -109,7 +115,12 @@ func (b *GcpAuthBackend) IAMClient(ctx context.Context, s logical.Storage) (*iam
 //
 // The client is cached.
 func (b *GcpAuthBackend) IAMCredentialsClient(ctx context.Context, s logical.Storage) (*iamcredentials.Service, error) {
-	opts, err := b.clientOptions(ctx, s)
+	cfg, err := b.config(ctx, s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create IAM Service Account Credentials HTTP client: %w", err)
+	}
+
+	opts, err := b.clientOptions(ctx, s, cfg.IAMCredsCustomEndpoint)
 	if err != nil {
 		return nil, errwrap.Wrapf("failed to create IAM Service Account Credentials HTTP client: {{err}}", err)
 	}
@@ -132,7 +143,12 @@ func (b *GcpAuthBackend) IAMCredentialsClient(ctx context.Context, s logical.Sto
 
 // ComputeClient returns a new Compute client. The client is cached.
 func (b *GcpAuthBackend) ComputeClient(ctx context.Context, s logical.Storage) (*compute.Service, error) {
-	opts, err := b.clientOptions(ctx, s)
+	cfg, err := b.config(ctx, s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Compute HTTP client: %w", err)
+	}
+
+	opts, err := b.clientOptions(ctx, s, cfg.ComputeCustomEndpoint)
 	if err != nil {
 		return nil, errwrap.Wrapf("failed to create Compute HTTP client: {{err}}", err)
 	}
@@ -155,7 +171,12 @@ func (b *GcpAuthBackend) ComputeClient(ctx context.Context, s logical.Storage) (
 
 // CRMClient returns a new Cloud Resource Manager client. The client is cached.
 func (b *GcpAuthBackend) CRMClient(ctx context.Context, s logical.Storage) (*cloudresourcemanager.Service, error) {
-	opts, err := b.clientOptions(ctx, s)
+	cfg, err := b.config(ctx, s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Cloud Resource Manager  HTTP client: %w", err)
+	}
+
+	opts, err := b.clientOptions(ctx, s, cfg.CRMCustomEndpoint)
 	if err != nil {
 		return nil, errwrap.Wrapf("failed to create Cloud Resource Manager HTTP client: {{err}}", err)
 	}
@@ -179,7 +200,7 @@ func (b *GcpAuthBackend) CRMClient(ctx context.Context, s logical.Storage) (*clo
 // clientOptions returns a new set of client options containing an http.Client and optional
 // custom endpoint. The http.Client is authenticated using the provided credentials. The
 // underlying http.Client is cached among all clients.
-func (b *GcpAuthBackend) clientOptions(ctx context.Context, s logical.Storage) ([]option.ClientOption, error) {
+func (b *GcpAuthBackend) clientOptions(ctx context.Context, s logical.Storage, endpoint string) ([]option.ClientOption, error) {
 	creds, err := b.credentials(ctx, s)
 	if err != nil {
 		return nil, errwrap.Wrapf("failed to create oauth2 http client: {{err}}", err)
@@ -194,14 +215,9 @@ func (b *GcpAuthBackend) clientOptions(ctx context.Context, s logical.Storage) (
 		return nil, err
 	}
 
-	config, err := b.config(ctx, s)
-	if err != nil {
-		return nil, err
-	}
-
 	opts := []option.ClientOption{option.WithHTTPClient(client.(*http.Client))}
-	if config.Endpoint != "" {
-		opts = append(opts, option.WithEndpoint(config.Endpoint))
+	if endpoint != "" {
+		opts = append(opts, option.WithEndpoint(endpoint))
 	}
 
 	return opts, nil
