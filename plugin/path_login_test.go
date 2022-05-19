@@ -291,9 +291,10 @@ func TestLogin_IAM(t *testing.T) {
 
 func Test_Renew(t *testing.T) {
 	b, storage, creds := testBackendWithCreds(t)
+	ctx := context.Background()
 
 	// Build the JWT token
-	iamClient, err := b.IAMCredentialsClient(storage)
+	iamClient, err := b.IAMCredentialsClient(ctx, storage)
 	if err != nil {
 		t.Fatal(err)
 	}
