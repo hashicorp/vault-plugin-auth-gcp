@@ -70,12 +70,10 @@ If not specified, will use application default credentials`,
 				Description: "Indicates what value to use when generating an alias for GCE authentications.",
 			},
 			gceAuthMetadataFields.FieldName: authmetadata.FieldSchema(gceAuthMetadataFields),
-
 			"custom_endpoint": {
 				Type:        framework.TypeKVPairs,
-				Description: "Custom Google API endpoint base URLs.",
+				Description: `Specifies overrides for various Google API Service Endpoints used in requests.`,
 			},
-
 			// Deprecated
 			"google_certs_endpoint": {
 				Type: framework.TypeString,
