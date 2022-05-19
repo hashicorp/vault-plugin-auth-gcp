@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-secure-stdlib/strutil"
 )
 
@@ -145,7 +144,7 @@ func AuthorizeGCE(ctx context.Context, i *AuthorizeGCEInput) error {
 
 		saId, saEmail, err := i.client.ServiceAccount(ctx, name)
 		if err != nil {
-			return errwrap.Wrapf(fmt.Sprintf("could not find service account %q: {{err}}", i.serviceAccount), err)
+			return fmt.Errorf("could not find service account %q: %w", i.serviceAccount, err)
 		}
 
 		if !(strutil.StrListContains(i.boundServiceAccounts, saEmail) ||

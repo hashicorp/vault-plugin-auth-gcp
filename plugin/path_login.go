@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/go-secure-stdlib/strutil"
 	"github.com/hashicorp/vault/sdk/framework"
@@ -63,7 +62,7 @@ func (b *GcpAuthBackend) pathLogin(ctx context.Context, req *logical.Request, da
 		return nil, logical.CodedError(http.StatusUnprocessableEntity, err.Error())
 	}
 
-	loginInfo, err := b.parseAndValidateJwt(ctx, req, data)
+	loginInfo, err := b.parseAndValidateJwt(ctx, req.Storage, data)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -89,7 +88,7 @@ func (b *GcpAuthBackend) pathLogin(ctx context.Context, req *logical.Request, da
 	}
 }
 
-func (b *GcpAuthBackend) pathLoginRenew(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *GcpAuthBackend) pathLoginRenew(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
 	// Check role exists and allowed policies are still the same.
 	roleName := req.Auth.Metadata["role"]
 	if roleName == "" {
@@ -99,9 +98,9 @@ func (b *GcpAuthBackend) pathLoginRenew(ctx context.Context, req *logical.Reques
 	if err != nil {
 		return nil, err
 	} else if role == nil {
-		return logical.ErrorResponse(fmt.Sprintf("role '%s' no longer exists", roleName)), nil
+		return logical.ErrorResponse("role '%s' no longer exists", roleName), nil
 	} else if !policyutil.EquivalentPolicies(role.TokenPolicies, req.Auth.TokenPolicies) {
-		return logical.ErrorResponse(fmt.Sprintf("policies on role '%s' have changed, cannot renew", roleName)), nil
+		return logical.ErrorResponse("policies on role '%s' have changed, cannot renew", roleName), nil
 	}
 
 	switch role.RoleType {
@@ -142,16 +141,21 @@ type gcpLoginInfo struct {
 	GceMetadata *gcputil.GCEIdentityMetadata
 }
 
-func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, req *logical.Request, data *framework.FieldData) (*gcpLoginInfo, error) {
+func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, s logical.Storage, data *framework.FieldData) (*gcpLoginInfo, error) {
 	loginInfo := &gcpLoginInfo{}
 	var err error
+
+	conf, err := b.config(ctx, s)
+	if err != nil {
+		return nil, errors.New("unable to retrieve GCP configuration")
+	}
 
 	loginInfo.RoleName = data.Get("role").(string)
 	if loginInfo.RoleName == "" {
 		return nil, errors.New("role is required")
 	}
 
-	loginInfo.Role, err = b.role(ctx, req.Storage, loginInfo.RoleName)
+	loginInfo.Role, err = b.role(ctx, s, loginInfo.RoleName)
 	if err != nil {
 		return nil, err
 	}
@@ -168,12 +172,12 @@ func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, req *logical.R
 	// Parse 'kid' key id from headers.
 	jwtVal, err := jwt.ParseSigned(signedJwt.(string))
 	if err != nil {
-		return nil, errwrap.Wrapf("unable to parse signed JWT: {{err}}", err)
+		return nil, fmt.Errorf("unable to parse signed JWT: %w", err)
 	}
 
-	key, err := b.getSigningKey(ctx, jwtVal, signedJwt.(string), loginInfo.Role, req.Storage)
+	key, err := b.getSigningKey(ctx, jwtVal, signedJwt.(string), loginInfo.Role, conf.APICustomEndpoint)
 	if err != nil {
-		return nil, errwrap.Wrapf("unable to get public key for signed JWT: {{err}}", err)
+		return nil, fmt.Errorf("unable to get public key for signed JWT: %w", err)
 	}
 
 	// Parse claims and verify signature.
@@ -202,7 +206,7 @@ func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, req *logical.R
 	return loginInfo, nil
 }
 
-func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebToken, rawToken string, role *gcpRole, s logical.Storage) (interface{}, error) {
+func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebToken, rawToken string, role *gcpRole, endpoint string) (interface{}, error) {
 	b.Logger().Debug("Getting signing Key for JWT")
 
 	if len(token.Headers) != 1 {
@@ -212,7 +216,7 @@ func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebTo
 	b.Logger().Debug("kid found for JWT", "kid", kid)
 
 	// Try getting Google-wide key
-	k, gErr := gcputil.OAuth2RSAPublicKey(ctx, kid)
+	k, gErr := gcputil.OAuth2RSAPublicKeyWithEndpoint(ctx, kid, endpoint)
 	if gErr == nil {
 		b.Logger().Debug("Found Google OAuth2 provider key", "kid", kid)
 		return k, nil
@@ -226,11 +230,11 @@ func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebTo
 	if role.RoleType == iamRoleType {
 		// If that failed, and the authentication type is IAM, try to get account-specific key
 		b.Logger().Debug("Unable to get Google-wide OAuth2 Key, trying service-account public key")
-		k, saErr := gcputil.ServiceAccountPublicKey(saId, kid)
+		k, saErr := gcputil.ServiceAccountPublicKeyWithEndpoint(ctx, saId, kid, endpoint)
 		if saErr == nil {
 			return k, nil
 		}
-		return nil, errwrap.Wrapf(fmt.Sprintf("unable to get public key %q for JWT subject %q: {{err}}", kid, saId), saErr)
+		return nil, fmt.Errorf("unable to get public key %q for JWT subject %q: %w", kid, saId, saErr)
 	}
 	return nil, fmt.Errorf("unable to get public key %q for JWT subject %q: no Google OAuth2 provider key found for GCE role", kid, saId)
 }

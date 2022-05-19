@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/authmetadata"
@@ -16,15 +15,20 @@ import (
 
 // gcpConfig contains all config required for the GCP backend.
 type gcpConfig struct {
-	Credentials            *gcputil.GcpCredentials `json:"credentials"`
-	IAMAliasType           string                  `json:"iam_alias"`
-	IAMAuthMetadata        *authmetadata.Handler   `json:"iam_auth_metadata_handler"`
-	GCEAliasType           string                  `json:"gce_alias"`
-	GCEAuthMetadata        *authmetadata.Handler   `json:"gce_auth_metadata_handler"`
-	IAMCustomEndpoint      string                  `json:"iam_custom_endpoint"`
-	IAMCredsCustomEndpoint string                  `json:"iam_creds_custom_endpoint"`
-	ComputeCustomEndpoint  string                  `json:"compute_custom_endpoint"`
-	CRMCustomEndpoint      string                  `json:"crm_custom_endpoint"`
+	Credentials     *gcputil.GcpCredentials `json:"credentials"`
+	IAMAliasType    string                  `json:"iam_alias"`
+	IAMAuthMetadata *authmetadata.Handler   `json:"iam_auth_metadata_handler"`
+	GCEAliasType    string                  `json:"gce_alias"`
+	GCEAuthMetadata *authmetadata.Handler   `json:"gce_auth_metadata_handler"`
+
+	// APICustomEndpoint overrides the service endpoint for www.googleapis.com
+	APICustomEndpoint string `json:"api_custom_endpoint"`
+	// IAMCustomEndpoint overrides the service endpoint for api.googleapis.com
+	IAMCustomEndpoint string `json:"iam_custom_endpoint"`
+	// CRMCustomEndpoint overrides the service endpoint for cloudresourcemananger.googleapis.com
+	CRMCustomEndpoint string `json:"crm_custom_endpoint"`
+	// ComputeCustomEndpoint overrides the service endpoint for compute.googleapis.com
+	ComputeCustomEndpoint string `json:"compute_custom_endpoint"`
 }
 
 // standardizedCreds wraps gcputil.GcpCredentials with a type to allow
@@ -59,7 +63,7 @@ func (c *gcpConfig) Update(d *framework.FieldData) error {
 	if v, ok := d.GetOk("credentials"); ok {
 		creds, err := gcputil.Credentials(v.(string))
 		if err != nil {
-			return errwrap.Wrapf("failed to read credentials: {{err}}", err)
+			return fmt.Errorf("failed to read credentials: %w", err)
 		}
 
 		if len(creds.PrivateKeyId) == 0 {
@@ -75,7 +79,7 @@ func (c *gcpConfig) Update(d *framework.FieldData) error {
 	}
 
 	if err := c.IAMAuthMetadata.ParseAuthMetadata(d); err != nil {
-		return errwrap.Wrapf("failed to parse iam metadata: {{err}}", err)
+		return fmt.Errorf("failed to parse iam metadata: %w", err)
 	}
 
 	rawGceAlias, exists := d.GetOk("gce_alias")
@@ -84,23 +88,23 @@ func (c *gcpConfig) Update(d *framework.FieldData) error {
 	}
 
 	if err := c.GCEAuthMetadata.ParseAuthMetadata(d); err != nil {
-		return errwrap.Wrapf("failed to parse gce metadata: {{err}}", err)
+		return fmt.Errorf("failed to parse gce metadata: %w", err)
 	}
 
 	rawEndpoint, exists := d.GetOk("custom_endpoint")
 	if exists {
 		for k, v := range rawEndpoint.(map[string]string) {
 			switch k {
+			case "api":
+				c.APICustomEndpoint = v
 			case "iam":
 				c.IAMCustomEndpoint = v
-			case "iam_creds":
-				c.IAMCredsCustomEndpoint = v
-			case "compute":
-				c.ComputeCustomEndpoint = v
 			case "crm":
 				c.CRMCustomEndpoint = v
+			case "compute":
+				c.ComputeCustomEndpoint = v
 			default:
-				return fmt.Errorf("invalid custom endpoint type %q. Available types are: 'iam', 'iam_creds', 'compute', 'crm'", k)
+				return fmt.Errorf("invalid custom endpoint type %q. Available types are: 'api', 'iam', 'crm', 'compute'", k)
 			}
 		}
 	}
