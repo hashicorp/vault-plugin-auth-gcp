@@ -531,8 +531,7 @@ func testIAMCredentialsClient(t *testing.T, creds *gcputil.GcpCredentials) *iamc
 	t.Helper()
 
 	client, err := gcputil.GetHttpClient(creds, iam.CloudPlatformScope)
-	opts := []option.ClientOption{option.WithHTTPClient(client)}
-	iamClient, err := iamcredentials.NewService(context.Background(), opts...)
+	iamClient, err := iamcredentials.NewService(context.Background(), option.WithHTTPClient(client))
 	assert.NoError(t, err)
 	return iamClient
 }
