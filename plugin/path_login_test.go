@@ -3,6 +3,7 @@ package gcpauth
 import (
 	"context"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"strings"
@@ -13,6 +14,9 @@ import (
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/api/iam/v1"
+	"google.golang.org/api/iamcredentials/v1"
+	"google.golang.org/api/option"
 	jose "gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -191,16 +195,10 @@ func TestLogin_IAM(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			// Build the JWT token
-			iamClient, err := b.IAMCredentialsClient(ctx, storage)
-			if err != nil {
-				t.Fatal(err)
-			}
+			// Get a signed JWT using the service account
 			exp := time.Now().Add(10 * time.Minute)
-			jwt, err := ServiceAccountLoginJwt(iamClient, exp, "vault/"+role, creds.ClientEmail)
-			if err != nil {
-				t.Fatal(err)
-			}
+			iamClient := testIAMCredentialsClient(t, creds)
+			jwt := testServiceAccountSignJwt(t, iamClient, exp, "vault/"+role, creds.ClientEmail)
 
 			resp, err := b.HandleRequest(ctx, &logical.Request{
 				Storage:   storage,
@@ -289,20 +287,143 @@ func TestLogin_IAM(t *testing.T) {
 	})
 }
 
-func Test_Renew(t *testing.T) {
+func TestLogin_IAM_Custom_Endpoint(t *testing.T) {
 	b, storage, creds := testBackendWithCreds(t)
 	ctx := context.Background()
 
-	// Build the JWT token
-	iamClient, err := b.IAMCredentialsClient(ctx, storage)
-	if err != nil {
-		t.Fatal(err)
+	cases := []struct {
+		name           string
+		customEndpoint map[string]string
+		wantErr        bool
+	}{
+		{
+			name: "IAM login with invalid api custom endpoints results in error",
+			customEndpoint: map[string]string{
+				"api":     "https://www.example.com",
+				"iam":     "https://iam.googleapis.com",
+				"crm":     "https://cloudresourcemanager.googleapis.com",
+				"compute": "https://compute.googleapis.com",
+			},
+			wantErr: true,
+		},
+		{
+			name: "IAM login with invalid iam custom endpoints results in error",
+			customEndpoint: map[string]string{
+				"api":     "https://www.googleapis.com",
+				"iam":     "https://iam.example.com",
+				"crm":     "https://cloudresourcemanager.googleapis.com",
+				"compute": "https://compute.googleapis.com",
+			},
+			wantErr: true,
+		},
+		{
+			name: "IAM login with invalid crm custom endpoints results in error",
+			customEndpoint: map[string]string{
+				"api":     "https://www.googleapis.com",
+				"iam":     "https://iam.googleapis.com",
+				"crm":     "https://cloudresourcemanager.example.com",
+				"compute": "https://compute.googleapis.com",
+			},
+			wantErr: true,
+		},
+		{
+			name: "IAM login with invalid compute custom endpoints results in success",
+			customEndpoint: map[string]string{
+				"api": "https://www.googleapis.com",
+				"iam": "https://iam.googleapis.com",
+				"crm": "https://cloudresourcemanager.googleapis.com",
+
+				// compute only used for GCE-based login
+				"compute": "https://compute.example.com",
+			},
+		},
+		{
+			name: "IAM login with default custom endpoints results in success",
+			customEndpoint: map[string]string{
+				"api":     "https://www.googleapis.com",
+				"iam":     "https://iam.googleapis.com",
+				"crm":     "https://cloudresourcemanager.googleapis.com",
+				"compute": "https://compute.googleapis.com",
+			},
+		},
+		{
+			name:           "IAM login with empty custom endpoints results in success",
+			customEndpoint: map[string]string{},
+		},
 	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := &logical.Request{
+				Storage:   storage,
+				Operation: logical.UpdateOperation,
+				Path:      "config",
+				Data: map[string]interface{}{
+					"custom_endpoint": tc.customEndpoint,
+					"iam_alias":       "unique_id",
+				},
+			}
+			resp, err := b.HandleRequest(ctx, req)
+			assert.NoError(t, err)
+			assert.False(t, resp.IsError())
+
+			req = &logical.Request{
+				Operation: logical.CreateOperation,
+				Path:      "role/test",
+				Storage:   storage,
+				Data: map[string]interface{}{
+					"type":                   "iam",
+					"add_group_aliases":      true,
+					"bound_service_accounts": creds.ClientEmail,
+				},
+			}
+			resp, err = b.HandleRequest(ctx, req)
+			assert.NoError(t, err)
+			assert.False(t, resp.IsError())
+
+			// Get a signed JWT using the service account
+			exp := time.Now().Add(10 * time.Minute)
+			iamClient := testIAMCredentialsClient(t, creds)
+			jwt := testServiceAccountSignJwt(t, iamClient, exp, "vault/test", creds.ClientEmail)
+
+			// Authenticate by providing the signed JWT to the login API
+			req = &logical.Request{
+				Storage:   storage,
+				Operation: logical.UpdateOperation,
+				Path:      "login",
+				Data: map[string]interface{}{
+					"role": "test",
+					"jwt":  jwt.SignedJwt,
+				},
+			}
+			resp, err = b.HandleRequest(ctx, req)
+			if tc.wantErr {
+				assert.True(t, resp.IsError() || err != nil, "expected error from login API")
+				return
+			}
+
+			// Assert the auth data in the response is as expected
+			assert.NotNil(t, resp.Auth)
+			assert.Equal(t, creds.ClientId, resp.Auth.Alias.Name)
+			assert.Equal(t, creds.ClientEmail, resp.Auth.DisplayName)
+			expectedMetadata := map[string]string{
+				"role":                  "test",
+				"project_id":            creds.ProjectId,
+				"service_account_email": creds.ClientEmail,
+				"service_account_id":    creds.ClientId,
+			}
+			assert.Equal(t, expectedMetadata, resp.Auth.Metadata)
+			assert.Equal(t, expectedMetadata, resp.Auth.Alias.Metadata)
+		})
+	}
+}
+
+func Test_Renew(t *testing.T) {
+	b, storage, creds := testBackendWithCreds(t)
+
+	// Get a signed JWT using the service account
 	exp := time.Now().Add(10 * time.Minute)
-	jwt, err := ServiceAccountLoginJwt(iamClient, exp, "vault/test", creds.ClientEmail)
-	if err != nil {
-		t.Fatal(err)
-	}
+	iamClient := testIAMCredentialsClient(t, creds)
+	jwt := testServiceAccountSignJwt(t, iamClient, exp, "vault/test", creds.ClientEmail)
 
 	req := &logical.Request{
 		Storage: storage,
@@ -404,8 +525,43 @@ func Test_Renew(t *testing.T) {
 	}
 }
 
+// testIAMCredentialsClient returns a new IAM Service Account Credentials client.
+// This client can be used to sign JWTs using the IAM Service Credentials endpoint.
+func testIAMCredentialsClient(t *testing.T, creds *gcputil.GcpCredentials) *iamcredentials.Service {
+	t.Helper()
+
+	client, err := gcputil.GetHttpClient(creds, iam.CloudPlatformScope)
+	opts := []option.ClientOption{option.WithHTTPClient(client)}
+	iamClient, err := iamcredentials.NewService(context.Background(), opts...)
+	assert.NoError(t, err)
+	return iamClient
+}
+
+func testServiceAccountSignJwt(t *testing.T, iamClient *iamcredentials.Service, exp time.Time, aud, serviceAccount string) *iamcredentials.SignJwtResponse {
+	t.Helper()
+
+	// Marshall claims to JSON
+	payload, err := json.Marshal(map[string]interface{}{
+		"sub": serviceAccount,
+		"aud": aud,
+		"exp": exp.Unix(),
+	})
+	assert.NoError(t, err)
+
+	// Send the request to have GCP sign the JWT
+	jwtReq := &iamcredentials.SignJwtRequest{
+		Payload: string(payload),
+	}
+	accountResource := fmt.Sprintf(gcputil.ServiceAccountCredentialsTemplate, serviceAccount)
+	resp, err := iamClient.Projects.ServiceAccounts.SignJwt(accountResource, jwtReq).Do()
+	assert.NoError(t, err)
+	return resp
+}
+
 // testCreateExpiredJwtToken creates an expired IAM JWT token
 func testCreateExpiredJwtToken(tb testing.TB, roleName string, creds *gcputil.GcpCredentials) string {
+	tb.Helper()
+
 	block, _ := pem.Decode([]byte(creds.PrivateKey))
 	if block == nil {
 		tb.Fatal("expected valid PEM block for test credentials private key")

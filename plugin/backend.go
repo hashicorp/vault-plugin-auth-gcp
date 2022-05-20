@@ -16,7 +16,6 @@ import (
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
-	"google.golang.org/api/iamcredentials/v1"
 	"google.golang.org/api/option"
 )
 
@@ -104,35 +103,6 @@ func (b *GcpAuthBackend) IAMClient(ctx context.Context, s logical.Storage) (*iam
 	}
 
 	return client.(*iam.Service), nil
-}
-
-// IAMCredentialsClient returns a new IAM Service Account Credentials client.
-// This client talks to the IAM Service Credentials endpoint, for signing JWTs.
-//
-// See:
-// https://pkg.go.dev/google.golang.org/api@v0.45.0/iamcredentials/v1#pkg-overview
-//
-// The client is cached.
-func (b *GcpAuthBackend) IAMCredentialsClient(ctx context.Context, s logical.Storage) (*iamcredentials.Service, error) {
-	opts, err := b.clientOptions(ctx, s, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create IAM Service Account Credentials HTTP client: %w", err)
-	}
-
-	client, err := b.cache.Fetch("iamcredentials", cacheTime, func() (interface{}, error) {
-		client, err := iamcredentials.NewService(ctx, opts...)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create IAM Service Account Credentials client: %w", err)
-		}
-		client.UserAgent = useragent.String()
-
-		return client, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return client.(*iamcredentials.Service), nil
 }
 
 // ComputeClient returns a new Compute client. The client is cached.
