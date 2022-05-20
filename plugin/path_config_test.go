@@ -12,8 +12,6 @@ import (
 )
 
 func TestBackend_PathConfigRead(t *testing.T) {
-	t.Parallel()
-
 	t.Run("field_validation", func(t *testing.T) {
 		t.Parallel()
 		testFieldValidation(t, logical.ReadOperation, "config")
@@ -78,10 +76,14 @@ func TestBackend_PathConfigRead(t *testing.T) {
 				PrivateKey:   "key",
 				ProjectId:    "project",
 			},
-			IAMAliasType:    defaultIAMAlias,
-			IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
-			GCEAliasType:    defaultGCEAlias,
-			GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
+			IAMAliasType:          defaultIAMAlias,
+			IAMAuthMetadata:       authmetadata.NewHandler(iamAuthMetadataFields),
+			GCEAliasType:          defaultGCEAlias,
+			GCEAuthMetadata:       authmetadata.NewHandler(gceAuthMetadataFields),
+			APICustomEndpoint:     "https://www.example.com",
+			IAMCustomEndpoint:     "https://iam.example.com",
+			CRMCustomEndpoint:     "https://cloudresourcemanager.example.com",
+			ComputeCustomEndpoint: "https://compute.example.com",
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -123,6 +125,12 @@ func TestBackend_PathConfigRead(t *testing.T) {
 				"service_account_email",
 				"zone",
 			},
+			"custom_endpoint": map[string]string{
+				"api":     "https://www.example.com",
+				"iam":     "https://iam.example.com",
+				"crm":     "https://cloudresourcemanager.example.com",
+				"compute": "https://compute.example.com",
+			},
 		}
 
 		if !reflect.DeepEqual(resp.Data, expectedData) {
@@ -132,16 +140,11 @@ func TestBackend_PathConfigRead(t *testing.T) {
 }
 
 func TestBackend_PathConfigWrite(t *testing.T) {
-	t.Parallel()
-
 	t.Run("field_validation", func(t *testing.T) {
-		t.Parallel()
 		testFieldValidation(t, logical.UpdateOperation, "config")
 	})
 
 	t.Run("not_exist", func(t *testing.T) {
-		t.Parallel()
-
 		b, storage := testBackend(t)
 		ctx := context.Background()
 		if _, err := b.HandleRequest(ctx, &logical.Request{
@@ -156,6 +159,12 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 				  "client_email": "user@test.com",
 				  "client_id": "client_id"
 				}`,
+				"custom_endpoint": map[string]string{
+					"iam":     "https://example-iam.com",
+					"api":     "https://example-api.com",
+					"crm":     "https://example-crm.com",
+					"compute": "https://example-compute.com",
+				},
 			},
 		}); err != nil {
 			t.Fatal(err)
@@ -190,11 +199,41 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 		if v, exp := creds.ProjectId, "project_id"; v != exp {
 			t.Errorf("expected %q to be %q", v, exp)
 		}
+
+		if v, exp := config.IAMCustomEndpoint, "https://example-iam.com"; v != exp {
+			t.Errorf("expected %q to be %q", v, exp)
+		}
+		if v, exp := config.APICustomEndpoint, "https://example-api.com"; v != exp {
+			t.Errorf("expected %q to be %q", v, exp)
+		}
+		if v, exp := config.CRMCustomEndpoint, "https://example-crm.com"; v != exp {
+			t.Errorf("expected %q to be %q", v, exp)
+		}
+		if v, exp := config.ComputeCustomEndpoint, "https://example-compute.com"; v != exp {
+			t.Errorf("expected %q to be %q", v, exp)
+		}
+	})
+
+	t.Run("bad custom endpoint", func(t *testing.T) {
+		b, storage := testBackend(t)
+		ctx := context.Background()
+		if _, err := b.HandleRequest(ctx, &logical.Request{
+			Storage:   storage,
+			Operation: logical.UpdateOperation,
+			Path:      "config",
+			Data: map[string]interface{}{
+				"custom_endpoint": map[string]string{
+					"iam":       "https://example-iam.com",
+					"not-valid": "https://example-iam-creds.com",
+				},
+			},
+		}); err == nil {
+			t.Fatal("expected error but got nil")
+		}
+
 	})
 
 	t.Run("exist", func(t *testing.T) {
-		t.Parallel()
-
 		b, storage := testBackend(t)
 		ctx := context.Background()
 
@@ -206,8 +245,9 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 				PrivateKey:   "key",
 				ProjectId:    "project",
 			},
-			GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
-			IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
+			GCEAuthMetadata:   authmetadata.NewHandler(gceAuthMetadataFields),
+			IAMAuthMetadata:   authmetadata.NewHandler(iamAuthMetadataFields),
+			IAMCustomEndpoint: "https://example.com",
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -228,6 +268,9 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 				  "client_email": "2user@test.com",
 				  "client_id": "2client_id"
 				}`,
+				"custom_endpoint": map[string]string{
+					"iam": "https://example-iam.com",
+				},
 			},
 		}); err != nil {
 			t.Fatal(err)
@@ -262,12 +305,13 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 		if v, exp := creds.ProjectId, "2project_id"; v != exp {
 			t.Errorf("expected %q to be %q", v, exp)
 		}
+		if v, exp := config.IAMCustomEndpoint, "https://example-iam.com"; v != exp {
+			t.Errorf("expected %q to be %q", v, exp)
+		}
 	})
 }
 
 func TestConfig_Update(t *testing.T) {
-	t.Parallel()
-
 	cases := []struct {
 		name    string
 		new     *gcpConfig

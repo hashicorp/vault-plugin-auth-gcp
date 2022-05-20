@@ -2,10 +2,10 @@ package gcpauth
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/vault-plugin-auth-gcp/plugin/cache"
 	"github.com/hashicorp/vault/sdk/framework"
@@ -16,7 +16,7 @@ import (
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
-	"google.golang.org/api/iamcredentials/v1"
+	"google.golang.org/api/option"
 )
 
 // cacheTime is the duration for which to cache clients and credentials. This
@@ -78,16 +78,21 @@ func Backend() *GcpAuthBackend {
 // https://cloud.google.com/iam/docs/migrating-to-credentials-api#iam-sign-jwt-go
 //
 // The client is cached.
-func (b *GcpAuthBackend) IAMClient(s logical.Storage) (*iam.Service, error) {
-	httpClient, err := b.httpClient(s)
+func (b *GcpAuthBackend) IAMClient(ctx context.Context, s logical.Storage) (*iam.Service, error) {
+	cfg, err := b.config(ctx, s)
 	if err != nil {
-		return nil, errwrap.Wrapf("failed to create IAM HTTP client: {{err}}", err)
+		return nil, fmt.Errorf("failed to get config while creating IAM client: %w", err)
+	}
+
+	opts, err := b.clientOptions(ctx, s, cfg.IAMCustomEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create IAM client options: %w", err)
 	}
 
 	client, err := b.cache.Fetch("iam", cacheTime, func() (interface{}, error) {
-		client, err := iam.New(httpClient)
+		client, err := iam.NewService(ctx, opts...)
 		if err != nil {
-			return nil, errwrap.Wrapf("failed to create IAM client: {{err}}", err)
+			return nil, fmt.Errorf("failed to create IAM client: %w", err)
 		}
 		client.UserAgent = useragent.String()
 
@@ -100,46 +105,22 @@ func (b *GcpAuthBackend) IAMClient(s logical.Storage) (*iam.Service, error) {
 	return client.(*iam.Service), nil
 }
 
-// IAMCredentialsClient returns a new IAM Service Account Credentials client.
-// This client talks to the IAM Service Credentials endpoint, for signing JWTs.
-//
-// See:
-// https://pkg.go.dev/google.golang.org/api@v0.45.0/iamcredentials/v1#pkg-overview
-//
-// The client is cached.
-func (b *GcpAuthBackend) IAMCredentialsClient(s logical.Storage) (*iamcredentials.Service, error) {
-	httpClient, err := b.httpClient(s)
-	if err != nil {
-		return nil, errwrap.Wrapf("failed to create IAM Service Account Credentials HTTP client: {{err}}", err)
-	}
-
-	client, err := b.cache.Fetch("iamcredentials", cacheTime, func() (interface{}, error) {
-		client, err := iamcredentials.New(httpClient)
-		if err != nil {
-			return nil, errwrap.Wrapf("failed to create IAM Service Account Credentials client: {{err}}", err)
-		}
-		client.UserAgent = useragent.String()
-
-		return client, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return client.(*iamcredentials.Service), nil
-}
-
 // ComputeClient returns a new Compute client. The client is cached.
-func (b *GcpAuthBackend) ComputeClient(s logical.Storage) (*compute.Service, error) {
-	httpClient, err := b.httpClient(s)
+func (b *GcpAuthBackend) ComputeClient(ctx context.Context, s logical.Storage) (*compute.Service, error) {
+	cfg, err := b.config(ctx, s)
 	if err != nil {
-		return nil, errwrap.Wrapf("failed to create Compute HTTP client: {{err}}", err)
+		return nil, fmt.Errorf("failed to get config while creating Compute client: %w", err)
+	}
+
+	opts, err := b.clientOptions(ctx, s, cfg.ComputeCustomEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Compute client options: %w", err)
 	}
 
 	client, err := b.cache.Fetch("compute", cacheTime, func() (interface{}, error) {
-		client, err := compute.New(httpClient)
+		client, err := compute.NewService(ctx, opts...)
 		if err != nil {
-			return nil, errwrap.Wrapf("failed to create Compute client: {{err}}", err)
+			return nil, fmt.Errorf("failed to create Compute client: %w", err)
 		}
 		client.UserAgent = useragent.String()
 
@@ -153,16 +134,21 @@ func (b *GcpAuthBackend) ComputeClient(s logical.Storage) (*compute.Service, err
 }
 
 // CRMClient returns a new Cloud Resource Manager client. The client is cached.
-func (b *GcpAuthBackend) CRMClient(s logical.Storage) (*cloudresourcemanager.Service, error) {
-	httpClient, err := b.httpClient(s)
+func (b *GcpAuthBackend) CRMClient(ctx context.Context, s logical.Storage) (*cloudresourcemanager.Service, error) {
+	cfg, err := b.config(ctx, s)
 	if err != nil {
-		return nil, errwrap.Wrapf("failed to create Cloud Resource Manager HTTP client: {{err}}", err)
+		return nil, fmt.Errorf("failed to get config while creating Cloud Resource Manager client: %w", err)
+	}
+
+	opts, err := b.clientOptions(ctx, s, cfg.CRMCustomEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Cloud Resource Manager client options: %w", err)
 	}
 
 	client, err := b.cache.Fetch("crm", cacheTime, func() (interface{}, error) {
-		client, err := cloudresourcemanager.New(httpClient)
+		client, err := cloudresourcemanager.NewService(ctx, opts...)
 		if err != nil {
-			return nil, errwrap.Wrapf("failed to create Cloud Resource Manager client: {{err}}", err)
+			return nil, fmt.Errorf("failed to create Cloud Resource Manager client: %w", err)
 		}
 		client.UserAgent = useragent.String()
 
@@ -175,12 +161,13 @@ func (b *GcpAuthBackend) CRMClient(s logical.Storage) (*cloudresourcemanager.Ser
 	return client.(*cloudresourcemanager.Service), nil
 }
 
-// httpClient returns a new http.Client that is authenticated using the provided
-// credentials. The underlying httpClient is cached among all clients.
-func (b *GcpAuthBackend) httpClient(s logical.Storage) (*http.Client, error) {
-	creds, err := b.credentials(s)
+// clientOptions returns a new set of client options containing an http.Client and optional
+// custom endpoint. The http.Client is authenticated using the provided credentials. The
+// underlying http.Client is cached among all clients.
+func (b *GcpAuthBackend) clientOptions(ctx context.Context, s logical.Storage, endpoint string) ([]option.ClientOption, error) {
+	creds, err := b.credentials(ctx, s)
 	if err != nil {
-		return nil, errwrap.Wrapf("failed to create oauth2 http client: {{err}}", err)
+		return nil, fmt.Errorf("failed to create oauth2 http client: %w", err)
 	}
 
 	client, err := b.cache.Fetch("HTTPClient", cacheTime, func() (interface{}, error) {
@@ -192,7 +179,12 @@ func (b *GcpAuthBackend) httpClient(s logical.Storage) (*http.Client, error) {
 		return nil, err
 	}
 
-	return client.(*http.Client), nil
+	opts := []option.ClientOption{option.WithHTTPClient(client.(*http.Client))}
+	if endpoint != "" {
+		opts = append(opts, option.WithEndpoint(endpoint))
+	}
+
+	return opts, nil
 }
 
 // credentials returns the credentials which were specified in the
@@ -200,11 +192,9 @@ func (b *GcpAuthBackend) httpClient(s logical.Storage) (*http.Client, error) {
 // default application credentials. If no default application credentials are
 // found, this function returns an error. The credentials are cached in-memory
 // for performance.
-func (b *GcpAuthBackend) credentials(s logical.Storage) (*google.Credentials, error) {
+func (b *GcpAuthBackend) credentials(ctx context.Context, s logical.Storage) (*google.Credentials, error) {
 	creds, err := b.cache.Fetch("credentials", cacheTime, func() (interface{}, error) {
 		b.Logger().Debug("loading credentials")
-
-		ctx := context.Background()
 
 		config, err := b.config(ctx, s)
 		if err != nil {
@@ -214,7 +204,7 @@ func (b *GcpAuthBackend) credentials(s logical.Storage) (*google.Credentials, er
 		// Get creds from the config
 		credBytes, err := config.formatAndMarshalCredentials()
 		if err != nil {
-			return nil, errwrap.Wrapf("failed to marshal credential JSON: {{err}}", err)
+			return nil, fmt.Errorf("failed to marshal credential JSON: %w", err)
 		}
 
 		// If credentials were provided, use those. Otherwise fall back to the
@@ -223,12 +213,12 @@ func (b *GcpAuthBackend) credentials(s logical.Storage) (*google.Credentials, er
 		if len(credBytes) > 0 {
 			creds, err = google.CredentialsFromJSON(ctx, credBytes, iam.CloudPlatformScope)
 			if err != nil {
-				return nil, errwrap.Wrapf("failed to parse credentials: {{err}}", err)
+				return nil, fmt.Errorf("failed to parse credentials: %w", err)
 			}
 		} else {
 			creds, err = google.FindDefaultCredentials(ctx, iam.CloudPlatformScope)
 			if err != nil {
-				return nil, errwrap.Wrapf("failed to get default credentials: {{err}}", err)
+				return nil, fmt.Errorf("failed to get default credentials: %w", err)
 			}
 		}
 
@@ -247,7 +237,7 @@ func (b *GcpAuthBackend) ClearCaches() {
 
 // invalidate resets the plugin. This is called when a key is updated via
 // replication.
-func (b *GcpAuthBackend) invalidate(ctx context.Context, key string) {
+func (b *GcpAuthBackend) invalidate(_ context.Context, key string) {
 	switch key {
 	case "config":
 		b.ClearCaches()

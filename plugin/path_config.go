@@ -2,9 +2,9 @@ package gcpauth
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/authmetadata"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -70,7 +70,10 @@ If not specified, will use application default credentials`,
 				Description: "Indicates what value to use when generating an alias for GCE authentications.",
 			},
 			gceAuthMetadataFields.FieldName: authmetadata.FieldSchema(gceAuthMetadataFields),
-
+			"custom_endpoint": {
+				Type:        framework.TypeKVPairs,
+				Description: `Specifies overrides for various Google API Service Endpoints used in requests.`,
+			},
 			// Deprecated
 			"google_certs_endpoint": {
 				Type: framework.TypeString,
@@ -113,12 +116,12 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 	// Create/update the storage entry
 	entry, err := logical.StorageEntryJSON("config", c)
 	if err != nil {
-		return nil, errwrap.Wrapf("failed to generate JSON configuration: {{err}}", err)
+		return nil, fmt.Errorf("failed to generate JSON configuration: %w", err)
 	}
 
 	// Save the storage entry
 	if err := req.Storage.Put(ctx, entry); err != nil {
-		return nil, errwrap.Wrapf("failed to persist configuration to storage: {{err}}", err)
+		return nil, fmt.Errorf("failed to persist configuration to storage: %w", err)
 	}
 
 	// Invalidate existing client so it reads the new configuration
@@ -162,6 +165,23 @@ func (b *GcpAuthBackend) pathConfigRead(ctx context.Context, req *logical.Reques
 	}
 	if v := config.GCEAliasType; v != "" {
 		resp["gce_alias"] = v
+	}
+
+	endpoints := make(map[string]string)
+	if v := config.APICustomEndpoint; v != "" {
+		endpoints["api"] = v
+	}
+	if v := config.IAMCustomEndpoint; v != "" {
+		endpoints["iam"] = v
+	}
+	if v := config.CRMCustomEndpoint; v != "" {
+		endpoints["crm"] = v
+	}
+	if v := config.ComputeCustomEndpoint; v != "" {
+		endpoints["compute"] = v
+	}
+	if len(endpoints) > 0 {
+		resp["custom_endpoint"] = endpoints
 	}
 
 	return &logical.Response{

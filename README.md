@@ -126,8 +126,9 @@ permissions listed below. The following steps assume you have
     ```text
     $ export GOOGLE_CLOUD_PROJECT=my-project # replace with your project ID
     ```
+The remaining steps may also be executed by running `. scripts/cred_setup.sh`.
 
-1. Enable the IAM service on the project:
+2. Enable the IAM service on the project:
 
     ```text
     $ gcloud services enable --project "${GOOGLE_CLOUD_PROJECT}" \
@@ -183,5 +184,7 @@ You can also specify a `TESTARGS` variable to filter tests like so:
 ```sh
 $ make test TESTARGS='--run=TestConfig'
 ```
+
+Note that it may take some time (e.g. over a minute) for the new credentials to work.
 
 [install-gcloud]: https://cloud.google.com/sdk
