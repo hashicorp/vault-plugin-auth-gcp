@@ -81,12 +81,12 @@ func Backend() *GcpAuthBackend {
 func (b *GcpAuthBackend) IAMClient(ctx context.Context, s logical.Storage) (*iam.Service, error) {
 	cfg, err := b.config(ctx, s)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create IAM HTTP client: %w", err)
+		return nil, fmt.Errorf("failed to get config while creating IAM client: %w", err)
 	}
 
 	opts, err := b.clientOptions(ctx, s, cfg.IAMCustomEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create IAM HTTP client: %w", err)
+		return nil, fmt.Errorf("failed to create IAM client options: %w", err)
 	}
 
 	client, err := b.cache.Fetch("iam", cacheTime, func() (interface{}, error) {
@@ -109,12 +109,12 @@ func (b *GcpAuthBackend) IAMClient(ctx context.Context, s logical.Storage) (*iam
 func (b *GcpAuthBackend) ComputeClient(ctx context.Context, s logical.Storage) (*compute.Service, error) {
 	cfg, err := b.config(ctx, s)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Compute HTTP client: %w", err)
+		return nil, fmt.Errorf("failed to get config while creating Compute client: %w", err)
 	}
 
 	opts, err := b.clientOptions(ctx, s, cfg.ComputeCustomEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Compute HTTP client: %w", err)
+		return nil, fmt.Errorf("failed to create Compute client options: %w", err)
 	}
 
 	client, err := b.cache.Fetch("compute", cacheTime, func() (interface{}, error) {
@@ -137,12 +137,12 @@ func (b *GcpAuthBackend) ComputeClient(ctx context.Context, s logical.Storage) (
 func (b *GcpAuthBackend) CRMClient(ctx context.Context, s logical.Storage) (*cloudresourcemanager.Service, error) {
 	cfg, err := b.config(ctx, s)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Cloud Resource Manager HTTP client: %w", err)
+		return nil, fmt.Errorf("failed to get config while creating Cloud Resource Manager client: %w", err)
 	}
 
 	opts, err := b.clientOptions(ctx, s, cfg.CRMCustomEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Cloud Resource Manager HTTP client: %w", err)
+		return nil, fmt.Errorf("failed to create Cloud Resource Manager client options: %w", err)
 	}
 
 	client, err := b.cache.Fetch("crm", cacheTime, func() (interface{}, error) {
