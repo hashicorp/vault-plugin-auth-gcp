@@ -313,57 +313,35 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 
 func TestConfig_Update(t *testing.T) {
 	cases := []struct {
-		name    string
-		new     *gcpConfig
-		d       *framework.FieldData
-		r       *gcpConfig
-		changed bool
-		err     bool
+		name      string
+		fieldData *framework.FieldData
+		original  *gcpConfig
+		expected  *gcpConfig
+		wantErr   bool
 	}{
 		{
-			"empty",
-			&gcpConfig{
-				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
-				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
-			},
-			nil,
-			&gcpConfig{
-				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
-				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
-			},
-			false,
-			false,
+			name:      "empty",
+			fieldData: nil,
+			original:  &gcpConfig{},
+			expected:  &gcpConfig{},
 		},
 		{
-			"keeps_existing",
-			&gcpConfig{
+			name:      "keeps_existing",
+			fieldData: nil,
+			original: &gcpConfig{
 				Credentials: &gcputil.GcpCredentials{
 					ClientId: "foo",
 				},
-				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
-				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 			},
-			nil,
-			&gcpConfig{
+			expected: &gcpConfig{
 				Credentials: &gcputil.GcpCredentials{
 					ClientId: "foo",
 				},
-				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
-				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 			},
-			false,
-			false,
 		},
 		{
-			"overwrites_changes",
-			&gcpConfig{
-				Credentials: &gcputil.GcpCredentials{
-					ClientId: "foo",
-				},
-				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
-				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
-			},
-			&framework.FieldData{
+			name: "overwrites_changes",
+			fieldData: &framework.FieldData{
 				Raw: map[string]interface{}{
 					"credentials": `{
 						"client_id": "bar",
@@ -371,27 +349,21 @@ func TestConfig_Update(t *testing.T) {
 					}`,
 				},
 			},
-			&gcpConfig{
+			original: &gcpConfig{
+				Credentials: &gcputil.GcpCredentials{
+					ClientId: "foo",
+				},
+			},
+			expected: &gcpConfig{
 				Credentials: &gcputil.GcpCredentials{
 					ClientId:     "bar",
 					PrivateKeyId: "aaa",
 				},
-				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
-				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 			},
-			true,
-			false,
 		},
 		{
-			"overwrites_and_new",
-			&gcpConfig{
-				Credentials: &gcputil.GcpCredentials{
-					ClientId: "foo",
-				},
-				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
-				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
-			},
-			&framework.FieldData{
+			name: "overwrites_and_new",
+			fieldData: &framework.FieldData{
 				Raw: map[string]interface{}{
 					"credentials": `{
 						"client_id": "foo",
@@ -399,16 +371,52 @@ func TestConfig_Update(t *testing.T) {
 					}`,
 				},
 			},
-			&gcpConfig{
+			original: &gcpConfig{
+				Credentials: &gcputil.GcpCredentials{
+					ClientId: "foo",
+				},
+			},
+			expected: &gcpConfig{
 				Credentials: &gcputil.GcpCredentials{
 					ClientId:     "foo",
 					PrivateKeyId: "aaa",
 				},
-				GCEAuthMetadata: authmetadata.NewHandler(gceAuthMetadataFields),
-				IAMAuthMetadata: authmetadata.NewHandler(iamAuthMetadataFields),
 			},
-			true,
-			false,
+		},
+		{
+			name: "empty credentials resets to use application default credentials",
+			fieldData: &framework.FieldData{
+				Raw: map[string]interface{}{
+					"credentials": "",
+				},
+			},
+			original: &gcpConfig{
+				Credentials: &gcputil.GcpCredentials{
+					ClientId: "foo",
+				},
+			},
+			expected: &gcpConfig{
+				Credentials: nil,
+			},
+		},
+		{
+			name: "invalid credentials results in error and retains original credentials",
+			fieldData: &framework.FieldData{
+				Raw: map[string]interface{}{
+					"credentials": "{}",
+				},
+			},
+			original: &gcpConfig{
+				Credentials: &gcputil.GcpCredentials{
+					ClientId: "foo",
+				},
+			},
+			expected: &gcpConfig{
+				Credentials: &gcputil.GcpCredentials{
+					ClientId: "foo",
+				},
+			},
+			wantErr: true,
 		},
 	}
 
@@ -416,23 +424,25 @@ func TestConfig_Update(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+			tc.original.GCEAuthMetadata = authmetadata.NewHandler(gceAuthMetadataFields)
+			tc.original.IAMAuthMetadata = authmetadata.NewHandler(gceAuthMetadataFields)
 
-			if tc.d != nil {
+			if tc.fieldData != nil {
 				var b GcpAuthBackend
-				tc.d.Schema = pathConfig(&b).Fields
+				tc.fieldData.Schema = pathConfig(&b).Fields
 			}
 
-			err := tc.new.Update(tc.d)
-			if tc.err && err == nil {
+			err := tc.original.Update(tc.fieldData)
+			if tc.wantErr && err == nil {
 				t.Fatalf("err expected, got nil")
 			}
-			if !tc.err && err != nil {
+			if !tc.wantErr && err != nil {
 				t.Fatalf("no error expected, got: %s", err)
 			}
 
-			if v, exp := tc.new.Credentials, tc.r.Credentials; !reflect.DeepEqual(v, exp) {
-				t.Errorf("expected %q to be %q", v, exp)
+			if !reflect.DeepEqual(tc.original.Credentials, tc.expected.Credentials) {
+				t.Errorf("expected %+v to be %+v", tc.original.Credentials,
+					tc.expected.Credentials)
 			}
 		})
 	}
