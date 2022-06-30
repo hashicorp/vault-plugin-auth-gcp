@@ -53,16 +53,24 @@ func (c *gcpConfig) Update(d *framework.FieldData) error {
 	}
 
 	if v, ok := d.GetOk("credentials"); ok {
-		creds, err := gcputil.Credentials(v.(string))
-		if err != nil {
-			return errwrap.Wrapf("failed to read credentials: {{err}}", err)
-		}
+		credentials := v.(string)
 
-		if len(creds.PrivateKeyId) == 0 {
-			return errors.New("missing private key in credentials")
-		}
+		// If the given credentials are empty, reset them so that application default
+		// credentials are used. Otherwise, parse and validate the given credentials.
+		if credentials == "" {
+			c.Credentials = nil
+		} else {
+			creds, err := gcputil.Credentials(credentials)
+			if err != nil {
+				return fmt.Errorf("failed to read credentials: %w", err)
+			}
 
-		c.Credentials = creds
+			if len(creds.PrivateKeyId) == 0 {
+				return errors.New("missing private key in credentials")
+			}
+
+			c.Credentials = creds
+		}
 	}
 
 	rawIamAlias, exists := d.GetOk("iam_alias")
