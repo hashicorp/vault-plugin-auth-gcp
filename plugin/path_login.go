@@ -49,11 +49,26 @@ GCE identity metadata token ('iam', 'gce' roles).`,
 			logical.AliasLookaheadOperation: &framework.PathOperation{
 				Callback: b.pathLogin,
 			},
+			logical.ResolveRoleOperation: &framework.PathOperation{
+				Callback: b.pathResolveRole,
+			},
 		},
 
 		HelpSynopsis:    pathLoginHelpSyn,
 		HelpDescription: pathLoginHelpDesc,
 	}
+}
+func (b *GcpAuthBackend) pathResolveRole(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	if err := validateFields(req, data); err != nil {
+		return nil, logical.CodedError(http.StatusUnprocessableEntity, err.Error())
+	}
+
+	roleName, _, err := b.parseRoleNameAndRole(ctx, req.Storage, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return logical.ResolveRoleResponse(roleName)
 }
 
 func (b *GcpAuthBackend) pathLogin(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -141,6 +156,22 @@ type gcpLoginInfo struct {
 	GceMetadata *gcputil.GCEIdentityMetadata
 }
 
+func (b *GcpAuthBackend) parseRoleNameAndRole(ctx context.Context, s logical.Storage, data *framework.FieldData) (string, *gcpRole, error) {
+	roleName := data.Get("role").(string)
+	if roleName == "" {
+		return "", nil, errors.New("role is required")
+	}
+
+	role, err := b.role(ctx, s, roleName)
+	if err != nil {
+		return "", nil, err
+	}
+	if role == nil {
+		return "", nil, fmt.Errorf("role '%s' not found", roleName)
+	}
+	return roleName, role, nil
+}
+
 func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, s logical.Storage, data *framework.FieldData) (*gcpLoginInfo, error) {
 	loginInfo := &gcpLoginInfo{}
 	var err error
@@ -150,18 +181,13 @@ func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, s logical.Stor
 		return nil, errors.New("unable to retrieve GCP configuration")
 	}
 
-	loginInfo.RoleName = data.Get("role").(string)
-	if loginInfo.RoleName == "" {
-		return nil, errors.New("role is required")
-	}
-
-	loginInfo.Role, err = b.role(ctx, s, loginInfo.RoleName)
+	roleName, role, err := b.parseRoleNameAndRole(ctx, s, data)
 	if err != nil {
 		return nil, err
 	}
-	if loginInfo.Role == nil {
-		return nil, fmt.Errorf("role '%s' not found", loginInfo.RoleName)
-	}
+
+	loginInfo.RoleName = roleName
+	loginInfo.Role = role
 
 	// Process JWT string.
 	signedJwt, ok := data.GetOk("jwt")

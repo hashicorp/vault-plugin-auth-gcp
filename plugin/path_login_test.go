@@ -21,6 +21,49 @@ import (
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
+func TestRoleResolution(t *testing.T) {
+	t.Parallel()
+
+	backend, storage := testBackend(t)
+	ctx := context.Background()
+
+	role := &gcpRole{
+		RoleID:    "testRoleID",
+		RoleType:  "iam",
+		MaxJwtExp: 30 * time.Minute,
+	}
+
+	roleName := "role-name"
+	entry, err := logical.StorageEntryJSON("role/"+roleName, role)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.Put(ctx, entry); err != nil {
+		t.Fatal(err)
+	}
+
+	loginReq := &logical.Request{
+		Operation: logical.ResolveRoleOperation,
+		Path:      "login",
+		Storage:   storage,
+		Data: map[string]interface{}{
+			"role": roleName,
+		},
+		Connection: &logical.Connection{
+			RemoteAddr: "127.0.0.1",
+		},
+	}
+
+	resp, err := backend.HandleRequest(context.Background(), loginReq)
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("err:%v resp:%#v", err, resp)
+	}
+
+	if resp.Data["role"] != roleName {
+		t.Fatalf("Role was not as expected. Expected %s, received %s", roleName, resp.Data["role"])
+	}
+}
+
 func TestLogin_IAM(t *testing.T) {
 	t.Parallel()
 
