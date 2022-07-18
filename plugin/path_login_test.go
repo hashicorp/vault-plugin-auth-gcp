@@ -64,6 +64,40 @@ func TestRoleResolution(t *testing.T) {
 	}
 }
 
+func TestRoleResolution_RoleDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	backend, storage := testBackend(t)
+
+	roleName := "role-name"
+
+	loginReq := &logical.Request{
+		Operation: logical.ResolveRoleOperation,
+		Path:      "login",
+		Storage:   storage,
+		Data: map[string]interface{}{
+			"role": roleName,
+		},
+		Connection: &logical.Connection{
+			RemoteAddr: "127.0.0.1",
+		},
+	}
+
+	resp, err := backend.HandleRequest(context.Background(), loginReq)
+	if resp == nil && !resp.IsError() {
+		t.Fatalf("Response was not an error: err:%v resp:%#v", err, resp)
+	}
+
+	errString, ok := resp.Data["error"].(string)
+	if !ok {
+		t.Fatal("Error not part of response.")
+	}
+
+	if !strings.Contains(errString, "role \"role-name\" not found") {
+		t.Fatalf("Error was not due to invalid role name. Error: %s", errString)
+	}
+}
+
 func TestLogin_IAM(t *testing.T) {
 	t.Parallel()
 

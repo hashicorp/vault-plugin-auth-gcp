@@ -63,9 +63,17 @@ func (b *GcpAuthBackend) pathResolveRole(ctx context.Context, req *logical.Reque
 		return nil, logical.CodedError(http.StatusUnprocessableEntity, err.Error())
 	}
 
-	roleName, _, err := b.parseRoleNameAndRole(ctx, req.Storage, data)
+	roleName := data.Get("role").(string)
+	if roleName == "" {
+		return logical.ErrorResponse("role is required"), nil
+	}
+
+	role, err := b.role(ctx, req.Storage, roleName)
 	if err != nil {
 		return nil, err
+	}
+	if role == nil {
+		return logical.ErrorResponse("role %q not found", roleName), nil
 	}
 
 	return logical.ResolveRoleResponse(roleName)
@@ -99,7 +107,7 @@ func (b *GcpAuthBackend) pathLogin(ctx context.Context, req *logical.Request, da
 	case gceRoleType:
 		return b.pathGceLogin(ctx, req, loginInfo)
 	default:
-		return logical.ErrorResponse("login against role type '%s' is unsupported", roleType), nil
+		return logical.ErrorResponse("login against role type %q is unsupported", roleType), nil
 	}
 }
 
@@ -113,9 +121,9 @@ func (b *GcpAuthBackend) pathLoginRenew(ctx context.Context, req *logical.Reques
 	if err != nil {
 		return nil, err
 	} else if role == nil {
-		return logical.ErrorResponse("role '%s' no longer exists", roleName), nil
+		return logical.ErrorResponse("role %q no longer exists", roleName), nil
 	} else if !policyutil.EquivalentPolicies(role.TokenPolicies, req.Auth.TokenPolicies) {
-		return logical.ErrorResponse("policies on role '%s' have changed, cannot renew", roleName), nil
+		return logical.ErrorResponse("policies on role %q have changed, cannot renew", roleName), nil
 	}
 
 	switch role.RoleType {
@@ -128,7 +136,7 @@ func (b *GcpAuthBackend) pathLoginRenew(ctx context.Context, req *logical.Reques
 			return logical.ErrorResponse(err.Error()), nil
 		}
 	default:
-		return nil, fmt.Errorf("unexpected role type '%s' for login renewal", role.RoleType)
+		return nil, fmt.Errorf("unexpected role type %q for login renewal", role.RoleType)
 	}
 
 	resp := &logical.Response{Auth: req.Auth}
@@ -156,22 +164,6 @@ type gcpLoginInfo struct {
 	GceMetadata *gcputil.GCEIdentityMetadata
 }
 
-func (b *GcpAuthBackend) parseRoleNameAndRole(ctx context.Context, s logical.Storage, data *framework.FieldData) (string, *gcpRole, error) {
-	roleName := data.Get("role").(string)
-	if roleName == "" {
-		return "", nil, errors.New("role is required")
-	}
-
-	role, err := b.role(ctx, s, roleName)
-	if err != nil {
-		return "", nil, err
-	}
-	if role == nil {
-		return "", nil, fmt.Errorf("role '%s' not found", roleName)
-	}
-	return roleName, role, nil
-}
-
 func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, s logical.Storage, data *framework.FieldData) (*gcpLoginInfo, error) {
 	loginInfo := &gcpLoginInfo{}
 	var err error
@@ -181,9 +173,17 @@ func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, s logical.Stor
 		return nil, errors.New("unable to retrieve GCP configuration")
 	}
 
-	roleName, role, err := b.parseRoleNameAndRole(ctx, s, data)
+	roleName := data.Get("role").(string)
+	if roleName == "" {
+		return nil, errors.New("role is required")
+	}
+
+	role, err := b.role(ctx, s, roleName)
 	if err != nil {
 		return nil, err
+	}
+	if role == nil {
+		return nil, fmt.Errorf("role %q not found", roleName)
 	}
 
 	loginInfo.RoleName = roleName
@@ -304,7 +304,7 @@ func validateBaseJWTClaims(c *jwt.Claims, roleName string) error {
 	expectedAudSuffix := fmt.Sprintf(expectedJwtAudTemplate, roleName)
 	for _, aud := range c.Audience {
 		if !strings.HasSuffix(aud, expectedAudSuffix) {
-			return fmt.Errorf("at least one of the JWT claim 'aud' must end in '%s'", expectedAudSuffix)
+			return fmt.Errorf("at least one of the JWT claim 'aud' must end in %q", expectedAudSuffix)
 		}
 	}
 
@@ -322,7 +322,7 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 	role := loginInfo.Role
 	if !role.AllowGCEInference && loginInfo.GceMetadata != nil {
 		return logical.ErrorResponse(fmt.Sprintf(
-			"Got GCE token but IAM role '%s' does not allow GCE inference", loginInfo.RoleName)), nil
+			"Got GCE token but IAM role %q does not allow GCE inference", loginInfo.RoleName)), nil
 	}
 
 	// TODO(emilymye): move to general JWT validation once custom expiry is supported for other JWT types.
@@ -521,7 +521,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		EmailOrId: loginInfo.EmailOrId,
 	})
 	if err != nil {
-		return logical.ErrorResponse("Could not find service account '%s' used for GCE metadata token: %s", loginInfo.EmailOrId, err), nil
+		return logical.ErrorResponse("Could not find service account %q used for GCE metadata token: %s", loginInfo.EmailOrId, err), nil
 	}
 
 	auth := &logical.Auth{
@@ -667,7 +667,7 @@ func getInstanceMetadataFromAuth(authMetadata map[string]string) (*gcputil.GCEId
 	}
 	meta.ProjectNumber, err = strconv.ParseInt(projectNumber, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("expected 'project_number' value '%s' to be a int64", projectNumber)
+		return nil, fmt.Errorf("expected 'project_number' value %q to be a int64", projectNumber)
 	}
 
 	createdAt, ok := authMetadata["instance_creation_timestamp"]
@@ -676,7 +676,7 @@ func getInstanceMetadataFromAuth(authMetadata map[string]string) (*gcputil.GCEId
 	}
 	meta.CreatedAt, err = strconv.ParseInt(createdAt, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("expected 'instance_creation_timestamp' value '%s' to be int64", createdAt)
+		return nil, fmt.Errorf("expected 'instance_creation_timestamp' value %q to be int64", createdAt)
 	}
 
 	return meta, nil
