@@ -40,6 +40,12 @@ func (m *MockSystemView) EXPECT() *MockSystemViewMockRecorder {
 	return m.recorder
 }
 
+// NewPluginClient is required to implement logical.SystemView, but not required
+// so is left empty.
+func (m *MockSystemView) NewPluginClient(ctx context.Context, config pluginutil.PluginClientConfig) (pluginutil.PluginClient, error) {
+	return nil, nil
+}
+
 // CachingDisabled mocks base method.
 func (m *MockSystemView) CachingDisabled() bool {
 	m.ctrl.T.Helper()
