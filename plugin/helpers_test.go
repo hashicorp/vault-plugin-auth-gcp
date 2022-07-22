@@ -62,25 +62,35 @@ func TestZoneToRegion(t *testing.T) {
 	}
 }
 
-func TestZoneFromSelfLink(t *testing.T) {
+func TestZoneOrRegionFromSelfLink(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		link string
-		zone string
-		err  bool
+		link   string
+		zone   string
+		region string
+		err    bool
 	}{
 		{
 			"https://www.googleapis.com/compute/v1/projects/my-project/zones/us-east1-d",
 			"us-east1-d",
+			"",
 			false,
 		},
 		{
 			"https://www.googleapis.com/compute/v1/projects/my-project/regions/us-east1",
 			"",
+			"us-east1",
+			false,
+		},
+		{
+			"https://www.googleapis.com/compute/v1/projects/my-project/badbadbad/us-east1",
+			"",
+			"",
 			true,
 		},
 		{
+			"",
 			"",
 			"",
 			true,
@@ -94,12 +104,15 @@ func TestZoneFromSelfLink(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			res, err := zoneFromSelfLink(tc.link)
+			z, r, err := zoneOrRegionFromSelfLink(tc.link)
 			if (err != nil) != tc.err {
 				t.Fatal(err)
 			}
-			if res != tc.zone {
+			if z != tc.zone {
 				t.Errorf("expected %q to convert to %q", tc.link, tc.zone)
+			}
+			if r != tc.region {
+				t.Errorf("expected %q to convert to %q", tc.link, tc.region)
 			}
 		})
 	}
