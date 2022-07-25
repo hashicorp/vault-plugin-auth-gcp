@@ -18,4 +18,4 @@
           env:
             BACKPORT_LABEL_REGEXP: "backport/vault-(?P<target>\\d+\\.\\d+\\.\\w+)"
             BACKPORT_TARGET_TEMPLATE: "release/vault-{{.target}}"
-            GITHUB_TOKEN: ${{ secrets.HC_GITHUB_TEAM_SECURE_VAULT_ECOSYSTEM_GITHUB_TOKEN }}
+            GITHUB_TOKEN: ${{ secrets.VAULT_ECO_GITHUB_TOKEN }}
