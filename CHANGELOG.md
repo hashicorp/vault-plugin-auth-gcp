@@ -8,6 +8,7 @@ IMPROVEMENTS:
 
 * Updates dependencies: `google.golang.org/api@v0.83.0`, `github.com/hashicorp/go-gcp-common@v0.8.0` [[GH-130](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/130)]
 * Enables GCP roles to be compatible with Vault's role based quotas [[GH-135](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/135)].
+* Add support for GCE regional instance groups [[GH-84](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/84)]
 
 ## v0.13.0
 
