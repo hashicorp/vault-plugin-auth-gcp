@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/go-gcp-common/gcputil"
 	log "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-secure-stdlib/strutil"
 	"google.golang.org/api/compute/v1"
@@ -27,31 +28,32 @@ func (c *gcpClient) InstanceGroups(ctx context.Context, project string, boundIns
 	igz := make(map[string][]string)
 	igr := make(map[string][]string)
 
+	req := c.computeSvc.InstanceGroups.AggregatedList(project).
+		Fields("items/*/instanceGroups/name").Context(ctx)
+	req.Header().Set("Host", "compute.googleapis.com")
+
 	// AggregatedList, unlike all the other InstanceGroupsService methods,
 	// returns both zonal and regional instance groups.
-	if err := c.computeSvc.InstanceGroups.
-		AggregatedList(project).
-		Fields("items/*/instanceGroups/name").
-		Pages(ctx, func(l *compute.InstanceGroupAggregatedList) error {
-			for k, v := range l.Items {
-				zone, region, err := zoneOrRegionFromSelfLink(k)
-				if err != nil {
-					return err
-				}
+	if err := req.Pages(ctx, func(l *compute.InstanceGroupAggregatedList) error {
+		for k, v := range l.Items {
+			zone, region, err := zoneOrRegionFromSelfLink(k)
+			if err != nil {
+				return err
+			}
 
-				for _, g := range v.InstanceGroups {
-					if strutil.StrListContains(boundInstanceGroups, g.Name) {
-						if zone != "" {
-							igz[zone] = append(igz[zone], g.Name)
-						}
-						if region != "" {
-							igr[region] = append(igr[region], g.Name)
-						}
+			for _, g := range v.InstanceGroups {
+				if strutil.StrListContains(boundInstanceGroups, g.Name) {
+					if zone != "" {
+						igz[zone] = append(igz[zone], g.Name)
+					}
+					if region != "" {
+						igr[region] = append(igr[region], g.Name)
 					}
 				}
 			}
-			return nil
-		}); err != nil {
+		}
+		return nil
+	}); err != nil {
 		return nil, nil, err
 	}
 
@@ -67,12 +69,13 @@ func (c *gcpClient) InstanceGroupContainsInstance(ctx context.Context, project, 
 }
 
 func (c *gcpClient) zoneInstanceGroupContainsInstance(ctx context.Context, project, zone, group, instanceSelfLink string) (bool, error) {
-	var req compute.InstanceGroupsListInstancesRequest
-	resp, err := c.computeSvc.InstanceGroups.
-		ListInstances(project, zone, group, &req).
+	req := c.computeSvc.InstanceGroups.
+		ListInstances(project, zone, group, &compute.InstanceGroupsListInstancesRequest{}).
 		Filter(fmt.Sprintf("instance eq %s", instanceSelfLink)).
-		Context(ctx).
-		Do()
+		Context(ctx)
+	req.Header().Set("Host", "compute.googleapis.com")
+
+	resp, err := req.Do()
 	if err != nil {
 		return false, err
 	}
@@ -84,12 +87,13 @@ func (c *gcpClient) zoneInstanceGroupContainsInstance(ctx context.Context, proje
 }
 
 func (c *gcpClient) regionInstanceGroupContainsInstance(ctx context.Context, project, region, group, instanceSelfLink string) (bool, error) {
-	var req compute.RegionInstanceGroupsListInstancesRequest
-	resp, err := c.computeSvc.RegionInstanceGroups.
-		ListInstances(project, region, group, &req).
+	req := c.computeSvc.RegionInstanceGroups.
+		ListInstances(project, region, group, &compute.RegionInstanceGroupsListInstancesRequest{}).
 		Filter(fmt.Sprintf("instance eq %s", instanceSelfLink)).
-		Context(ctx).
-		Do()
+		Context(ctx)
+	req.Header().Set("Host", "compute.googleapis.com")
+
+	resp, err := req.Do()
 	if err != nil {
 		return false, err
 	}
@@ -100,12 +104,12 @@ func (c *gcpClient) regionInstanceGroupContainsInstance(ctx context.Context, pro
 	return false, nil
 }
 
-func (c *gcpClient) ServiceAccount(ctx context.Context, name string) (string, string, error) {
-	account, err := c.iamSvc.Projects.ServiceAccounts.
-		Get(name).
-		Fields("uniqueId", "email").
-		Context(ctx).
-		Do()
+func (c *gcpClient) ServiceAccount(ctx context.Context, saID string) (string, string, error) {
+	accountId := &gcputil.ServiceAccountId{
+		Project:   "-",
+		EmailOrId: saID,
+	}
+	account, err := gcputil.ServiceAccountWithContext(ctx, c.iamSvc, accountId)
 	if err != nil {
 		return "", "", err
 	}

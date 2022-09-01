@@ -333,11 +333,11 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 	}
 
 	// Get service account and make sure it still exists.
-	accountId := &gcputil.ServiceAccountId{
+	accountID := &gcputil.ServiceAccountId{
 		Project:   "-",
 		EmailOrId: loginInfo.EmailOrId,
 	}
-	serviceAccount, err := gcputil.ServiceAccount(iamClient, accountId)
+	serviceAccount, err := gcputil.ServiceAccountWithContext(ctx, iamClient, accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -421,10 +421,11 @@ func (b *GcpAuthBackend) pathIamRenew(ctx context.Context, req *logical.Request,
 		project = "-"
 	}
 
-	serviceAccount, err := gcputil.ServiceAccount(iamClient, &gcputil.ServiceAccountId{
+	accountID := &gcputil.ServiceAccountId{
 		Project:   project,
 		EmailOrId: serviceAccountId,
-	})
+	}
+	serviceAccount, err := gcputil.ServiceAccountWithContext(ctx, iamClient, accountID)
 	if err != nil {
 		return fmt.Errorf("cannot find service account %s", serviceAccountId)
 	}
@@ -481,7 +482,7 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		return nil, err
 	}
 
-	instance, err := metadata.GetVerifiedInstance(computeClient)
+	instance, err := metadata.GetVerifiedInstanceWithContext(ctx, computeClient)
 	if err != nil {
 		return logical.ErrorResponse("error when attempting to find instance (project %s, zone: %s, instance: %s) :%v",
 			metadata.ProjectId, metadata.Zone, metadata.InstanceName, err), nil
@@ -516,10 +517,11 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 		return nil, err
 	}
 
-	serviceAccount, err := gcputil.ServiceAccount(iamClient, &gcputil.ServiceAccountId{
+	accountID := &gcputil.ServiceAccountId{
 		Project:   "-",
 		EmailOrId: loginInfo.EmailOrId,
-	})
+	}
+	serviceAccount, err := gcputil.ServiceAccountWithContext(ctx, iamClient, accountID)
 	if err != nil {
 		return logical.ErrorResponse("Could not find service account %q used for GCE metadata token: %s", loginInfo.EmailOrId, err), nil
 	}
@@ -569,10 +571,12 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 //   "organization-my-org"
 // ]
 func (b *GcpAuthBackend) groupAliases(crmClient *cloudresourcemanager.Service, ctx context.Context, projectId string) ([]*logical.Alias, error) {
-	ancestry, err := crmClient.Projects.
+	req := crmClient.Projects.
 		GetAncestry(projectId, &cloudresourcemanager.GetAncestryRequest{}).
-		Context(ctx).
-		Do()
+		Context(ctx)
+	req.Header().Set("Host", "cloudresourcemanager.googleapis.com")
+
+	ancestry, err := req.Do()
 	if err != nil {
 		return nil, err
 	}
@@ -619,7 +623,7 @@ func (b *GcpAuthBackend) pathGceRenew(ctx context.Context, req *logical.Request,
 		return fmt.Errorf("invalid auth metadata: %v", err)
 	}
 
-	instance, err := meta.GetVerifiedInstance(computeClient)
+	instance, err := meta.GetVerifiedInstanceWithContext(ctx, computeClient)
 	if err != nil {
 		return err
 	}

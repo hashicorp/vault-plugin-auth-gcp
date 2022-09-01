@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/compute v1.6.1
 	github.com/golang/mock v1.6.0
 	github.com/hashicorp/go-cleanhttp v0.5.2
-	github.com/hashicorp/go-gcp-common v0.8.0
+	github.com/hashicorp/go-gcp-common v0.8.1-0.20220830160015-4bf6510b5976
 	github.com/hashicorp/go-hclog v1.0.0
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.6
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2
