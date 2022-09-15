@@ -1,5 +1,7 @@
 ## Next
 
+## v0.14.0
+
 IMPROVEMENTS:
 
 * Updates dependencies: `google.golang.org/api@v0.83.0`, `github.com/hashicorp/go-gcp-common@v0.8.0` [[GH-130](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/130)]
