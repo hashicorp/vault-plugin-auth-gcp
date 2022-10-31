@@ -20,14 +20,3 @@ vault plugin register \
       auth "$PLUGIN_NAME"
 vault auth enable --plugin-name="$PLUGIN_NAME" --path="$PLUGIN_MOUNT" plugin
 vault write auth/"$PLUGIN_MOUNT"/config credentials=@"$GOOGLE_TEST_CREDENTIALS"
-
-vault write auth/gcp/role/viewer \
-    type="iam" \
-    policies="dev,prod" \
-    bound_service_accounts="vault-tester@hc-26f53a31c61f418990be314c138.iam.gserviceaccount.com"
-
-vault login -method=gcp \
-    role="viewer" \
-    service_account="vault-tester@hc-26f53a31c61f418990be314c138.iam.gserviceaccount.com" \
-    jwt_exp="15m" \
-    credentials=@"$GOOGLE_TEST_CREDENTIALS"
