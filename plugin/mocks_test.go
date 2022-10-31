@@ -156,6 +156,22 @@ func (m *MockSystemView) LookupPlugin(arg0 context.Context, arg1 string, arg2 co
 	return ret0, ret1
 }
 
+func (m *MockSystemView) LookupPluginVersion(arg0 context.Context, arg1 string, arg2 consts.PluginType, arg3 string) (*pluginutil.PluginRunner, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LookupPluginVersion", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*pluginutil.PluginRunner)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (m *MockSystemView) ListVersionedPlugins(arg0 context.Context, arg1 consts.PluginType) ([]pluginutil.VersionedPlugin, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListVersionedPlugins", arg0, arg1)
+	ret0, _ := ret[0].([]pluginutil.VersionedPlugin)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
 // LookupPlugin indicates an expected call of LookupPlugin.
 func (mr *MockSystemViewMockRecorder) LookupPlugin(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
