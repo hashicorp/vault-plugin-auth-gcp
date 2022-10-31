@@ -80,3 +80,11 @@ ui/testem.log
 
 # IAM file used in testing
 *.json
+local_environment_setup.sh
+
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*

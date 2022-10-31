@@ -2,6 +2,7 @@ package gcpauth
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	googleCredentialsEnv = "GOOGLE_CREDENTIALS"
+	googleCredentialsEnv = "GOOGLE_TEST_CREDENTIALS"
 )
 
 func testBackend(tb testing.TB) (*GcpAuthBackend, logical.Storage) {
@@ -58,17 +59,29 @@ func testBackendWithCreds(tb testing.TB) (*GcpAuthBackend, logical.Storage, *gcp
 func testCredentials(tb testing.TB) *gcputil.GcpCredentials {
 	tb.Helper()
 
-	creds := os.Getenv(googleCredentialsEnv)
-	if creds == "" {
-		tb.Fatalf("%s must be set to JSON string of valid Google credentials file", googleCredentialsEnv)
+	var credsStr string
+	credsEnv := os.Getenv("GOOGLE_TEST_CREDENTIALS")
+	if credsEnv == "" {
+		tb.Fatal("set GOOGLE_TEST_CREDENTIALS to JSON or path to JSON creds on disk to run integration tests")
 	}
 
-	credentials, err := gcputil.Credentials(creds)
+	// Attempt to read as file path; if invalid, assume given JSON value directly
+	if _, err := os.Stat(credsEnv); err == nil {
+		credsBytes, err := ioutil.ReadFile(credsEnv)
+		if err != nil {
+			tb.Fatalf("unable to read credentials file %s: %v", credsStr, err)
+		}
+		credsStr = string(credsBytes)
+	} else {
+		credsStr = credsEnv
+	}
+
+	creds, err := gcputil.Credentials(credsStr)
 	if err != nil {
-		tb.Fatalf("valid Google credentials JSON could not be read from %s env variable: %v", googleCredentialsEnv, err)
+		tb.Fatalf("failed to parse GOOGLE_TEST_CREDENTIALS as JSON: %s", err)
 	}
 
-	return credentials
+	return creds
 }
 
 // testFieldValidation verifies the given path has field validation.

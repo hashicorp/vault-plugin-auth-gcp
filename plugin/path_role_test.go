@@ -46,7 +46,7 @@ var expectedDefaults = map[string]interface{}{
 	"bound_labels":          map[string]string{},
 }
 
-//-- IAM ROLE TESTS --
+// -- IAM ROLE TESTS --
 func TestRoleUpdateIam(t *testing.T) {
 	t.Parallel()
 
@@ -218,7 +218,7 @@ func TestRoleIam_HasGceArgs(t *testing.T) {
 	}, []string{fmt.Sprintf(errTemplateInvalidRoleTypeArgs, iamRoleType, ""), "bound_zones"})
 }
 
-//-- GCE ROLE TESTS --
+// -- GCE ROLE TESTS --
 func TestRoleGce(t *testing.T) {
 	t.Parallel()
 
@@ -417,7 +417,7 @@ func TestRoleGce_DeprecatedFields(t *testing.T) {
 	})
 }
 
-//-- BASE ROLE TESTS --
+// -- BASE ROLE TESTS --
 func TestRole_MissingRequiredArgs(t *testing.T) {
 	t.Parallel()
 
@@ -906,7 +906,7 @@ func TestRetrieveRole(t *testing.T) {
 	})
 }
 
-//-- Utils --
+// -- Utils --
 func testRoleCreate(tb testing.TB, b logical.Backend, s logical.Storage, d map[string]interface{}) {
 	tb.Helper()
 

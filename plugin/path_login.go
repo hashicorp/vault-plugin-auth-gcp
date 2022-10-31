@@ -563,10 +563,12 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 // "my-org" --> "my-folder" --> "my-subfolder" --> "my-project",
 // this returns the following group aliases:
 // [
-//   "project-my-project"
-//   "folder-my-subfolder"
-//   "folder-my-project"
-//   "organization-my-org"
+//
+//	"project-my-project"
+//	"folder-my-subfolder"
+//	"folder-my-project"
+//	"organization-my-org"
+//
 // ]
 func (b *GcpAuthBackend) groupAliases(crmClient *cloudresourcemanager.Service, ctx context.Context, projectId string) ([]*logical.Alias, error) {
 	ancestry, err := crmClient.Projects.
