@@ -10,7 +10,7 @@ TEST_ARGS?=./...
 
 PLUGIN_NAME?=$(shell command ls bin/)
 PLUGIN_DIR?=$$GOPATH/vault-plugins
-PLUGIN_MOUNT?=gcp
+PLUGIN_PATH?=gcp
 
 # bin generates the releaseable binaries for this plugin
 .PHONY: bin
@@ -85,5 +85,5 @@ configure: dev
 	@./bootstrap/configure.sh \
 	$(PLUGIN_DIR) \
 	$(PLUGIN_NAME) \
-	$(PLUGIN_MOUNT) \
+	$(PLUGIN_PATH) \
 	$(GOOGLE_TEST_CREDENTIALS) \
