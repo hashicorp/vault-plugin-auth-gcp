@@ -15,7 +15,7 @@ require (
 	github.com/hashicorp/vault/sdk v0.6.1
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/oauth2 v0.1.0
-	google.golang.org/api v0.101.0
+	google.golang.org/api v0.102.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 )
 
