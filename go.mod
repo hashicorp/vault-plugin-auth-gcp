@@ -12,7 +12,7 @@ require (
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2
 	github.com/hashicorp/go-uuid v1.0.3
 	github.com/hashicorp/vault/api v1.8.2
-	github.com/hashicorp/vault/sdk v0.6.1
+	github.com/hashicorp/vault/sdk v0.6.2
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/oauth2 v0.1.0
 	google.golang.org/api v0.101.0
