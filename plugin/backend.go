@@ -19,6 +19,8 @@ import (
 	"google.golang.org/api/option"
 )
 
+const userAgentPluginName = "auth-gcp"
+
 // cacheTime is the duration for which to cache clients and credentials. This
 // must be less than 60 minutes.
 var cacheTime = 30 * time.Minute
@@ -29,6 +31,9 @@ type GcpAuthBackend struct {
 	// cache is the internal client/object cache. Callers should never access the
 	// cache directly.
 	cache *cache.Cache
+
+	// pluginEnv contains Vault version information. It is used in user-agent headers.
+	pluginEnv *logical.PluginEnvironment
 }
 
 // Factory returns a new backend as logical.Backend.
@@ -64,10 +69,21 @@ func Backend() *GcpAuthBackend {
 			},
 			pathsRole(b),
 		),
-
-		Invalidate: b.invalidate,
+		InitializeFunc: b.initialize,
+		Invalidate:     b.invalidate,
 	}
 	return b
+}
+
+func (b *GcpAuthBackend) initialize(ctx context.Context, _ *logical.InitializationRequest) error {
+	pluginEnv, err := b.System().PluginEnv(ctx)
+	if err != nil {
+		b.Logger().Warn("failed to read plugin environment, user-agent will not be set",
+			"error", err)
+	}
+	b.pluginEnv = pluginEnv
+
+	return nil
 }
 
 // IAMClient returns a new IAM client. This client talks to the IAM endpoint,
@@ -94,7 +110,7 @@ func (b *GcpAuthBackend) IAMClient(ctx context.Context, s logical.Storage) (*iam
 		if err != nil {
 			return nil, fmt.Errorf("failed to create IAM client: %w", err)
 		}
-		client.UserAgent = useragent.String()
+		client.UserAgent = useragent.PluginString(b.pluginEnv, userAgentPluginName)
 
 		return client, nil
 	})
@@ -122,7 +138,7 @@ func (b *GcpAuthBackend) ComputeClient(ctx context.Context, s logical.Storage) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Compute client: %w", err)
 		}
-		client.UserAgent = useragent.String()
+		client.UserAgent = useragent.PluginString(b.pluginEnv, userAgentPluginName)
 
 		return client, nil
 	})
@@ -150,7 +166,7 @@ func (b *GcpAuthBackend) CRMClient(ctx context.Context, s logical.Storage) (*clo
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Cloud Resource Manager client: %w", err)
 		}
-		client.UserAgent = useragent.String()
+		client.UserAgent = useragent.PluginString(b.pluginEnv, userAgentPluginName)
 
 		return client, nil
 	})
