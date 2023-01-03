@@ -1,5 +1,10 @@
 ## Next
 
+CHANGES:
+
+* Changes user-agent header value to use correct Vault version information and include
+  the plugin type and name in the comment section.
+
 IMPROVEMENTS:
 
 * Updates dependencies [[GH-143](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/143)]
