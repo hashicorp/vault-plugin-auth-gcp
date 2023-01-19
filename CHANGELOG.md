@@ -1,3 +1,11 @@
+IMPROVEMENTS:
+* Updates dependencies
+  * `github.com/hashicorp/vault/sdk v0.7.0` [[GH-157](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/157)]
+  * `google.golang.org/api v0.108.0` [[GH-156](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/156)]
+  * `golang.org/x/oauth2 v0.4.0` [[GH-155](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/155)]
+  * `hashicorp/go-hclog v1.4.0` [[GH-150](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/150)]
+  * `cloud.google.com/go/compute/metadata v0.2.3` [[GH-148](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/148)]
+
 ## Next
 
 CHANGES:

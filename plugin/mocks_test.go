@@ -23,6 +23,10 @@ type MockSystemView struct {
 	recorder *MockSystemViewMockRecorder
 }
 
+func (m *MockSystemView) VaultVersion(ctx context.Context) (string, error) {
+	return "", nil
+}
+
 // MockSystemViewMockRecorder is the mock recorder for MockSystemView.
 type MockSystemViewMockRecorder struct {
 	mock *MockSystemView
