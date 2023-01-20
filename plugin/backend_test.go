@@ -20,7 +20,7 @@ const (
 
 func skipIfAccTestNotEnabled(t *testing.T) {
 	if _, ok := os.LookupEnv("ACC_TEST_ENABLED"); !ok {
-		t.Skip(fmt.Printf("Skipping accpetance test %s; ACC_TEST_ENABLED is not set.", t.Name()))
+		t.Skip(fmt.Sprintf("Skipping accpetance test %s; ACC_TEST_ENABLED is not set.", t.Name()))
 	}
 }
 
