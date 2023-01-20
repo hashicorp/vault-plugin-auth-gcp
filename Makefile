@@ -45,7 +45,7 @@ test:
 
 .PHONY: testacc
 testacc:
-	@go test -parallel=40 $(TEST) $(TESTARGS)
+	@export ACC_TEST_ENABLED=1 && go test -parallel=40 $(TEST) $(TESTARGS)
 # generate runs `go generate` to build the dynamically generated
 # source files.
 .PHONY: generate
