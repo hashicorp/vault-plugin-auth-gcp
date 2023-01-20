@@ -2,6 +2,7 @@ package gcpauth
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -16,6 +17,12 @@ import (
 const (
 	googleCredentialsEnv = "GOOGLE_TEST_CREDENTIALS"
 )
+
+func skipIfAccTestNotEnabled(t *testing.T) {
+	if _, ok := os.LookupEnv("ACC_TEST_ENABLED"); !ok {
+		t.Skip(fmt.Sprintf("Skipping accpetance test %s; ACC_TEST_ENABLED is not set.", t.Name()))
+	}
+}
 
 func testBackend(tb testing.TB) (*GcpAuthBackend, logical.Storage) {
 	tb.Helper()

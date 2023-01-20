@@ -99,6 +99,8 @@ func TestRoleResolution_RoleDoesNotExist(t *testing.T) {
 }
 
 func TestLogin_IAM(t *testing.T) {
+	skipIfAccTestNotEnabled(t)
+
 	t.Parallel()
 
 	b, storage, creds := testBackendWithCreds(t)
@@ -365,6 +367,8 @@ func TestLogin_IAM(t *testing.T) {
 }
 
 func TestLogin_IAM_Custom_Endpoint(t *testing.T) {
+	skipIfAccTestNotEnabled(t)
+
 	b, storage, creds := testBackendWithCreds(t)
 	ctx := context.Background()
 
@@ -495,6 +499,8 @@ func TestLogin_IAM_Custom_Endpoint(t *testing.T) {
 }
 
 func Test_Renew(t *testing.T) {
+	skipIfAccTestNotEnabled(t)
+
 	b, storage, creds := testBackendWithCreds(t)
 
 	// Get a signed JWT using the service account
