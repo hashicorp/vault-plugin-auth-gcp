@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 # Source this script from your shell:
 #
 # . scripts/cred_setup.sh
