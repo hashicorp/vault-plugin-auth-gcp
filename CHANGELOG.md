@@ -3,6 +3,10 @@
 IMPROVEMENTS:
 
 * Description [[GH-XXX](https://github.com/hashicorp/vault-plugin-auth-gcp)]
+* enable plugin multiplexing [GH-164](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/164)
+* update dependencies
+  * `github.com/hashicorp/vault/api` v1.9.0
+  * `github.com/hashicorp/vault/sdk` v0.8.1
 
 BUG FIXES: 
 
