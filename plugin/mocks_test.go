@@ -23,6 +23,10 @@ type MockSystemView struct {
 	recorder *MockSystemViewMockRecorder
 }
 
+func (m *MockSystemView) ClusterID(ctx context.Context) (string, error) {
+	return "", nil
+}
+
 func (m *MockSystemView) VaultVersion(ctx context.Context) (string, error) {
 	return "", nil
 }
