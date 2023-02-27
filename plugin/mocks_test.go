@@ -23,14 +23,6 @@ type MockSystemView struct {
 	recorder *MockSystemViewMockRecorder
 }
 
-func (m *MockSystemView) ClusterID(ctx context.Context) (string, error) {
-	return "", nil
-}
-
-func (m *MockSystemView) VaultVersion(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 // MockSystemViewMockRecorder is the mock recorder for MockSystemView.
 type MockSystemViewMockRecorder struct {
 	mock *MockSystemView
@@ -48,12 +40,6 @@ func (m *MockSystemView) EXPECT() *MockSystemViewMockRecorder {
 	return m.recorder
 }
 
-// NewPluginClient is required to implement logical.SystemView, but not required
-// so is left empty.
-func (m *MockSystemView) NewPluginClient(ctx context.Context, config pluginutil.PluginClientConfig) (pluginutil.PluginClient, error) {
-	return nil, nil
-}
-
 // CachingDisabled mocks base method.
 func (m *MockSystemView) CachingDisabled() bool {
 	m.ctrl.T.Helper()
@@ -66,6 +52,21 @@ func (m *MockSystemView) CachingDisabled() bool {
 func (mr *MockSystemViewMockRecorder) CachingDisabled() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CachingDisabled", reflect.TypeOf((*MockSystemView)(nil).CachingDisabled))
+}
+
+// ClusterID mocks base method.
+func (m *MockSystemView) ClusterID(arg0 context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClusterID", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ClusterID indicates an expected call of ClusterID.
+func (mr *MockSystemViewMockRecorder) ClusterID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClusterID", reflect.TypeOf((*MockSystemView)(nil).ClusterID), arg0)
 }
 
 // DefaultLeaseTTL mocks base method.
@@ -141,6 +142,21 @@ func (mr *MockSystemViewMockRecorder) HasFeature(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasFeature", reflect.TypeOf((*MockSystemView)(nil).HasFeature), arg0)
 }
 
+// ListVersionedPlugins mocks base method.
+func (m *MockSystemView) ListVersionedPlugins(arg0 context.Context, arg1 consts.PluginType) ([]pluginutil.VersionedPlugin, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListVersionedPlugins", arg0, arg1)
+	ret0, _ := ret[0].([]pluginutil.VersionedPlugin)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListVersionedPlugins indicates an expected call of ListVersionedPlugins.
+func (mr *MockSystemViewMockRecorder) ListVersionedPlugins(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListVersionedPlugins", reflect.TypeOf((*MockSystemView)(nil).ListVersionedPlugins), arg0, arg1)
+}
+
 // LocalMount mocks base method.
 func (m *MockSystemView) LocalMount() bool {
 	m.ctrl.T.Helper()
@@ -164,6 +180,13 @@ func (m *MockSystemView) LookupPlugin(arg0 context.Context, arg1 string, arg2 co
 	return ret0, ret1
 }
 
+// LookupPlugin indicates an expected call of LookupPlugin.
+func (mr *MockSystemViewMockRecorder) LookupPlugin(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookupPlugin", reflect.TypeOf((*MockSystemView)(nil).LookupPlugin), arg0, arg1, arg2)
+}
+
+// LookupPluginVersion mocks base method.
 func (m *MockSystemView) LookupPluginVersion(arg0 context.Context, arg1 string, arg2 consts.PluginType, arg3 string) (*pluginutil.PluginRunner, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LookupPluginVersion", arg0, arg1, arg2, arg3)
@@ -172,18 +195,10 @@ func (m *MockSystemView) LookupPluginVersion(arg0 context.Context, arg1 string, 
 	return ret0, ret1
 }
 
-func (m *MockSystemView) ListVersionedPlugins(arg0 context.Context, arg1 consts.PluginType) ([]pluginutil.VersionedPlugin, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListVersionedPlugins", arg0, arg1)
-	ret0, _ := ret[0].([]pluginutil.VersionedPlugin)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LookupPlugin indicates an expected call of LookupPlugin.
-func (mr *MockSystemViewMockRecorder) LookupPlugin(arg0, arg1, arg2 interface{}) *gomock.Call {
+// LookupPluginVersion indicates an expected call of LookupPluginVersion.
+func (mr *MockSystemViewMockRecorder) LookupPluginVersion(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookupPlugin", reflect.TypeOf((*MockSystemView)(nil).LookupPlugin), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookupPluginVersion", reflect.TypeOf((*MockSystemView)(nil).LookupPluginVersion), arg0, arg1, arg2, arg3)
 }
 
 // MaxLeaseTTL mocks base method.
@@ -212,6 +227,21 @@ func (m *MockSystemView) MlockEnabled() bool {
 func (mr *MockSystemViewMockRecorder) MlockEnabled() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MlockEnabled", reflect.TypeOf((*MockSystemView)(nil).MlockEnabled))
+}
+
+// NewPluginClient mocks base method.
+func (m *MockSystemView) NewPluginClient(arg0 context.Context, arg1 pluginutil.PluginClientConfig) (pluginutil.PluginClient, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewPluginClient", arg0, arg1)
+	ret0, _ := ret[0].(pluginutil.PluginClient)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewPluginClient indicates an expected call of NewPluginClient.
+func (mr *MockSystemViewMockRecorder) NewPluginClient(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewPluginClient", reflect.TypeOf((*MockSystemView)(nil).NewPluginClient), arg0, arg1)
 }
 
 // PluginEnv mocks base method.
@@ -270,6 +300,21 @@ func (m *MockSystemView) Tainted() bool {
 func (mr *MockSystemViewMockRecorder) Tainted() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tainted", reflect.TypeOf((*MockSystemView)(nil).Tainted))
+}
+
+// VaultVersion mocks base method.
+func (m *MockSystemView) VaultVersion(arg0 context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VaultVersion", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// VaultVersion indicates an expected call of VaultVersion.
+func (mr *MockSystemViewMockRecorder) VaultVersion(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VaultVersion", reflect.TypeOf((*MockSystemView)(nil).VaultVersion), arg0)
 }
 
 // MockStorage is a mock of Storage interface.
