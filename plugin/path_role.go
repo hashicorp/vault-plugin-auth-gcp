@@ -158,7 +158,11 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 
 	paths := []*framework.Path{
 		{
-			Pattern:        fmt.Sprintf("role/%s", framework.GenericNameRegex("name")),
+			Pattern: fmt.Sprintf("role/%s", framework.GenericNameRegex("name")),
+			DisplayAttrs: &framework.DisplayAttributes{
+				OperationPrefix: operationPrefixGoogleCloudKMS,
+				OperationSuffix: "role",
+			},
 			Fields:         roleFieldSchema,
 			ExistenceCheck: b.pathRoleExistenceCheck,
 			Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -173,6 +177,11 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 		// Paths for listing roles
 		{
 			Pattern: "role/?",
+			DisplayAttrs: &framework.DisplayAttributes{
+				OperationPrefix: operationPrefixGoogleCloudKMS,
+				OperationVerb:   "list",
+				OperationSuffix: "roles",
+			},
 			Callbacks: map[logical.Operation]framework.OperationFunc{
 				logical.ListOperation: b.pathRoleList,
 			},
@@ -182,6 +191,11 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 		},
 		{
 			Pattern: "roles/?",
+			DisplayAttrs: &framework.DisplayAttributes{
+				OperationPrefix: operationPrefixGoogleCloudKMS,
+				OperationVerb:   "list",
+				OperationSuffix: "roles2",
+			},
 			Callbacks: map[logical.Operation]framework.OperationFunc{
 				logical.ListOperation: b.pathRoleList,
 			},
@@ -193,6 +207,11 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 		// Edit service accounts on an IAM role
 		{
 			Pattern: fmt.Sprintf("role/%s/service-accounts", framework.GenericNameRegex("name")),
+			DisplayAttrs: &framework.DisplayAttributes{
+				OperationPrefix: operationPrefixGoogleCloudKMS,
+				OperationVerb:   "edit",
+				OperationSuffix: "service-accounts-for-role",
+			},
 			Fields: map[string]*framework.FieldSchema{
 				"name": {
 					Type:        framework.TypeString,
@@ -217,6 +236,11 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 		// Edit labels on an GCE role
 		{
 			Pattern: fmt.Sprintf("role/%s/labels", framework.GenericNameRegex("name")),
+			DisplayAttrs: &framework.DisplayAttributes{
+				OperationPrefix: operationPrefixGoogleCloudKMS,
+				OperationVerb:   "edit",
+				OperationSuffix: "labels-for-role",
+			},
 			Fields: map[string]*framework.FieldSchema{
 				"name": {
 					Type:        framework.TypeString,
