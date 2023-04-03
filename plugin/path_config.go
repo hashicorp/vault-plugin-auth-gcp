@@ -53,7 +53,7 @@ func pathConfig(b *GcpAuthBackend) *framework.Path {
 		Pattern: "config",
 
 		DisplayAttrs: &framework.DisplayAttributes{
-			OperationPrefix: operationPrefixGoogleCloudKMS,
+			OperationPrefix: operationPrefixGoogleCloud,
 		},
 
 		Fields: map[string]*framework.FieldSchema{
@@ -96,13 +96,14 @@ Deprecated. This field does nothing and be removed in a future release`,
 				Callback: b.pathConfigRead,
 				DisplayAttrs: &framework.DisplayAttributes{
 					OperationVerb:   "read",
-					OperationSuffix: "configuration",
+					OperationSuffix: "auth-configuration",
 				},
 			},
 			logical.UpdateOperation: &framework.PathOperation{
 				Callback: b.pathConfigWrite,
 				DisplayAttrs: &framework.DisplayAttributes{
-					OperationVerb: "configure",
+					OperationVerb:   "configure",
+					OperationSuffix: "auth",
 				},
 			},
 		},

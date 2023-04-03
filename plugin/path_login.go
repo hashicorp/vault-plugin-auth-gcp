@@ -34,7 +34,7 @@ func pathLogin(b *GcpAuthBackend) *framework.Path {
 		Pattern: "login$",
 
 		DisplayAttrs: &framework.DisplayAttributes{
-			OperationPrefix: operationPrefixGoogleCloudKMS,
+			OperationPrefix: operationPrefixGoogleCloud,
 			OperationVerb:   "log-in",
 		},
 

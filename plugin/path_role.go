@@ -160,7 +160,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 		{
 			Pattern: fmt.Sprintf("role/%s", framework.GenericNameRegex("name")),
 			DisplayAttrs: &framework.DisplayAttributes{
-				OperationPrefix: operationPrefixGoogleCloudKMS,
+				OperationPrefix: operationPrefixGoogleCloud,
 				OperationSuffix: "role",
 			},
 			Fields:         roleFieldSchema,
@@ -178,7 +178,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 		{
 			Pattern: "role/?",
 			DisplayAttrs: &framework.DisplayAttributes{
-				OperationPrefix: operationPrefixGoogleCloudKMS,
+				OperationPrefix: operationPrefixGoogleCloud,
 				OperationVerb:   "list",
 				OperationSuffix: "roles",
 			},
@@ -192,7 +192,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 		{
 			Pattern: "roles/?",
 			DisplayAttrs: &framework.DisplayAttributes{
-				OperationPrefix: operationPrefixGoogleCloudKMS,
+				OperationPrefix: operationPrefixGoogleCloud,
 				OperationVerb:   "list",
 				OperationSuffix: "roles2",
 			},
@@ -208,7 +208,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 		{
 			Pattern: fmt.Sprintf("role/%s/service-accounts", framework.GenericNameRegex("name")),
 			DisplayAttrs: &framework.DisplayAttributes{
-				OperationPrefix: operationPrefixGoogleCloudKMS,
+				OperationPrefix: operationPrefixGoogleCloud,
 				OperationVerb:   "edit",
 				OperationSuffix: "service-accounts-for-role",
 			},
@@ -237,7 +237,7 @@ func pathsRole(b *GcpAuthBackend) []*framework.Path {
 		{
 			Pattern: fmt.Sprintf("role/%s/labels", framework.GenericNameRegex("name")),
 			DisplayAttrs: &framework.DisplayAttributes{
-				OperationPrefix: operationPrefixGoogleCloudKMS,
+				OperationPrefix: operationPrefixGoogleCloud,
 				OperationVerb:   "edit",
 				OperationSuffix: "labels-for-role",
 			},

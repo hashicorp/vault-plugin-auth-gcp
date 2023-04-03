@@ -25,8 +25,8 @@ import (
 const (
 	userAgentPluginName = "auth-gcp"
 
-	// operationPrefixGoogleCloudAuth is used as a prefix for OpenAPI operation id's.
-	operationPrefixGoogleCloudAuth = "google-cloud-auth"
+	// operationPrefixGoogleCloud is used as a prefix for OpenAPI operation id's.
+	operationPrefixGoogleCloud = "google-cloud"
 )
 
 // cacheTime is the duration for which to cache clients and credentials. This
