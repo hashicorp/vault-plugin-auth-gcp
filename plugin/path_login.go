@@ -35,7 +35,7 @@ func pathLogin(b *GcpAuthBackend) *framework.Path {
 
 		DisplayAttrs: &framework.DisplayAttributes{
 			OperationPrefix: operationPrefixGoogleCloud,
-			OperationVerb:   "log-in",
+			OperationVerb:   "login",
 		},
 
 		Fields: map[string]*framework.FieldSchema{
