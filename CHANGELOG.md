@@ -3,10 +3,11 @@
 IMPROVEMENTS:
 
 * Description [[GH-XXX](https://github.com/hashicorp/vault-plugin-auth-gcp)]
-* enable plugin multiplexing [GH-164](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/164)
+* Enable plugin multiplexing [[GH-164](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/164)]
+* Add display attributes for OpenAPI OperationID's [[GH-172](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/172)]
 * update dependencies
-  * `github.com/hashicorp/vault/api` v1.9.0
-  * `github.com/hashicorp/vault/sdk` v0.8.1
+  * `github.com/hashicorp/vault/api` v1.9.0 [[GH-164](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/164)]
+  * `github.com/hashicorp/vault/sdk` v0.9.0 [[GH-172](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/172)]
 
 BUG FIXES: 
 

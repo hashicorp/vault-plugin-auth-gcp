@@ -51,6 +51,11 @@ var (
 func pathConfig(b *GcpAuthBackend) *framework.Path {
 	return &framework.Path{
 		Pattern: "config",
+
+		DisplayAttrs: &framework.DisplayAttributes{
+			OperationPrefix: operationPrefixGoogleCloud,
+		},
+
 		Fields: map[string]*framework.FieldSchema{
 			"credentials": {
 				Type: framework.TypeString,
@@ -85,9 +90,22 @@ Deprecated. This field does nothing and be removed in a future release`,
 				Deprecated: true,
 			},
 		},
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ReadOperation:   b.pathConfigRead,
-			logical.UpdateOperation: b.pathConfigWrite,
+
+		Operations: map[logical.Operation]framework.OperationHandler{
+			logical.ReadOperation: &framework.PathOperation{
+				Callback: b.pathConfigRead,
+				DisplayAttrs: &framework.DisplayAttributes{
+					OperationVerb:   "read",
+					OperationSuffix: "auth-configuration",
+				},
+			},
+			logical.UpdateOperation: &framework.PathOperation{
+				Callback: b.pathConfigWrite,
+				DisplayAttrs: &framework.DisplayAttributes{
+					OperationVerb:   "configure",
+					OperationSuffix: "auth",
+				},
+			},
 		},
 
 		HelpSynopsis: `Configure credentials used to query the GCP IAM API to verify authenticating service accounts`,

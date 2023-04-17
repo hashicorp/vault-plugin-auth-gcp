@@ -22,7 +22,12 @@ import (
 	"google.golang.org/api/option"
 )
 
-const userAgentPluginName = "auth-gcp"
+const (
+	userAgentPluginName = "auth-gcp"
+
+	// operationPrefixGoogleCloud is used as a prefix for OpenAPI operation id's.
+	operationPrefixGoogleCloud = "google-cloud"
+)
 
 // cacheTime is the duration for which to cache clients and credentials. This
 // must be less than 60 minutes.

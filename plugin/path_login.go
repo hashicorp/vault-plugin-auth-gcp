@@ -32,6 +32,12 @@ const (
 func pathLogin(b *GcpAuthBackend) *framework.Path {
 	return &framework.Path{
 		Pattern: "login$",
+
+		DisplayAttrs: &framework.DisplayAttributes{
+			OperationPrefix: operationPrefixGoogleCloud,
+			OperationVerb:   "login",
+		},
+
 		Fields: map[string]*framework.FieldSchema{
 			"role": {
 				Type:        framework.TypeString,
