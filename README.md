@@ -128,7 +128,7 @@ Manual method.
 1. Save the name of your project as an environment variable for reference:
 
     ```sh
-    $ export GOOGLE_CLOUD_PROJECT_ID=my-project # replace with your project ID
+    $ export GOOGLE_CLOUD_PROJECT=my-project # replace with your project ID
     ```
 The remaining steps may also be executed by running `. scripts/cred_setup.sh`.
 
@@ -176,7 +176,7 @@ The remaining steps may also be executed by running `. scripts/cred_setup.sh`.
     ```sh
     $ export GOOGLE_TEST_CREDENTIALS="$(cat vault-tester.json)"
     ```
-   
+
 #### Tests
 
 This plugin has comprehensive [acceptance tests](https://en.wikipedia.org/wiki/Acceptance_testing)
