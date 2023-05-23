@@ -3,15 +3,25 @@
 IMPROVEMENTS:
 
 * Description [[GH-XXX](https://github.com/hashicorp/vault-plugin-auth-gcp)]
-* Enable plugin multiplexing [[GH-164](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/164)]
-* Add display attributes for OpenAPI OperationID's [[GH-172](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/172)]
-* update dependencies
-  * `github.com/hashicorp/vault/api` v1.9.0 [[GH-164](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/164)]
-  * `github.com/hashicorp/vault/sdk` v0.9.0 [[GH-172](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/172)]
 
-BUG FIXES: 
+BUG FIXES:
 
 * Description [[GH-XXX](https://github.com/hashicorp/vault-plugin-auth-gcp)]
+
+## v0.16.0
+
+IMPROVEMENTS:
+
+* Enable plugin multiplexing [[GH-164](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/164)]
+* Add display attributes for OpenAPI OperationID's [[GH-172](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/172)]
+* Updated dependencies:
+  * `github.com/hashicorp/vault/sdk` v0.9.0 [[GH-172](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/172)]
+  * [GH-178](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/178):
+   * `github.com/hashicorp/go-hclog` v1.4.0 -> v1.5.0
+   * `github.com/hashicorp/vault/api` v1.8.3 -> v1.9.1
+   * `github.com/stretchr/testify` v1.8.1 -> v1.8.3
+   * `golang.org/x/oauth2` v0.4.0 -> v0.8.0
+   * `google.golang.org/api` v0.109.0 -> v0.124.0
 
 ## v0.15.0
 
