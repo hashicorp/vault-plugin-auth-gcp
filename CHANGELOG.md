@@ -1,12 +1,15 @@
 ## Next
 
+## v0.16.1
+
 IMPROVEMENTS:
 
-* Description [[GH-XXX](https://github.com/hashicorp/vault-plugin-auth-gcp)]
-
-BUG FIXES:
-
-* Description [[GH-XXX](https://github.com/hashicorp/vault-plugin-auth-gcp)]
+* Updated dependencies:
+  * `github.com/hashicorp/vault/api` v1.9.1 -> v1.9.2
+  * `github.com/hashicorp/vault/sdk` v0.9.0 -> v0.9.2
+  * `github.com/stretchr/testify` v1.8.3 -> v1.8.4
+  * `golang.org/x/oauth2` v0.8.0 -> v0.11.0
+  * `google.golang.org/api` v0.124.0 -> v0.138.0
 
 ## v0.16.0
 
