@@ -1,5 +1,21 @@
 ## Next
 
+## v0.16.2
+
+IMPROVEMENTS:
+
+* Updated dependencies:
+  * `github.com/hashicorp/go-hclog` v1.5.0 -> v1.6.2
+  * `github.com/hashicorp/go-secure-stdlib/parseutil` v0.1.7 -> v0.1.8
+  * `github.com/hashicorp/vault/api` v1.9.2 -> v1.11.0
+  * `github.com/hashicorp/vault/sdk` v0.9.2 -> v0.10.2
+  * `golang.org/x/oauth2` v0.11.0 -> v0.16.0
+  * `google.golang.org/api` v0.138.0 -> v0.161.0
+* Bump golang.org/x/crypto from 0.12.0 to 0.17.0: [GH-191](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/191)
+* Bump github.com/go-jose/go-jose/v3 from 3.0.0 to 3.0.1: [GH-188](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/188)
+* Bump google.golang.org/grpc from 1.57.0 to 1.57.1: [GH-187](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/187)
+* Bump golang.org/x/net from 0.14.0 to 0.17.0: [GH-186](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/186)
+
 ## v0.16.1
 
 IMPROVEMENTS:
