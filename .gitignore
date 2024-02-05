@@ -52,6 +52,9 @@ dist/*
 
 tags
 
+# binary
+bin
+
 # Editor backups
 *~
 *.sw[a-z]
