@@ -1,4 +1,4 @@
-TOOL?=vault-gcp-auth-plugin
+TOOL?=vault-plugin-auth-gcp
 TEST?=$$(go list ./... | grep -v /vendor/)
 EXTERNAL_TOOLS=
 BUILD_TAGS?=${TOOL}
@@ -22,7 +22,7 @@ default: dev
 # is only put into /bin/
 .PHONY: quickdev
 quickdev: generate
-	@CGO_ENABLED=0 go build -i -tags='$(BUILD_TAGS)' -o bin/vault-gcp-auth-plugin
+	@CGO_ENABLED=0 go build -tags='$(BUILD_TAGS)' -o bin/$(TOOL) cmd/$(TOOL)/main.go
 .PHONY: dev
 dev: fmtcheck generate
 	@CGO_ENABLED=0 BUILD_TAGS='$(BUILD_TAGS)' VAULT_DEV_BUILD=1 sh -c "'$(CURDIR)/scripts/build.sh'"
