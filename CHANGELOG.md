@@ -1,5 +1,9 @@
 ## Next
 
+IMPROVEMENTS:
+
+* Bump `github.com/go-jose/go-jose/v3` from 3.0.1 to 3.0.3.: [GH-196](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/196)
+
 ## v0.16.2
 
 IMPROVEMENTS:
