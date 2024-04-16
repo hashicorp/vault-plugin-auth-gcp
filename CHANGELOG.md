@@ -4,6 +4,7 @@ IMPROVEMENTS:
 
 * Bump `github.com/go-jose/go-jose/v3` from 3.0.1 to 3.0.3: [GH-196](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/196)
 * Bump `google.golang.org/protobuf` from 1.32.0 to 1.33.0: [GH-197](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/197)
+* Bump `github.com/docker/docker` from 24.0.7+incompatible to 24.0.9+incompatible: [GH-198](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/198)
 
 ## v0.16.2
 
