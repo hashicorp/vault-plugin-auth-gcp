@@ -98,6 +98,21 @@ func (mr *MockSystemViewMockRecorder) EntityInfo(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EntityInfo", reflect.TypeOf((*MockSystemView)(nil).EntityInfo), arg0)
 }
 
+// GenerateIdentityToken mocks base method.
+func (m *MockSystemView) GenerateIdentityToken(arg0 context.Context, arg1 *pluginutil.IdentityTokenRequest) (*pluginutil.IdentityTokenResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GenerateIdentityToken", arg0, arg1)
+	ret0, _ := ret[0].(*pluginutil.IdentityTokenResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GenerateIdentityToken indicates an expected call of GenerateIdentityToken.
+func (mr *MockSystemViewMockRecorder) GenerateIdentityToken(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateIdentityToken", reflect.TypeOf((*MockSystemView)(nil).GenerateIdentityToken), arg0, arg1)
+}
+
 // GeneratePasswordFromPolicy mocks base method.
 func (m *MockSystemView) GeneratePasswordFromPolicy(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
