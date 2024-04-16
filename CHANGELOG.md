@@ -2,6 +2,14 @@
 
 IMPROVEMENTS:
 
+* Updated dependencies:
+   * `cloud.google.com/go/compute/metadata` v0.2.3 -> v0.3.0
+   * `github.com/hashicorp/go-hclog` v1.6.2 -> v1.6.3
+   * `github.com/hashicorp/vault/api` v1.11.0 -> v1.12.2
+   * `github.com/hashicorp/vault/sdk` v0.10.2 -> v0.12.0
+   * `github.com/stretchr/testify` v1.8.4 -> v1.9.0
+   * `golang.org/x/oauth2` v0.16.0 -> v0.19.0
+   * `google.golang.org/api` v0.161.0 -> v0.172.0
 * Bump `github.com/go-jose/go-jose/v3` from 3.0.1 to 3.0.3: [GH-196](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/196)
 * Bump `google.golang.org/protobuf` from 1.32.0 to 1.33.0: [GH-197](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/197)
 * Bump `github.com/docker/docker` from 24.0.7+incompatible to 24.0.9+incompatible: [GH-198](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/198)
