@@ -1,5 +1,7 @@
 ## Next
 
+## v0.16.3
+
 IMPROVEMENTS:
 
 * Updated dependencies:
