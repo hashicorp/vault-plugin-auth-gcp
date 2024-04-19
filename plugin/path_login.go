@@ -33,6 +33,8 @@ const (
 var (
 	allowedSignatureAlgorithms = []jose.SignatureAlgorithm{
 		jose.RS256,
+		jose.ES256,
+		jose.HS256,
 	}
 )
 
