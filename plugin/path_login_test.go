@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	jose "github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -20,8 +22,6 @@ import (
 	"google.golang.org/api/iam/v1"
 	"google.golang.org/api/iamcredentials/v1"
 	"google.golang.org/api/option"
-	jose "gopkg.in/square/go-jose.v2"
-	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 func TestRoleResolution(t *testing.T) {
@@ -674,7 +674,7 @@ func testCreateExpiredJwtToken(tb testing.TB, roleName string, creds *gcputil.Gc
 			Subject:  creds.ClientId,
 			Audience: []string{fmt.Sprintf(expectedJwtAudTemplate, roleName)},
 			Expiry:   jwt.NewNumericDate(time.Now().Add(-100 * time.Minute)),
-		}).CompactSerialize()
+		}).Serialize()
 	if err != nil {
 		tb.Fatal(err)
 	}

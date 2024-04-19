@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	jose "github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/go-secure-stdlib/strutil"
 	"github.com/hashicorp/vault/sdk/framework"
@@ -21,12 +23,17 @@ import (
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
-	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 const (
 	expectedJwtAudTemplate string = "vault/%s"
 	jwtExpToleranceSec            = 60
+)
+
+var (
+	allowedSignatureAlgorithms = []jose.SignatureAlgorithm{
+		jose.RS256,
+	}
 )
 
 func pathLogin(b *GcpAuthBackend) *framework.Path {
@@ -205,7 +212,7 @@ func (b *GcpAuthBackend) parseAndValidateJwt(ctx context.Context, s logical.Stor
 	}
 
 	// Parse 'kid' key id from headers.
-	jwtVal, err := jwt.ParseSigned(signedJwt.(string))
+	jwtVal, err := jwt.ParseSigned(signedJwt.(string), allowedSignatureAlgorithms)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse signed JWT: %w", err)
 	}
@@ -276,7 +283,7 @@ func (b *GcpAuthBackend) getSigningKey(ctx context.Context, token *jwt.JSONWebTo
 
 // getJWTSubject grabs 'sub' claim given an unverified signed JWT.
 func getJWTSubject(signedJwt string) (string, error) {
-	jwtVal, err := jwt.ParseSigned(signedJwt)
+	jwtVal, err := jwt.ParseSigned(signedJwt, allowedSignatureAlgorithms)
 	if err != nil {
 		return "", fmt.Errorf("could not parse JWT: %v", err)
 	}
