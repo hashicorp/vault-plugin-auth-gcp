@@ -12,7 +12,7 @@ IMPROVEMENTS:
    * `github.com/stretchr/testify` v1.8.4 -> v1.9.0
    * `golang.org/x/oauth2` v0.16.0 -> v0.19.0
    * `google.golang.org/api` v0.161.0 -> v0.172.0
-* Upgrade `github.com/go-jose/go-jose/v3` to `github.com/go-jose/go-jose/v4` 4.0.1: [GH-202](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/202)
+* Upgrade `gopkg.in/square/go-jose.v2` and `github.com/go-jose/go-jose/v3` to `github.com/go-jose/go-jose/v4` 4.0.1: [GH-202](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/202), [GH-203](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/203)
 * Bump `google.golang.org/protobuf` from 1.32.0 to 1.33.0: [GH-197](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/197)
 * Bump `github.com/docker/docker` from 24.0.7+incompatible to 24.0.9+incompatible: [GH-198](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/198)
 * Bump `golang.org/x/net` from 0.22.0 to 0.24.0: [GH-201](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/201)
