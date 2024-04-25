@@ -104,9 +104,15 @@ func (h *CLIHandler) Auth(c *api.Client, m map[string]string) (*api.Secret, erro
 		mount = "gcp"
 	}
 
-	loginToken, err := getSignedJwt(role, m)
-	if err != nil {
-		return nil, err
+	var loginToken string
+	var err error
+	if v, ok := m["jwt"]; ok {
+		loginToken = v
+	} else {
+		loginToken, err = getSignedJwt(role, m)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	path := fmt.Sprintf("auth/%s/login", mount)

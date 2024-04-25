@@ -5,11 +5,14 @@ package gcpauth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/authmetadata"
+	"github.com/hashicorp/vault/sdk/helper/pluginidentityutil"
+	"github.com/hashicorp/vault/sdk/helper/pluginutil"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
@@ -49,7 +52,7 @@ var (
 )
 
 func pathConfig(b *GcpAuthBackend) *framework.Path {
-	return &framework.Path{
+	p := &framework.Path{
 		Pattern: "config",
 
 		DisplayAttrs: &framework.DisplayAttributes{
@@ -89,6 +92,10 @@ If not specified, will use application default credentials`,
 Deprecated. This field does nothing and be removed in a future release`,
 				Deprecated: true,
 			},
+			"service_account_email": {
+				Type:        framework.TypeString,
+				Description: `Email ID for the Service Account to impersonate for Workload Identity Federation.`,
+			},
 		},
 
 		Operations: map[logical.Operation]framework.OperationHandler{
@@ -118,6 +125,10 @@ iam AUTH:
 * iam.serviceAccountKeys.get
 `,
 	}
+
+	pluginidentityutil.AddPluginIdentityTokenFields(p.Fields)
+
+	return p
 }
 
 func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
@@ -132,6 +143,19 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 
 	if err := c.Update(d); err != nil {
 		return nil, logical.CodedError(http.StatusBadRequest, err.Error())
+	}
+
+	// generate token to check if WIF is enabled on this edition of Vault
+	if c.IdentityTokenAudience != "" {
+		_, err := b.System().GenerateIdentityToken(ctx, &pluginutil.IdentityTokenRequest{
+			Audience: c.IdentityTokenAudience,
+		})
+		if err != nil {
+			if errors.Is(err, pluginidentityutil.ErrPluginWorkloadIdentityUnsupported) {
+				return logical.ErrorResponse(err.Error()), nil
+			}
+			return nil, err
+		}
 	}
 
 	// Create/update the storage entry
@@ -204,6 +228,12 @@ func (b *GcpAuthBackend) pathConfigRead(ctx context.Context, req *logical.Reques
 	if len(endpoints) > 0 {
 		resp["custom_endpoint"] = endpoints
 	}
+
+	if v := config.ServiceAccountEmail; v != "" {
+		resp["service_account_email"] = v
+	}
+
+	config.PopulatePluginIdentityTokenData(resp)
 
 	return &logical.Response{
 		Data: resp,
