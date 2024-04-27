@@ -11,12 +11,14 @@ import (
 
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/go-gcp-common/gcputil"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/pluginutil"
 	"github.com/hashicorp/vault/sdk/helper/useragent"
 	"github.com/hashicorp/vault/sdk/logical"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"golang.org/x/oauth2/google/externalaccount"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
@@ -242,10 +244,14 @@ func (b *GcpAuthBackend) credentials(ctx context.Context, s logical.Storage) (*g
 				return nil, fmt.Errorf("failed to parse credentials: %w", err)
 			}
 		} else if config.IdentityTokenAudience != "" {
-			creds, err = b.GetExternalAccountConfig(config).GetCredentials()
-			if err != nil {
-				return nil, fmt.Errorf(fmt.Sprintf("failed to fetch external account credentials: %s", err))
+			ts := &PluginIdentityTokenSupplier{
+				sys:      b.System(),
+				logger:   b.Logger(),
+				audience: config.IdentityTokenAudience,
+				ttl:      config.IdentityTokenTTL,
 			}
+
+			creds, err = b.GetExternalAccountConfig(config, ts).GetExternalAccountCredentials(ctx)
 		} else {
 			creds, err = google.FindDefaultCredentials(ctx, iam.CloudPlatformScope)
 			if err != nil {
@@ -261,32 +267,40 @@ func (b *GcpAuthBackend) credentials(ctx context.Context, s logical.Storage) (*g
 	return creds.(*google.Credentials), nil
 }
 
-func (b *GcpAuthBackend) GetExternalAccountConfig(c *gcpConfig) *gcputil.ExternalAccountConfig {
+func (b *GcpAuthBackend) GetExternalAccountConfig(c *gcpConfig, ts *PluginIdentityTokenSupplier) *gcputil.ExternalAccountConfig {
 	b.Logger().Info("adding web identity token fetcher")
 	cfg := &gcputil.ExternalAccountConfig{
 		ServiceAccountEmail: c.ServiceAccountEmail,
 		Audience:            c.IdentityTokenAudience,
 		TTL:                 c.IdentityTokenTTL,
-		TokenFetcher:        b.FetchWorkloadIdentityToken,
+		TokenSupplier:       ts,
 	}
 
 	return cfg
 }
 
-func (b *GcpAuthBackend) FetchWorkloadIdentityToken(ctx context.Context, cfg *gcputil.ExternalAccountConfig) (string, error) {
-	b.Logger().Info("fetching new plugin identity token")
-	resp, err := b.System().GenerateIdentityToken(ctx, &pluginutil.IdentityTokenRequest{
-		Audience: cfg.Audience,
-		TTL:      cfg.TTL,
+type PluginIdentityTokenSupplier struct {
+	sys      logical.SystemView
+	logger   hclog.Logger
+	audience string
+	ttl      time.Duration
+}
+
+var _ externalaccount.SubjectTokenSupplier = (*PluginIdentityTokenSupplier)(nil)
+
+func (p *PluginIdentityTokenSupplier) SubjectToken(ctx context.Context, opts externalaccount.SupplierOptions) (string, error) {
+	p.logger.Info("fetching new plugin identity token")
+	resp, err := p.sys.GenerateIdentityToken(ctx, &pluginutil.IdentityTokenRequest{
+		Audience: p.audience,
+		TTL:      p.ttl,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to generate plugin identity token: %w", err)
 	}
-	b.Logger().Info("fetched new plugin identity token")
 
-	if resp.TTL < cfg.TTL {
-		b.Logger().Debug("generated plugin identity token has shorter TTL than requested",
-			"requested", cfg.TTL.Seconds(), "actual", resp.TTL)
+	if resp.TTL < p.ttl {
+		p.logger.Debug("generated plugin identity token has shorter TTL than requested",
+			"requested", p.ttl.Seconds(), "actual", resp.TTL)
 	}
 
 	return resp.Token.Token(), nil
