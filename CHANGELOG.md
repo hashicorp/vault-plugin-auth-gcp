@@ -1,5 +1,8 @@
 ## Next
 
+IMPROVEMENTS:
+* Added support for Workload Identity Federation [GH-204](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/204)
+
 ## v0.16.3
 
 IMPROVEMENTS:
