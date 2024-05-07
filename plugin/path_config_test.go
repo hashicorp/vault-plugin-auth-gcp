@@ -36,8 +36,11 @@ func TestBackend_PathConfigRead(t *testing.T) {
 		if resp == nil {
 			t.Fatal("expected non-nil response")
 		}
-		if len(resp.Data) != 2 {
-			t.Fatal("expected 2 fields")
+		// These fields are always returned on read
+		// 2 Metadata response fields
+		// 2 Identity Token fields
+		if len(resp.Data) != 4 {
+			t.Fatal("expected 4 fields")
 		}
 		expectedResp := &logical.Response{
 			Data: map[string]interface{}{
@@ -58,6 +61,8 @@ func TestBackend_PathConfigRead(t *testing.T) {
 					"service_account_email",
 					"zone",
 				},
+				"identity_token_audience": "",
+				"identity_token_ttl":      int64(0),
 			},
 		}
 		if !reflect.DeepEqual(resp, expectedResp) {
@@ -134,6 +139,8 @@ func TestBackend_PathConfigRead(t *testing.T) {
 				"crm":     "https://cloudresourcemanager.example.com",
 				"compute": "https://compute.example.com",
 			},
+			"identity_token_audience": "",
+			"identity_token_ttl":      int64(0),
 		}
 
 		if !reflect.DeepEqual(resp.Data, expectedData) {
