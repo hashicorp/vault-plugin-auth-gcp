@@ -6,11 +6,13 @@ package gcpauth
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/authmetadata"
+	"github.com/hashicorp/vault/sdk/helper/pluginutil"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
@@ -36,8 +38,11 @@ func TestBackend_PathConfigRead(t *testing.T) {
 		if resp == nil {
 			t.Fatal("expected non-nil response")
 		}
-		if len(resp.Data) != 2 {
-			t.Fatal("expected 2 fields")
+		// These fields are always returned on read
+		// 2 Metadata response fields
+		// 2 Identity Token fields
+		if len(resp.Data) != 4 {
+			t.Fatal("expected 4 fields")
 		}
 		expectedResp := &logical.Response{
 			Data: map[string]interface{}{
@@ -58,6 +63,8 @@ func TestBackend_PathConfigRead(t *testing.T) {
 					"service_account_email",
 					"zone",
 				},
+				"identity_token_audience": "",
+				"identity_token_ttl":      int64(0),
 			},
 		}
 		if !reflect.DeepEqual(resp, expectedResp) {
@@ -134,6 +141,8 @@ func TestBackend_PathConfigRead(t *testing.T) {
 				"crm":     "https://cloudresourcemanager.example.com",
 				"compute": "https://compute.example.com",
 			},
+			"identity_token_audience": "",
+			"identity_token_ttl":      int64(0),
 		}
 
 		if !reflect.DeepEqual(resp.Data, expectedData) {
@@ -448,5 +457,116 @@ func TestConfig_Update(t *testing.T) {
 					tc.expected.Credentials)
 			}
 		})
+	}
+}
+
+type testSystemView struct {
+	logical.StaticSystemView
+}
+
+func (d testSystemView) GenerateIdentityToken(_ context.Context, _ *pluginutil.IdentityTokenRequest) (*pluginutil.IdentityTokenResponse, error) {
+	return &pluginutil.IdentityTokenResponse{}, nil
+}
+
+// TestConfig_PluginIdentityToken tests that configuring WIF succeeds
+// It uses the testSystemView interface to generate the ID token
+func TestConfig_PluginIdentityToken(t *testing.T) {
+	config := logical.TestBackendConfig()
+	config.StorageView = &logical.InmemStorage{}
+	config.System = &testSystemView{}
+
+	b := Backend()
+	if err := b.Setup(context.Background(), config); err != nil {
+		t.Fatal(err)
+	}
+
+	configData := map[string]interface{}{
+		"identity_token_ttl":      int64(10),
+		"identity_token_audience": "test-aud",
+		"service_account_email":   "test-service_account",
+	}
+
+	configReq := &logical.Request{
+		Operation: logical.UpdateOperation,
+		Storage:   config.StorageView,
+		Path:      "config",
+		Data:      configData,
+	}
+
+	resp, err := b.HandleRequest(context.Background(), configReq)
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: config writing failed: resp:%#v\n err: %v", resp, err)
+	}
+
+	resp, err = b.HandleRequest(context.Background(), &logical.Request{
+		Operation: logical.ReadOperation,
+		Storage:   config.StorageView,
+		Path:      "config",
+	})
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: config reading failed: resp:%#v\n err: %v", resp, err)
+	}
+
+	// Grab the subset of fields from the response we care to look at for this case
+	got := map[string]interface{}{
+		"identity_token_ttl":      resp.Data["identity_token_ttl"],
+		"identity_token_audience": resp.Data["identity_token_audience"],
+		"service_account_email":   resp.Data["service_account_email"],
+	}
+
+	if !reflect.DeepEqual(got, configData) {
+		t.Errorf("bad: expected to read config root as %#v, got %#v instead", configData, resp.Data)
+	}
+
+	credJson := `{
+				  "project_id": "project_id",
+				  "private_key_id": "key_id",
+				  "private_key": "key",
+				  "client_email": "user@test.com",
+				  "client_id": "client_id"
+				}`
+	// mutually exclusive fields must result in an error
+	configData = map[string]interface{}{
+		"identity_token_audience": "test-aud",
+		"credentials":             credJson,
+	}
+
+	configReq = &logical.Request{
+		Operation: logical.UpdateOperation,
+		Storage:   config.StorageView,
+		Path:      "config",
+		Data:      configData,
+	}
+
+	resp, err = b.HandleRequest(context.Background(), configReq)
+	if err == nil {
+		t.Fatalf("expected an error but got nil")
+	}
+	expectedError := "only one of 'credentials' or 'identity_token_audience' can be set"
+	if !strings.Contains(err.Error(), expectedError) {
+		t.Fatalf("expected err %s, got %s", expectedError, resp.Error())
+	}
+
+	// erase storage so that no service account email is in config
+	config.StorageView = &logical.InmemStorage{}
+	// missing email with audience must result in an error
+	configData = map[string]interface{}{
+		"identity_token_audience": "test-aud",
+	}
+
+	configReq = &logical.Request{
+		Operation: logical.UpdateOperation,
+		Storage:   config.StorageView,
+		Path:      "config",
+		Data:      configData,
+	}
+
+	resp, err = b.HandleRequest(context.Background(), configReq)
+	if err == nil {
+		t.Fatalf("expected an error but got nil")
+	}
+	expectedError = "missing required 'service_account_email' when 'identity_token_audience' is set"
+	if !strings.Contains(err.Error(), expectedError) {
+		t.Fatalf("expected err %s, got %s", expectedError, resp.Error())
 	}
 }

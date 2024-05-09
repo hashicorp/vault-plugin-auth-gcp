@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	jose "github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/go-secure-stdlib/strutil"

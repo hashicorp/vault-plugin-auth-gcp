@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/authmetadata"
+	"github.com/hashicorp/vault/sdk/helper/pluginidentityutil"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
 )
@@ -32,6 +33,9 @@ type gcpConfig struct {
 	CRMCustomEndpoint string `json:"crm_custom_endpoint"`
 	// ComputeCustomEndpoint overrides the service endpoint for compute.googleapis.com
 	ComputeCustomEndpoint string `json:"compute_custom_endpoint"`
+
+	pluginidentityutil.PluginIdentityTokenParams
+	ServiceAccountEmail string `json:"service_account_email"`
 }
 
 // standardizedCreds wraps gcputil.GcpCredentials with a type to allow
@@ -118,6 +122,25 @@ func (c *gcpConfig) Update(d *framework.FieldData) error {
 				return fmt.Errorf("invalid custom endpoint type %q. Available types are: 'api', 'iam', 'crm', 'compute'", k)
 			}
 		}
+	}
+
+	// set plugin identity token fields
+	if err := c.ParsePluginIdentityTokenFields(d); err != nil {
+		return err
+	}
+
+	// set Service Account email
+	saEmail, ok := d.GetOk("service_account_email")
+	if ok {
+		c.ServiceAccountEmail = saEmail.(string)
+	}
+
+	if c.IdentityTokenAudience != "" && c.Credentials != nil {
+		return fmt.Errorf("only one of 'credentials' or 'identity_token_audience' can be set")
+	}
+
+	if c.IdentityTokenAudience != "" && c.ServiceAccountEmail == "" {
+		return fmt.Errorf("missing required 'service_account_email' when 'identity_token_audience' is set")
 	}
 
 	return nil
