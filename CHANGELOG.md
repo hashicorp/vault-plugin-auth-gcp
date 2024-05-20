@@ -1,6 +1,6 @@
 ## Next
 
-## v0.17.0
+## v0.18.0
 
 IMPROVEMENTS:
 * Added support for Workload Identity Federation [GH-204](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/204)
@@ -9,6 +9,11 @@ IMPROVEMENTS:
   * `google.golang.org/genproto/googleapis/rpc` v0.0.0-20240318140521-94a12d6c2237 -> v0.0.0-20240429193739-8cf5692501f6
   * `google.golang.org/grpc`  v1.62.1 -> v1.63.2
   * `google.golang.org/protobuf` v1.33.0 -> v1.34.0
+
+## v0.17.0
+
+IMPROVEMENTS:
+* Remove `gopkg.in/square/go-jose.v2` dependency [GH-203](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/203)
 
 ## v0.16.3
 
