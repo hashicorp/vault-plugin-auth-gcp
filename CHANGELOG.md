@@ -1,5 +1,16 @@
 ## Next
 
+## v0.19.0
+
+IMPROVEMENTS:
+* Updated dependencies:
+   * `cloud.google.com/go/compute/metadata` v0.3.0 -> v0.5.0
+   * `github.com/go-jose/go-jose/v4` v4.0.1 -> v4.0.4
+   * `github.com/hashicorp/vault/api` v1.13.0 -> v1.15.0
+   * `github.com/hashicorp/vault/sdk` v0.12.0 -> v0.14.0
+   * `golang.org/x/oauth2` v0.19.0 -> v0.23.0
+   * `google.golang.org/api` v0.177.0 -> v0.196.0
+
 ## v0.18.0
 
 IMPROVEMENTS:
