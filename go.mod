@@ -9,7 +9,7 @@ require (
 	github.com/go-jose/go-jose/v4 v4.0.4
 	github.com/golang/mock v1.6.0
 	github.com/hashicorp/go-cleanhttp v0.5.2
-	github.com/hashicorp/go-gcp-common v0.9.0
+	github.com/hashicorp/go-gcp-common v0.9.1
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.8
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2
