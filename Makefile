@@ -47,7 +47,7 @@ testacc:
 # source files.
 .PHONY: generate
 generate:
-	@go generate $(go list ./... | grep -v /vendor/)
+	@go generate $(shell go list ./plugin/... | grep -v /vendor/)
 
 # bootstrap the build by downloading additional tools
 .PHONY: bootstrap
