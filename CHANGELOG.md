@@ -6,7 +6,7 @@ IMPROVEMENTS:
   * Bump `gopkg.in/go-jose/go-jose.v2` v2.6.0 -> v.2.6.3 
   * Bump `github.com/hashicorp/go-retryablehttp` v0.7.1 -> v0.7.7
   * Bump `github.com/docker/docker` v24.0.7 -> v25.0.6
-  * Bump `golang.org/x/net` v0.20.0 -> v0.31.0
+  * Bump `golang.org/x/net` v0.20.0 -> v0.23.0
   * Bump `google.golang.org/protobuf` v1.32.0 -> v1.35.2
 
 ## v0.16.2
