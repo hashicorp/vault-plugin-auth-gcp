@@ -2,8 +2,6 @@ module github.com/hashicorp/vault-plugin-auth-gcp
 
 go 1.22
 
-toolchain go1.23.3
-
 require (
 	cloud.google.com/go/compute/metadata v0.5.0
 	github.com/golang/mock v1.6.0
