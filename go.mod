@@ -6,7 +6,6 @@ toolchain go1.23.3
 
 require (
 	cloud.google.com/go/compute/metadata v0.5.0
-	github.com/go-jose/go-jose v2.6.3+incompatible
 	github.com/golang/mock v1.6.0
 	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/hashicorp/go-gcp-common v0.8.0
