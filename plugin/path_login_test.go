@@ -20,8 +20,8 @@ import (
 	"google.golang.org/api/iam/v1"
 	"google.golang.org/api/iamcredentials/v1"
 	"google.golang.org/api/option"
-	jose "gopkg.in/square/go-jose.v2"
-	"gopkg.in/square/go-jose.v2/jwt"
+	"gopkg.in/go-jose/go-jose.v2"
+	jwt "gopkg.in/go-jose/go-jose.v2/jwt"
 )
 
 func TestRoleResolution(t *testing.T) {

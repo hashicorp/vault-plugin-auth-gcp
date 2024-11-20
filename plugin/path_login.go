@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-jose/go-jose/jwt"
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/go-secure-stdlib/strutil"
 	"github.com/hashicorp/vault/sdk/framework"
@@ -21,7 +22,6 @@ import (
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
-	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 const (
