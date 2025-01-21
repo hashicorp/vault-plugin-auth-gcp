@@ -82,8 +82,9 @@ func Backend() *GcpAuthBackend {
 			},
 			pathsRole(b),
 		),
-		InitializeFunc: b.initialize,
-		Invalidate:     b.invalidate,
+		InitializeFunc:   b.initialize,
+		Invalidate:       b.invalidate,
+		RotateCredential: b.rotateCredential,
 	}
 	return b
 }
