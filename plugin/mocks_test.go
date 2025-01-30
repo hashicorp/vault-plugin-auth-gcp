@@ -15,6 +15,7 @@ import (
 	pluginutil "github.com/hashicorp/vault/sdk/helper/pluginutil"
 	wrapping "github.com/hashicorp/vault/sdk/helper/wrapping"
 	logical "github.com/hashicorp/vault/sdk/logical"
+	rotation "github.com/hashicorp/vault/sdk/rotation"
 )
 
 // MockSystemView is a mock of SystemView interface.
@@ -330,6 +331,14 @@ func (m *MockSystemView) VaultVersion(arg0 context.Context) (string, error) {
 func (mr *MockSystemViewMockRecorder) VaultVersion(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VaultVersion", reflect.TypeOf((*MockSystemView)(nil).VaultVersion), arg0)
+}
+
+func (m *MockSystemView) DeregisterRotationJob(ctx context.Context, r *rotation.RotationJobDeregisterRequest) error {
+	return nil
+}
+
+func (m *MockSystemView) RegisterRotationJob(ctx context.Context, r *rotation.RotationJobConfigureRequest) (string, error) {
+	return "", nil
 }
 
 // MockStorage is a mock of Storage interface.

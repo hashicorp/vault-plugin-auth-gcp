@@ -5,12 +5,10 @@ package gcpauth
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
 
-	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/authmetadata"
 	"github.com/hashicorp/vault/sdk/helper/automatedrotationutil"
@@ -18,7 +16,6 @@ import (
 	"github.com/hashicorp/vault/sdk/helper/pluginutil"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/sdk/rotation"
-	"google.golang.org/api/iam/v1"
 )
 
 const (
@@ -181,39 +178,41 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 		return nil, fmt.Errorf("failed to persist configuration to storage: %w", err)
 	}
 
-	// Now that the root config is set up, register the rotation job if it's required.
-	if c.ShouldRegisterRotationJob() {
-		cfgReq := &rotation.RotationJobConfigureRequest{
-			Name:             rootRotationJobName,
-			MountPoint:       req.MountPoint,
-			ReqPath:          req.Path,
-			RotationSchedule: c.RotationSchedule,
-			RotationWindow:   c.RotationWindow,
-			RotationPeriod:   c.RotationPeriod,
+	// Disable Automated Rotation and Deregister credentials if required
+	if c.DisableAutomatedRotation {
+		// Ensure de-registering only occurs on updates and if
+		// a credential has actually been registered (rotation_period or rotation_schedule is set)
+		deregisterReq := &rotation.RotationJobDeregisterRequest{
+			MountType: req.MountType,
+			ReqPath:   req.Path,
 		}
-
-		rotationJob, err := rotation.ConfigureRotationJob(cfgReq)
+		b.Logger().Debug("Deregistering rotation job", "mount", req.MountPoint+req.Path)
+		err := b.System().DeregisterRotationJob(ctx, deregisterReq)
 		if err != nil {
-			return logical.ErrorResponse("error configuring rotation job: %s", err), nil
+			return logical.ErrorResponse("error de-registering rotation job: %s", err), nil
 		}
+	} else {
+		// Now that the root config is set up, register the rotation job if it's required.
+		if c.ShouldRegisterRotationJob() {
+			cfgReq := &rotation.RotationJobConfigureRequest{
+				Name:             rootRotationJobName,
+				MountType:        req.MountType,
+				ReqPath:          req.Path,
+				RotationSchedule: c.RotationSchedule,
+				RotationWindow:   c.RotationWindow,
+				RotationPeriod:   c.RotationPeriod,
+			}
 
-		b.Logger().Debug("Registering rotation job", "mount", req.MountPoint+req.Path)
-		rotationID, err := b.System().RegisterRotationJob(ctx, rotationJob)
-		if err != nil {
-			return logical.ErrorResponse("error registering rotation job: %s", err), nil
-		}
+			_, err := rotation.ConfigureRotationJob(cfgReq)
+			if err != nil {
+				return logical.ErrorResponse("error configuring rotation job: %s", err), nil
+			}
 
-		c.RotationID = rotationID
-
-		// Create/update the storage entry
-		entry, err := logical.StorageEntryJSON("config", c)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate JSON configuration: %w", err)
-		}
-
-		// Save the storage entry
-		if err := req.Storage.Put(ctx, entry); err != nil {
-			return nil, fmt.Errorf("failed to persist configuration to storage: %w", err)
+			b.Logger().Debug("Registering rotation job", "mount", req.MountPoint+req.Path)
+			_, err = b.System().RegisterRotationJob(ctx, cfgReq)
+			if err != nil {
+				return logical.ErrorResponse("error registering rotation job: %s", err), nil
+			}
 		}
 	}
 
@@ -287,87 +286,6 @@ func (b *GcpAuthBackend) pathConfigRead(ctx context.Context, req *logical.Reques
 	return &logical.Response{
 		Data: resp,
 	}, nil
-}
-
-func (b *GcpAuthBackend) rotateCredential(ctx context.Context, req *logical.Request) error {
-	// Get the current configuration
-	cfg, err := b.config(ctx, req.Storage)
-	if err != nil {
-		return err
-	}
-	if cfg == nil {
-		return fmt.Errorf("no configuration")
-	}
-	if cfg.Credentials.PrivateKey == "" {
-		return fmt.Errorf("configuration does not have credentials - this " +
-			"endpoint only works with user-provided JSON credentials explicitly " +
-			"provided via the config/ endpoint")
-	}
-
-	// Parse the credential JSON to extract the email (we need it for the API
-	// call)
-	creds := cfg.Credentials
-
-	// Generate a new service account key
-	iamAdmin, err := b.IAMClient(ctx, req.Storage)
-	if err != nil {
-		return fmt.Errorf("failed to create iam client: %w", err)
-	}
-
-	saName := "projects/-/serviceAccounts/" + creds.ClientEmail
-	newKey, err := iamAdmin.Projects.ServiceAccounts.Keys.
-		Create(saName, &iam.CreateServiceAccountKeyRequest{
-			KeyAlgorithm:   keyAlgorithmRSA2k,
-			PrivateKeyType: privateKeyTypeJson,
-		}).
-		Context(ctx).
-		Do()
-	if err != nil {
-		return fmt.Errorf("failed to create new key: %w", err)
-	}
-
-	// Base64-decode the private key data (it's the JSON file)
-	newCredsJSON, err := base64.StdEncoding.DecodeString(newKey.PrivateKeyData)
-	if err != nil {
-		return fmt.Errorf("failed to decode credentials: %w", err)
-	}
-
-	// Verify creds are valid
-	newCreds, err := gcputil.Credentials(string(newCredsJSON))
-	if err != nil {
-		return fmt.Errorf("api returned invalid credentials: %w", err)
-	}
-
-	// Update the configuration
-	cfg.Credentials = newCreds
-	entry, err := logical.StorageEntryJSON("config", cfg)
-	if err != nil {
-		return fmt.Errorf("failed to generate new configuration: %w", err)
-	}
-	if err := req.Storage.Put(ctx, entry); err != nil {
-		return fmt.Errorf("failed to save new configuration: %w", err)
-	}
-
-	// Clear caches to pick up the new credentials
-	b.ClearCaches()
-
-	// Delete the old service account key
-	oldKeyName := fmt.Sprintf("projects/%s/serviceAccounts/%s/keys/%s",
-		creds.ProjectId,
-		creds.ClientEmail,
-		creds.PrivateKeyId)
-	if _, err := iamAdmin.Projects.ServiceAccounts.Keys.
-		Delete(oldKeyName).
-		Context(ctx).
-		Do(); err != nil {
-		return fmt.Errorf(
-			"failed to delete old service account key (%q) - the new service "+
-				"account key (%q) is active, but the old one still exists: %w",
-			creds.PrivateKeyId, newCreds.PrivateKeyId, err)
-	}
-
-	// We did it!
-	return nil
 }
 
 // config reads the backend's gcpConfig from storage.
