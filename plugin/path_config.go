@@ -203,11 +203,6 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 				RotationPeriod:   c.RotationPeriod,
 			}
 
-			_, err := rotation.ConfigureRotationJob(cfgReq)
-			if err != nil {
-				return logical.ErrorResponse("error configuring rotation job: %s", err), nil
-			}
-
 			b.Logger().Debug("Registering rotation job", "mount", req.MountPoint+req.Path)
 			_, err = b.System().RegisterRotationJob(ctx, cfgReq)
 			if err != nil {
