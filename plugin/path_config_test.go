@@ -63,8 +63,12 @@ func TestBackend_PathConfigRead(t *testing.T) {
 					"service_account_email",
 					"zone",
 				},
-				"identity_token_audience": "",
-				"identity_token_ttl":      int64(0),
+				"identity_token_audience":    "",
+				"identity_token_ttl":         int64(0),
+				"disable_automated_rotation": false,
+				"rotation_period":            0,
+				"rotation_window":            0,
+				"rotation_schedule":          "",
 			},
 		}
 		if !reflect.DeepEqual(resp, expectedResp) {
@@ -242,7 +246,6 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 		}); err == nil {
 			t.Fatal("expected error but got nil")
 		}
-
 	})
 
 	t.Run("exist", func(t *testing.T) {
