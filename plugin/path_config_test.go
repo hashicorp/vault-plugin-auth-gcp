@@ -63,12 +63,8 @@ func TestBackend_PathConfigRead(t *testing.T) {
 					"service_account_email",
 					"zone",
 				},
-				"identity_token_audience":    "",
-				"identity_token_ttl":         int64(0),
-				"disable_automated_rotation": false,
-				"rotation_period":            0,
-				"rotation_window":            0,
-				"rotation_schedule":          "",
+				"identity_token_audience": "",
+				"identity_token_ttl":      int64(0),
 			},
 		}
 		if !reflect.DeepEqual(resp, expectedResp) {
