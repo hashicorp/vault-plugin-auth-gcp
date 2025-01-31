@@ -145,8 +145,12 @@ func TestBackend_PathConfigRead(t *testing.T) {
 				"crm":     "https://cloudresourcemanager.example.com",
 				"compute": "https://compute.example.com",
 			},
-			"identity_token_audience": "",
-			"identity_token_ttl":      int64(0),
+			"identity_token_audience":    "",
+			"identity_token_ttl":         int64(0),
+			"disable_automated_rotation": false,
+			"rotation_period":            0,
+			"rotation_window":            0,
+			"rotation_schedule":          "",
 		}
 
 		if !reflect.DeepEqual(resp.Data, expectedData) {
