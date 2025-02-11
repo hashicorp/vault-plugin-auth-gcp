@@ -42,8 +42,8 @@ func TestBackend_PathConfigRead(t *testing.T) {
 		// These fields are always returned on read
 		// 2 Metadata response fields
 		// 2 Identity Token fields
-		if len(resp.Data) != 4 {
-			t.Fatal("expected 4 fields")
+		if len(resp.Data) != 7 {
+			t.Fatal("expected 7 fields")
 		}
 		expectedResp := &logical.Response{
 			Data: map[string]interface{}{
