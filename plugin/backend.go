@@ -79,11 +79,13 @@ func Backend() *GcpAuthBackend {
 			[]*framework.Path{
 				pathConfig(b),
 				pathLogin(b),
+				pathConfigRotateRoot(b),
 			},
 			pathsRole(b),
 		),
-		InitializeFunc: b.initialize,
-		Invalidate:     b.invalidate,
+		InitializeFunc:   b.initialize,
+		Invalidate:       b.invalidate,
+		RotateCredential: b.rotateRootCredential,
 	}
 	return b
 }

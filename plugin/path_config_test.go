@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/vault/sdk/helper/authmetadata"
 	"github.com/hashicorp/vault/sdk/helper/pluginutil"
 	"github.com/hashicorp/vault/sdk/logical"
+	rotation "github.com/hashicorp/vault/sdk/rotation"
 )
 
 func TestBackend_PathConfigRead(t *testing.T) {
@@ -41,8 +42,9 @@ func TestBackend_PathConfigRead(t *testing.T) {
 		// These fields are always returned on read
 		// 2 Metadata response fields
 		// 2 Identity Token fields
-		if len(resp.Data) != 4 {
-			t.Fatal("expected 4 fields")
+		// 4 Automated root rotation fields
+		if len(resp.Data) != 8 {
+			t.Fatal("expected 8 fields")
 		}
 		expectedResp := &logical.Response{
 			Data: map[string]interface{}{
@@ -63,8 +65,12 @@ func TestBackend_PathConfigRead(t *testing.T) {
 					"service_account_email",
 					"zone",
 				},
-				"identity_token_audience": "",
-				"identity_token_ttl":      int64(0),
+				"identity_token_audience":    "",
+				"identity_token_ttl":         int64(0),
+				"rotation_window":            0,
+				"rotation_period":            0,
+				"rotation_schedule":          "",
+				"disable_automated_rotation": false,
 			},
 		}
 		if !reflect.DeepEqual(resp, expectedResp) {
@@ -141,8 +147,12 @@ func TestBackend_PathConfigRead(t *testing.T) {
 				"crm":     "https://cloudresourcemanager.example.com",
 				"compute": "https://compute.example.com",
 			},
-			"identity_token_audience": "",
-			"identity_token_ttl":      int64(0),
+			"identity_token_audience":    "",
+			"identity_token_ttl":         int64(0),
+			"disable_automated_rotation": false,
+			"rotation_period":            0,
+			"rotation_window":            0,
+			"rotation_schedule":          "",
 		}
 
 		if !reflect.DeepEqual(resp.Data, expectedData) {
@@ -242,7 +252,6 @@ func TestBackend_PathConfigWrite(t *testing.T) {
 		}); err == nil {
 			t.Fatal("expected error but got nil")
 		}
-
 	})
 
 	t.Run("exist", func(t *testing.T) {
@@ -466,6 +475,10 @@ type testSystemView struct {
 
 func (d testSystemView) GenerateIdentityToken(_ context.Context, _ *pluginutil.IdentityTokenRequest) (*pluginutil.IdentityTokenResponse, error) {
 	return &pluginutil.IdentityTokenResponse{}, nil
+}
+
+func (d testSystemView) DeregisterRotationJob(_ context.Context, _ *rotation.RotationJobDeregisterRequest) error {
+	return nil
 }
 
 // TestConfig_PluginIdentityToken tests that configuring WIF succeeds

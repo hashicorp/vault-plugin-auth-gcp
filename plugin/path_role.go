@@ -403,16 +403,20 @@ func (b *GcpAuthBackend) pathRoleList(ctx context.Context, req *logical.Request,
 	return logical.ListResponse(roles), nil
 }
 
-const pathRoleHelpSyn = `Create a GCP role with associated policies and required attributes.`
-const pathRoleHelpDesc = `
+const (
+	pathRoleHelpSyn  = `Create a GCP role with associated policies and required attributes.`
+	pathRoleHelpDesc = `
 A role is required to login under the GCP auth backend. A role binds Vault policies and has
 required attributes that an authenticating entity must fulfill to login against this role.
 After authenticating the instance, Vault uses the bound policies to determine which resources
 the authorization token for the instance can access.
 `
+)
 
-const pathListRolesHelpSyn = `Lists all the roles that are registered with Vault.`
-const pathListRolesHelpDesc = `Lists all roles under the GCP backends by name.`
+const (
+	pathListRolesHelpSyn  = `Lists all the roles that are registered with Vault.`
+	pathListRolesHelpDesc = `Lists all roles under the GCP backends by name.`
+)
 
 func (b *GcpAuthBackend) pathRoleEditIamServiceAccounts(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	// Validate we didn't get extraneous fields

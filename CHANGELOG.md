@@ -1,5 +1,11 @@
 ## Next
 
+## v0.20.0
+
+IMPROVEMENTS:
+* Add support for Vault Enterprise automated root rotation
+* Add config/rotate-root endpoint
+
 ## v0.19.0
 
 IMPROVEMENTS:

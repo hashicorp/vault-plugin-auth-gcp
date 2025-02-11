@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/authmetadata"
+	"github.com/hashicorp/vault/sdk/helper/automatedrotationutil"
 	"github.com/hashicorp/vault/sdk/helper/pluginidentityutil"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iam/v1"
@@ -34,8 +35,9 @@ type gcpConfig struct {
 	// ComputeCustomEndpoint overrides the service endpoint for compute.googleapis.com
 	ComputeCustomEndpoint string `json:"compute_custom_endpoint"`
 
-	pluginidentityutil.PluginIdentityTokenParams
 	ServiceAccountEmail string `json:"service_account_email"`
+	pluginidentityutil.PluginIdentityTokenParams
+	automatedrotationutil.AutomatedRotationParams
 }
 
 // standardizedCreds wraps gcputil.GcpCredentials with a type to allow
@@ -126,6 +128,11 @@ func (c *gcpConfig) Update(d *framework.FieldData) error {
 
 	// set plugin identity token fields
 	if err := c.ParsePluginIdentityTokenFields(d); err != nil {
+		return err
+	}
+
+	// set automated rotation fields
+	if err := c.ParseAutomatedRotationFields(d); err != nil {
 		return err
 	}
 
