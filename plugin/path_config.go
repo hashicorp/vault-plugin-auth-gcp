@@ -19,9 +19,8 @@ import (
 )
 
 const (
-	rootRotationJobName = "gcp-auth-root-creds"
-	keyAlgorithmRSA2k   = "KEY_ALG_RSA_2048"
-	privateKeyTypeJson  = "TYPE_GOOGLE_CREDENTIALS_FILE"
+	keyAlgorithmRSA2k  = "KEY_ALG_RSA_2048"
+	privateKeyTypeJson = "TYPE_GOOGLE_CREDENTIALS_FILE"
 )
 
 var (
@@ -150,11 +149,6 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 		return nil, err
 	}
 
-	backupCfg, err := b.config(ctx, req.Storage)
-	if err != nil {
-		return nil, err
-	}
-
 	if err := cfg.Update(d); err != nil {
 		return nil, logical.CodedError(http.StatusBadRequest, err.Error())
 	}
@@ -172,6 +166,36 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 		}
 	}
 
+	var performedRotationManagerOpern string
+	if cfg.ShouldDeregisterRotationJob() {
+		performedRotationManagerOpern = "deregistration"
+		// Disable Automated Rotation and Deregister credentials if required
+		deregisterReq := &rotation.RotationJobDeregisterRequest{
+			MountPoint: req.MountPoint,
+			ReqPath:    req.Path,
+		}
+
+		b.Logger().Debug("Deregistering rotation job", "mount", req.MountPoint+req.Path)
+		if err := b.System().DeregisterRotationJob(ctx, deregisterReq); err != nil {
+			return logical.ErrorResponse("error deregistering rotation job: %s", err), nil
+		}
+	} else if cfg.ShouldRegisterRotationJob() {
+		performedRotationManagerOpern = "registration"
+		// Register the rotation job if it's required.
+		cfgReq := &rotation.RotationJobConfigureRequest{
+			MountPoint:       req.MountPoint,
+			ReqPath:          req.Path,
+			RotationSchedule: cfg.RotationSchedule,
+			RotationWindow:   cfg.RotationWindow,
+			RotationPeriod:   cfg.RotationPeriod,
+		}
+
+		b.Logger().Debug("Registering rotation job", "mount", req.MountPoint+req.Path)
+		if _, err = b.System().RegisterRotationJob(ctx, cfgReq); err != nil {
+			return logical.ErrorResponse("error registering rotation job: %s", err), nil
+		}
+	}
+
 	// Create/update the storage entry
 	entry, err := logical.StorageEntryJSON("config", cfg)
 	if err != nil {
@@ -180,63 +204,16 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 
 	// Save the storage entry
 	if err := req.Storage.Put(ctx, entry); err != nil {
-		return nil, fmt.Errorf("failed to persist configuration to storage: %w", err)
-	}
+		wrappedError := err
+		if performedRotationManagerOpern != "" {
+			b.Logger().Error("write to storage failed but the rotation manager still succeeded.",
+				"operation", performedRotationManagerOpern, "mount", req.MountPoint, "path", req.Path)
 
-	// Disable Automated Rotation and Deregister credentials if required
-	if cfg.DisableAutomatedRotation {
-		deregisterReq := &rotation.RotationJobDeregisterRequest{
-			MountType: req.MountType,
-			ReqPath:   req.Path,
+			wrappedError = fmt.Errorf("write to storage failed but the rotation manager still succeeded; "+
+				"operation=%s, mount=%s, path=%s, storageError=%s", performedRotationManagerOpern, req.MountPoint, req.Path, err)
 		}
 
-		b.Logger().Debug("Deregistering rotation job", "mount", req.MountPoint+req.Path)
-		err := b.System().DeregisterRotationJob(ctx, deregisterReq)
-		if err != nil {
-			resp := logical.ErrorResponse("error deregistering rotation job but config was successfully updated: %s", err)
-			resp.AddWarning("config was successfully updated despite failing to disable automated rotation")
-
-			// Attempt to back out the storage update
-			entry, err := logical.StorageEntryJSON("config", backupCfg)
-			if err != nil {
-				return resp, nil
-			}
-			if err := req.Storage.Put(ctx, entry); err != nil {
-				return resp, nil
-			}
-
-			return nil, nil
-		}
-	} else {
-		// Now that the root config is set up, register the rotation job if it's required.
-		if cfg.ShouldRegisterRotationJob() {
-			cfgReq := &rotation.RotationJobConfigureRequest{
-				Name:             rootRotationJobName,
-				MountType:        req.MountType,
-				ReqPath:          req.Path,
-				RotationSchedule: cfg.RotationSchedule,
-				RotationWindow:   cfg.RotationWindow,
-				RotationPeriod:   cfg.RotationPeriod,
-			}
-
-			b.Logger().Debug("Registering rotation job", "mount", req.MountPoint+req.Path)
-			_, err = b.System().RegisterRotationJob(ctx, cfgReq)
-			if err != nil {
-				resp := logical.ErrorResponse("error registering rotation job but config was successfully updated: %s", err)
-				resp.AddWarning("config was successfully updated despite failing to enable automated rotation")
-
-				// Attempt to back out the storage update
-				entry, err := logical.StorageEntryJSON("config", backupCfg)
-				if err != nil {
-					return resp, nil
-				}
-				if err := req.Storage.Put(ctx, entry); err != nil {
-					return resp, nil
-				}
-
-				return nil, nil
-			}
-		}
+		return nil, wrappedError
 	}
 
 	// Invalidate existing client so it reads the new configuration
