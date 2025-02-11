@@ -33,6 +33,7 @@ func testBackend(tb testing.TB) (*GcpAuthBackend, logical.Storage) {
 	config := logical.TestBackendConfig()
 	config.StorageView = new(logical.InmemStorage)
 	config.Logger = hclog.NewNullLogger()
+	config.System = &testSystemView{}
 
 	b, err := Factory(context.Background(), config)
 	if err != nil {

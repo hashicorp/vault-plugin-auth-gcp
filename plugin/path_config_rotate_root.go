@@ -63,7 +63,7 @@ func (b *GcpAuthBackend) rotateRootCredential(ctx context.Context, req *logical.
 	if cfg == nil {
 		return fmt.Errorf("no configuration")
 	}
-	if cfg.Credentials.PrivateKey == "" {
+	if cfg.Credentials == nil {
 		return fmt.Errorf("configuration does not have credentials - this " +
 			"endpoint only works with user-provided JSON credentials explicitly " +
 			"provided via the config/ endpoint")
