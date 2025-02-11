@@ -333,11 +333,11 @@ func (mr *MockSystemViewMockRecorder) VaultVersion(arg0 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VaultVersion", reflect.TypeOf((*MockSystemView)(nil).VaultVersion), arg0)
 }
 
-func (m *MockSystemView) DeregisterRotationJob(ctx context.Context, r *rotation.RotationJobDeregisterRequest) error {
+func (m *MockSystemView) DeregisterRotationJob(_ context.Context, _ *rotation.RotationJobDeregisterRequest) error {
 	return nil
 }
 
-func (m *MockSystemView) RegisterRotationJob(ctx context.Context, r *rotation.RotationJobConfigureRequest) (string, error) {
+func (m *MockSystemView) RegisterRotationJob(_ context.Context, _ *rotation.RotationJobConfigureRequest) (string, error) {
 	return "", nil
 }
 
