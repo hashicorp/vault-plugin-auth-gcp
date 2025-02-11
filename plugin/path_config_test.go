@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/vault/sdk/helper/authmetadata"
 	"github.com/hashicorp/vault/sdk/helper/pluginutil"
 	"github.com/hashicorp/vault/sdk/logical"
+	rotation "github.com/hashicorp/vault/sdk/rotation"
 )
 
 func TestBackend_PathConfigRead(t *testing.T) {
@@ -469,6 +470,10 @@ type testSystemView struct {
 
 func (d testSystemView) GenerateIdentityToken(_ context.Context, _ *pluginutil.IdentityTokenRequest) (*pluginutil.IdentityTokenResponse, error) {
 	return &pluginutil.IdentityTokenResponse{}, nil
+}
+
+func (d testSystemView) DeregisterRotationJob(_ context.Context, _ *rotation.RotationJobDeregisterRequest) error {
+	return nil
 }
 
 // TestConfig_PluginIdentityToken tests that configuring WIF succeeds
