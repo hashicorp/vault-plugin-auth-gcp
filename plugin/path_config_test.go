@@ -67,8 +67,8 @@ func TestBackend_PathConfigRead(t *testing.T) {
 				},
 				"identity_token_audience":    "",
 				"identity_token_ttl":         int64(0),
-				"rotation_window":            0,
-				"rotation_period":            0,
+				"rotation_window":            float64(0),
+				"rotation_period":            float64(0),
 				"rotation_schedule":          "",
 				"disable_automated_rotation": false,
 			},
@@ -150,8 +150,8 @@ func TestBackend_PathConfigRead(t *testing.T) {
 			"identity_token_audience":    "",
 			"identity_token_ttl":         int64(0),
 			"disable_automated_rotation": false,
-			"rotation_period":            0,
-			"rotation_window":            0,
+			"rotation_period":            float64(0),
+			"rotation_window":            float64(0),
 			"rotation_schedule":          "",
 		}
 
