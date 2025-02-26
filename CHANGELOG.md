@@ -1,11 +1,23 @@
 ## Next
 
+## v0.20.1
+
+IMPROVEMENTS:
+* Update dependencies:
+  * `golang.org/x/crypto` v0.33.0 -> v0.35.0
+  * `github.com/go-jose/go-jose/v4` v4.0.4 -> v4.0.5
+  * `github.com/hashicorp/vault/sdk` v0.15.0 -> v0.15.2
+
 ## v0.20.0
 
 IMPROVEMENTS:
 * Add support for Vault Enterprise automated root rotation
 * Add config/rotate-root endpoint
-* Update dependencies [GH-214](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/214)
+* Update dependencies:
+  * `github.com/hashicorp/vault/api` v1.15.0 -> v1.16.0
+  * `golang.org/x/oauth2` v0.24.0 -> v0.26.0
+  * `google.golang.org/api` v0.214.0 -> v0.221.0
+
 
 ## v0.19.0
 
