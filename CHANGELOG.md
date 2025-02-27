@@ -17,6 +17,7 @@ IMPROVEMENTS:
   * `github.com/hashicorp/vault/api` v1.15.0 -> v1.16.0
   * `golang.org/x/oauth2` v0.24.0 -> v0.26.0
   * `google.golang.org/api` v0.214.0 -> v0.221.0
+  * `golang.org/x/oauth2` v0.26.0 -> v0.27.0
 
 
 ## v0.19.0
