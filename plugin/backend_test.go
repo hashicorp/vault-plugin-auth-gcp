@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/go-gcp-common/gcputil"
 	hclog "github.com/hashicorp/go-hclog"
@@ -33,6 +34,12 @@ func testBackend(tb testing.TB) (*GcpAuthBackend, logical.Storage) {
 	config := logical.TestBackendConfig()
 	config.StorageView = new(logical.InmemStorage)
 	config.Logger = hclog.NewNullLogger()
+	config.System = &testSystemView{
+		StaticSystemView: logical.StaticSystemView{
+			DefaultLeaseTTLVal: 1 * time.Hour,
+			MaxLeaseTTLVal:     12 * time.Hour,
+		},
+	}
 
 	b, err := Factory(context.Background(), config)
 	if err != nil {

@@ -11,9 +11,16 @@ import (
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/authmetadata"
+	"github.com/hashicorp/vault/sdk/helper/automatedrotationutil"
 	"github.com/hashicorp/vault/sdk/helper/pluginidentityutil"
 	"github.com/hashicorp/vault/sdk/helper/pluginutil"
 	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/hashicorp/vault/sdk/rotation"
+)
+
+const (
+	keyAlgorithmRSA2k  = "KEY_ALG_RSA_2048"
+	privateKeyTypeJson = "TYPE_GOOGLE_CREDENTIALS_FILE"
 )
 
 var (
@@ -127,6 +134,7 @@ iam AUTH:
 	}
 
 	pluginidentityutil.AddPluginIdentityTokenFields(p.Fields)
+	automatedrotationutil.AddAutomatedRotationFields(p.Fields)
 
 	return p
 }
@@ -136,19 +144,19 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 		return nil, logical.CodedError(http.StatusUnprocessableEntity, err.Error())
 	}
 
-	c, err := b.config(ctx, req.Storage)
+	cfg, err := b.config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := c.Update(d); err != nil {
+	if err := cfg.Update(d); err != nil {
 		return nil, logical.CodedError(http.StatusBadRequest, err.Error())
 	}
 
 	// generate token to check if WIF is enabled on this edition of Vault
-	if c.IdentityTokenAudience != "" {
+	if cfg.IdentityTokenAudience != "" {
 		_, err := b.System().GenerateIdentityToken(ctx, &pluginutil.IdentityTokenRequest{
-			Audience: c.IdentityTokenAudience,
+			Audience: cfg.IdentityTokenAudience,
 		})
 		if err != nil {
 			if errors.Is(err, pluginidentityutil.ErrPluginWorkloadIdentityUnsupported) {
@@ -158,15 +166,54 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 		}
 	}
 
+	var performedRotationManagerOpern string
+	if cfg.ShouldDeregisterRotationJob() {
+		performedRotationManagerOpern = "deregistration"
+		// Disable Automated Rotation and Deregister credentials if required
+		deregisterReq := &rotation.RotationJobDeregisterRequest{
+			MountPoint: req.MountPoint,
+			ReqPath:    req.Path,
+		}
+
+		b.Logger().Debug("Deregistering rotation job", "mount", req.MountPoint+req.Path)
+		if err := b.System().DeregisterRotationJob(ctx, deregisterReq); err != nil {
+			return logical.ErrorResponse("error deregistering rotation job: %s", err), nil
+		}
+	} else if cfg.ShouldRegisterRotationJob() {
+		performedRotationManagerOpern = "registration"
+		// Register the rotation job if it's required.
+		cfgReq := &rotation.RotationJobConfigureRequest{
+			MountPoint:       req.MountPoint,
+			ReqPath:          req.Path,
+			RotationSchedule: cfg.RotationSchedule,
+			RotationWindow:   cfg.RotationWindow,
+			RotationPeriod:   cfg.RotationPeriod,
+		}
+
+		b.Logger().Debug("Registering rotation job", "mount", req.MountPoint+req.Path)
+		if _, err = b.System().RegisterRotationJob(ctx, cfgReq); err != nil {
+			return logical.ErrorResponse("error registering rotation job: %s", err), nil
+		}
+	}
+
 	// Create/update the storage entry
-	entry, err := logical.StorageEntryJSON("config", c)
+	entry, err := logical.StorageEntryJSON("config", cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate JSON configuration: %w", err)
 	}
 
 	// Save the storage entry
 	if err := req.Storage.Put(ctx, entry); err != nil {
-		return nil, fmt.Errorf("failed to persist configuration to storage: %w", err)
+		wrappedError := err
+		if performedRotationManagerOpern != "" {
+			b.Logger().Error("write to storage failed but the rotation manager still succeeded.",
+				"operation", performedRotationManagerOpern, "mount", req.MountPoint, "path", req.Path)
+
+			wrappedError = fmt.Errorf("write to storage failed but the rotation manager still succeeded; "+
+				"operation=%s, mount=%s, path=%s, storageError=%s", performedRotationManagerOpern, req.MountPoint, req.Path, err)
+		}
+
+		return nil, wrappedError
 	}
 
 	// Invalidate existing client so it reads the new configuration
@@ -234,6 +281,7 @@ func (b *GcpAuthBackend) pathConfigRead(ctx context.Context, req *logical.Reques
 	}
 
 	config.PopulatePluginIdentityTokenData(resp)
+	config.PopulateAutomatedRotationData(resp)
 
 	return &logical.Response{
 		Data: resp,
