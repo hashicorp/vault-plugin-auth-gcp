@@ -119,6 +119,8 @@ Deprecated. This field does nothing and be removed in a future release`,
 					OperationVerb:   "configure",
 					OperationSuffix: "auth",
 				},
+				ForwardPerformanceSecondary: true,
+				ForwardPerformanceStandby:   true,
 			},
 		},
 
