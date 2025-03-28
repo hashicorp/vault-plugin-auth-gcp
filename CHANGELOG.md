@@ -1,5 +1,10 @@
 ## Next
 
+## v0.20.2
+
+BUG FIXES:
+* Fix a panic when a performance standby node attempts to write/update config [GH-228](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/228)
+
 ## v0.20.1
 
 IMPROVEMENTS:
