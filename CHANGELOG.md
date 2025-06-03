@@ -1,5 +1,22 @@
 ## Next
 
+## 0.21.0
+### Jun 03, 2025
+
+IMPROVEMENTS:
+* building with go 1.24.3
+* Updated dependencies: 
+   * golang.org/x/crypto v0.36.0 => v0.38.0
+   * golang.org/x/net v0.37.0 => v0.40.0
+   * golang.org/x/sys v0.31.0 => v0.33.0
+   * golang.org/x/text v0.23.0 => v0.25.0
+   * cloud.google.com/go/compute/metadata v0.6.0 -> v0.7.0
+   * github.com/go-jose/go-jose/v4 v4.0.5 -> v4.1.0
+   * github.com/hashicorp/go-secure-stdlib/parseutil v0.1.9 -> v0.2.0
+   * github.com/hashicorp/vault/sdk v0.15.2 -> v0.17.0
+   * golang.org/x/oauth2 v0.28.0 -> v0.30.0
+   * google.golang.org/api v0.221.0 -> v0.235.0
+ 
 ## v0.20.2
 
 BUG FIXES:
