@@ -200,10 +200,19 @@ account for whatever backend you're testing.
 To run the acceptance tests, you will need a GCP IAM service account with the
 appropriate permissions. You can use the steps explained in the [setup section](#set-up-plugin-in-vault) to configure one for you.
 
+Alternately, use the bootstrap terraform to create the GCP IAM service account
+for you:
+
+    ```sh
+    make setup-env TF_VAR_GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT?}
+
+    export GOOGLE_TEST_CREDENTIALS=$PWD/bootstrap/terraform/vault-tester.json
+    ```
+
 1. Save the name of your test project as an environment variable for reference:
 
     ```sh
-    $ export GOOGLE_CLOUD_PROJECT_ID=my-project # replace with your project ID
+    $ export GOOGLE_CLOUD_PROJECT=my-project # replace with your project ID
     ```
 
 1. Run the acceptance tests:

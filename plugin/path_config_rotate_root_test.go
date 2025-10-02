@@ -157,13 +157,7 @@ func TestConfigRotateRootUpdate(t *testing.T) {
 
 		// Set config to the key
 		entry, err := logical.StorageEntryJSON("config", &gcpConfig{
-			Credentials: &gcputil.GcpCredentials{
-				ClientEmail:  "user@test.com",
-				ClientId:     "user",
-				PrivateKeyId: "key_id",
-				PrivateKey:   "key",
-				ProjectId:    "project",
-			},
+			Credentials: newCreds,
 		})
 		if err != nil {
 			t.Fatal(err)

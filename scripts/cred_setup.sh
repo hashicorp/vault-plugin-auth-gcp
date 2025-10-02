@@ -33,7 +33,7 @@ gcloud projects add-iam-policy-binding "${GOOGLE_CLOUD_PROJECT}" \
 gcloud iam service-accounts keys create vault-tester.json \
         --iam-account "vault-tester@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
 
-export GOOGLE_CREDENTIALS="$(cat vault-tester.json)"
-printf "\nUpdated the GOOGLE_CREDENTIALS environment variable."
+export GOOGLE_TEST_CREDENTIALS="$(cat vault-tester.json)"
+printf "\nUpdated the GOOGLE_TEST_CREDENTIALS environment variable."
 
 printf "\n\nYou may now run 'make test', but note that it may take some time (e.g. over a minute) for the new credentials to work.\n"
