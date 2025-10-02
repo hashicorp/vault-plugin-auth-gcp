@@ -1,3 +1,14 @@
+## v0.22.0
+### October 2, 2025
+
+* [COMPLIANCE] Add Copyright and License Headers (#240)
+* Prepare v0.22.0 release for Vault 1.21 (#241)
+* Automated dependency upgrades (#233)
+* init changie (#239)
+* Add backport assistant workflow (#236)
+* Add backport assistant workflow (#235)
+* [Compliance] - PR Template Changes Required (#234)
+
 ## 0.21.0
 ### Jun 03, 2025
 
