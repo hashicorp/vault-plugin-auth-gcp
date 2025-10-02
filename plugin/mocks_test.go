@@ -84,6 +84,34 @@ func (mr *MockSystemViewMockRecorder) DefaultLeaseTTL() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultLeaseTTL", reflect.TypeOf((*MockSystemView)(nil).DefaultLeaseTTL))
 }
 
+// DeregisterRotationJob mocks base method.
+func (m *MockSystemView) DeregisterRotationJob(arg0 context.Context, arg1 *rotation.RotationJobDeregisterRequest) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeregisterRotationJob", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeregisterRotationJob indicates an expected call of DeregisterRotationJob.
+func (mr *MockSystemViewMockRecorder) DeregisterRotationJob(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterRotationJob", reflect.TypeOf((*MockSystemView)(nil).DeregisterRotationJob), arg0, arg1)
+}
+
+// DownloadExtractVerifyPlugin mocks base method.
+func (m *MockSystemView) DownloadExtractVerifyPlugin(arg0 context.Context, arg1 *pluginutil.PluginRunner) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DownloadExtractVerifyPlugin", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DownloadExtractVerifyPlugin indicates an expected call of DownloadExtractVerifyPlugin.
+func (mr *MockSystemViewMockRecorder) DownloadExtractVerifyPlugin(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadExtractVerifyPlugin", reflect.TypeOf((*MockSystemView)(nil).DownloadExtractVerifyPlugin), arg0, arg1)
+}
+
 // EntityInfo mocks base method.
 func (m *MockSystemView) EntityInfo(arg0 string) (*logical.Entity, error) {
 	m.ctrl.T.Helper()
@@ -127,6 +155,21 @@ func (m *MockSystemView) GeneratePasswordFromPolicy(arg0 context.Context, arg1 s
 func (mr *MockSystemViewMockRecorder) GeneratePasswordFromPolicy(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GeneratePasswordFromPolicy", reflect.TypeOf((*MockSystemView)(nil).GeneratePasswordFromPolicy), arg0, arg1)
+}
+
+// GetRotationInformation mocks base method.
+func (m *MockSystemView) GetRotationInformation(arg0 context.Context, arg1 *rotation.RotationInfoRequest) (*rotation.RotationInfoResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRotationInformation", arg0, arg1)
+	ret0, _ := ret[0].(*rotation.RotationInfoResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRotationInformation indicates an expected call of GetRotationInformation.
+func (mr *MockSystemViewMockRecorder) GetRotationInformation(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRotationInformation", reflect.TypeOf((*MockSystemView)(nil).GetRotationInformation), arg0, arg1)
 }
 
 // GroupsForEntity mocks base method.
@@ -275,6 +318,21 @@ func (mr *MockSystemViewMockRecorder) PluginEnv(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PluginEnv", reflect.TypeOf((*MockSystemView)(nil).PluginEnv), arg0)
 }
 
+// RegisterRotationJob mocks base method.
+func (m *MockSystemView) RegisterRotationJob(arg0 context.Context, arg1 *rotation.RotationJobConfigureRequest) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RegisterRotationJob", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RegisterRotationJob indicates an expected call of RegisterRotationJob.
+func (mr *MockSystemViewMockRecorder) RegisterRotationJob(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterRotationJob", reflect.TypeOf((*MockSystemView)(nil).RegisterRotationJob), arg0, arg1)
+}
+
 // ReplicationState mocks base method.
 func (m *MockSystemView) ReplicationState() consts.ReplicationState {
 	m.ctrl.T.Helper()
@@ -331,14 +389,6 @@ func (m *MockSystemView) VaultVersion(arg0 context.Context) (string, error) {
 func (mr *MockSystemViewMockRecorder) VaultVersion(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VaultVersion", reflect.TypeOf((*MockSystemView)(nil).VaultVersion), arg0)
-}
-
-func (m *MockSystemView) DeregisterRotationJob(_ context.Context, _ *rotation.RotationJobDeregisterRequest) error {
-	return nil
-}
-
-func (m *MockSystemView) RegisterRotationJob(_ context.Context, _ *rotation.RotationJobConfigureRequest) (string, error) {
-	return "", nil
 }
 
 // MockStorage is a mock of Storage interface.

@@ -4,7 +4,7 @@
 #
 #SKIP_TEARDOWN=true
 export VAULT_ADDR='http://127.0.0.1:8200'
-export VAULT_IMAGE="${VAULT_IMAGE:-hashicorp/vault:1.9.1}"
+export VAULT_IMAGE="${VAULT_IMAGE:-hashicorp/vault:1.20.4}"
 
 if [[ -z $SERVICE_ACCOUNT_ID ]]
 then
