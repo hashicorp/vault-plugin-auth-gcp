@@ -114,7 +114,7 @@ func (b *GcpAuthBackend) IAMClient(ctx context.Context, s logical.Storage) (*iam
 		return nil, fmt.Errorf("failed to get config while creating IAM client: %w", err)
 	}
 
-	opts, err := b.clientOptions(ctx, s, cfg.IAMCustomEndpoint)
+	opts, err := b.clientOptions(s, cfg.IAMCustomEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create IAM client options: %w", err)
 	}
@@ -142,7 +142,7 @@ func (b *GcpAuthBackend) ComputeClient(ctx context.Context, s logical.Storage) (
 		return nil, fmt.Errorf("failed to get config while creating Compute client: %w", err)
 	}
 
-	opts, err := b.clientOptions(ctx, s, cfg.ComputeCustomEndpoint)
+	opts, err := b.clientOptions(s, cfg.ComputeCustomEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Compute client options: %w", err)
 	}
@@ -170,7 +170,7 @@ func (b *GcpAuthBackend) CRMClient(ctx context.Context, s logical.Storage) (*clo
 		return nil, fmt.Errorf("failed to get config while creating Cloud Resource Manager client: %w", err)
 	}
 
-	opts, err := b.clientOptions(ctx, s, cfg.CRMCustomEndpoint)
+	opts, err := b.clientOptions(s, cfg.CRMCustomEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Cloud Resource Manager client options: %w", err)
 	}
@@ -194,8 +194,8 @@ func (b *GcpAuthBackend) CRMClient(ctx context.Context, s logical.Storage) (*clo
 // clientOptions returns a new set of client options containing an http.Client and optional
 // custom endpoint. The http.Client is authenticated using the provided credentials. The
 // underlying http.Client is cached among all clients.
-func (b *GcpAuthBackend) clientOptions(ctx context.Context, s logical.Storage, endpoint string) ([]option.ClientOption, error) {
-	creds, err := b.credentials(ctx, s)
+func (b *GcpAuthBackend) clientOptions(s logical.Storage, endpoint string) ([]option.ClientOption, error) {
+	creds, err := b.credentials(s)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create oauth2 http client: %w", err)
 	}
@@ -222,7 +222,8 @@ func (b *GcpAuthBackend) clientOptions(ctx context.Context, s logical.Storage, e
 // default application credentials. If no default application credentials are
 // found, this function returns an error. The credentials are cached in-memory
 // for performance.
-func (b *GcpAuthBackend) credentials(ctx context.Context, s logical.Storage) (*google.Credentials, error) {
+func (b *GcpAuthBackend) credentials(s logical.Storage) (*google.Credentials, error) {
+	ctx := context.Background()
 	creds, err := b.cache.Fetch("credentials", cacheTime, func() (interface{}, error) {
 		b.Logger().Debug("loading credentials")
 
