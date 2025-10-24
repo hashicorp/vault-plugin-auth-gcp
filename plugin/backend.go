@@ -224,44 +224,69 @@ func (b *GcpAuthBackend) clientOptions(ctx context.Context, s logical.Storage, e
 // for performance.
 func (b *GcpAuthBackend) credentials(ctx context.Context, s logical.Storage) (*google.Credentials, error) {
 	creds, err := b.cache.Fetch("credentials", cacheTime, func() (interface{}, error) {
-		b.Logger().Debug("loading credentials")
-
-		config, err := b.config(ctx, s)
-		if err != nil {
-			return nil, err
+		type result struct {
+			creds *google.Credentials
+			err   error
 		}
+		r := make(chan result, 1)
+		credsCtx, cancel := context.WithCancel(context.Background())
 
-		// Get creds from the config
-		credBytes, err := config.formatAndMarshalCredentials()
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal credential JSON: %w", err)
-		}
+		go func() {
+			b.Logger().Debug("loading credentials")
 
-		// If credentials were provided, use those. Otherwise fall back to the
-		// default application credentials.
-		var creds *google.Credentials
-		if len(credBytes) > 0 {
-			creds, err = google.CredentialsFromJSON(ctx, credBytes, iam.CloudPlatformScope)
+			var err error
+			defer func() {
+				if err != nil {
+					cancel()
+				}
+			}()
+
+			config, err := b.config(ctx, s)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse credentials: %w", err)
-			}
-		} else if config.IdentityTokenAudience != "" {
-			ts := &PluginIdentityTokenSupplier{
-				sys:      b.System(),
-				logger:   b.Logger(),
-				audience: config.IdentityTokenAudience,
-				ttl:      config.IdentityTokenTTL,
+				r <- result{nil, err}
+				return
 			}
 
-			creds, err = b.GetExternalAccountConfig(config, ts).GetExternalAccountCredentials(ctx)
-		} else {
-			creds, err = google.FindDefaultCredentials(ctx, iam.CloudPlatformScope)
+			credBytes, err := config.formatAndMarshalCredentials()
 			if err != nil {
-				return nil, fmt.Errorf("failed to get default credentials: %w", err)
+				r <- result{nil, fmt.Errorf("failed to marshal credential JSON: %w", err)}
+				return
 			}
-		}
 
-		return creds, err
+			var creds *google.Credentials
+			if len(credBytes) > 0 {
+				creds, err = google.CredentialsFromJSON(credsCtx, credBytes, iam.CloudPlatformScope)
+				if err != nil {
+					r <- result{nil, fmt.Errorf("failed to parse credentials: %w", err)}
+					return
+				}
+			} else if config.IdentityTokenAudience != "" {
+				ts := &PluginIdentityTokenSupplier{
+					sys:      b.System(),
+					logger:   b.Logger(),
+					audience: config.IdentityTokenAudience,
+					ttl:      config.IdentityTokenTTL,
+				}
+
+				creds, err = b.GetExternalAccountConfig(config, ts).GetExternalAccountCredentials(credsCtx)
+			} else {
+				creds, err = google.FindDefaultCredentials(credsCtx, iam.CloudPlatformScope)
+				if err != nil {
+					r <- result{nil, fmt.Errorf("failed to get default credentials: %w", err)}
+					return
+				}
+			}
+
+			r <- result{creds, err}
+		}()
+
+		select {
+		case res := <-r:
+			return res.creds, res.err
+		case <-ctx.Done():
+			cancel()
+			return nil, fmt.Errorf("credential initialization canceled: %w", ctx.Err())
+		}
 	})
 	if err != nil {
 		return nil, err
