@@ -1,61 +1,26 @@
-TOOL?=vault-plugin-auth-gcp
-TEST?=$$(go list ./... | grep -v /vendor/)
-EXTERNAL_TOOLS=
-BUILD_TAGS?=${TOOL}
-GOFMT_FILES?=$$(find . -name '*.go' | grep -v vendor)
-TEST_ARGS?=./...
+export CGO_ENABLED?=0
+export GO111MODULE?=on
 
-PLUGIN_NAME?=$(shell command ls bin/)
-PLUGIN_DIR?=$$GOPATH/vault-plugins
-PLUGIN_PATH?=gcp
-
-# bin generates the releaseable binaries for this plugin
-.PHONY: bin
-bin: fmtcheck generate
-	@CGO_ENABLED=0 BUILD_TAGS='$(BUILD_TAGS)' sh -c "'$(CURDIR)/scripts/build.sh'"
-
+default: build
 .PHONY: default
-default: dev
 
-# dev creates binaries for testing Vault locally. These are put
-# into ./bin/ as well as $GOPATH/bin, except for quickdev which
-# is only put into /bin/
-.PHONY: quickdev
-quickdev: generate
-	@CGO_ENABLED=0 go build -tags='$(BUILD_TAGS)' -o bin/$(TOOL) cmd/$(TOOL)/main.go
-.PHONY: dev
-dev: fmtcheck generate
-	@CGO_ENABLED=0 BUILD_TAGS='$(BUILD_TAGS)' VAULT_DEV_BUILD=1 sh -c "'$(CURDIR)/scripts/build.sh'"
-.PHONY: dev-dynamic
-dev-dynamic: generate
-	@CGO_ENABLED=1 BUILD_TAGS='$(BUILD_TAGS)' VAULT_DEV_BUILD=1 sh -c "'$(CURDIR)/scripts/build.sh'"
+verify: clean build fmt test cover coverage.html
 
-.PHONY: testcompile
-testcompile: fmtcheck generate
-	@for pkg in $(TEST) ; do \
-		go test -v -c -tags='$(BUILD_TAGS)' $$pkg -parallel=4 ; \
-	done
+build:
+	CGO_ENABLED=$(CGO_ENABLED) GO111MODULE=$(GO111MODULE) go build -o vault-plugin-auth-gcp $(GOFLAGS) ./cmd/...
+.PHONY: build
 
-.PHONY: test
+clean:
+	rm -rf vault-plugin-auth-gcp* dist coverage.out coverage.html
+.PHONY: clean
+
 test:
-	@go test -short -parallel=40 ./... $(TESTARGS)
+	go test -short -parallel=40 ./...
+.PHONY: test
 
-.PHONY: testacc
-testacc:
-	@export ACC_TEST_ENABLED=1 && go test -parallel=40 $(TEST) $(TESTARGS)
-# generate runs `go generate` to build the dynamically generated
-# source files.
-.PHONY: generate
-generate:
-	@go generate $(shell go list ./plugin/... | grep -v /vendor/)
-
-# bootstrap the build by downloading additional tools
-.PHONY: bootstrap
-bootstrap:
-	@for tool in  $(EXTERNAL_TOOLS) ; do \
-		echo "Installing/Updating $$tool" ; \
-		go get -u $$tool; \
-	done
+vet:
+	go vet ./...
+.PHONY: vet
 
 .PHONY: fmtcheck
 fmtcheck:
@@ -63,24 +28,15 @@ fmtcheck:
 
 .PHONY: fmt
 fmt:
-	gofmt -w $(GOFMT_FILES)
+	go fmt ./...
+.PHONY: fmt
 
-.PHONY: mocks
-mocks:
-	mockgen -destination ${CURDIR}/plugin/mocks_test.go -package gcpauth github.com/hashicorp/vault/sdk/logical SystemView,Storage
+cover:
+	CGO_ENABLED=1 go test -short -parallel=40 ./... -cover
+.PHONY: cover
 
-.PHONY: setup-env
-setup-env:
-	cd bootstrap/terraform && terraform init && terraform apply -auto-approve
+coverage.out:  | $(shell find . -name '*.go')
+	go test -short -v -coverprofile=coverage.out ./...
 
-.PHONY: teardown-env
-teardown-env:
-	cd bootstrap/terraform && terraform init && terraform destroy -auto-approve
-
-.PHONY: configure
-configure: dev
-	@./bootstrap/configure.sh \
-	$(PLUGIN_DIR) \
-	$(PLUGIN_NAME) \
-	$(PLUGIN_PATH) \
-	$(GOOGLE_TEST_CREDENTIALS) \
+coverage.html: | coverage.out
+	go tool cover -html coverage.out -o coverage.html

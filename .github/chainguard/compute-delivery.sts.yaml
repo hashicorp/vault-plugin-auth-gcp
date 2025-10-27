@@ -1,0 +1,6 @@
+issuer: https://gitlab.ddbuild.io
+
+subject_pattern: "project_path:DataDog/vault-plugin-auth-gcp-private:ref_type:tag:ref:v.+"
+
+permissions:
+  contents: write
