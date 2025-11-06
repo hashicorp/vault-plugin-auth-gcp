@@ -1,0 +1,75 @@
+include:
+  - https://gitlab-templates.ddbuild.io/compute-delivery/v2/compute-delivery.yml
+
+variables:
+  BASE_IMAGE: "registry.ddbuild.io/images/base/gbi-scratch:release"
+
+# prevent recursive releases from go releaser pushing FIPS tags
+workflow:
+  rules:
+    - if: $CI_COMMIT_TAG && $CI_COMMIT_TAG =~ /-fips$/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "push"
+
+.ci:
+  image: 486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/compute-delivery:latest
+  stage: verify
+  tags: ["arch:amd64"]
+  before_script:
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.ddbuild.io/DataDog/".insteadOf "https://github.com/DataDog/"
+
+build:
+  extends: .ci
+  stage: build
+  script:
+    - make build
+
+verify:
+  extends: .ci
+  stage: verify
+  script:
+    - make verify
+
+goreleaser-snapshot:
+  extends: .compute-ci.goreleaser-snapshot
+  tags: ["runner:docker"]
+
+goreleaser:
+  extends: .compute-ci.goreleaser
+  before_script:
+    - !reference [.compute-ci.github-sts-token]
+
+goreleaser-fips-snapshot:
+  extends: .compute-ci.goreleaser-snapshot
+  tags: ["runner:docker"]
+  image: 486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/compute-delivery:latest
+  variables:
+    ADDITIONAL_GENERATE_PARAMS: "--cgo --fips"
+
+verify-fips:
+  extends: .ci
+  stage: verify
+  dependencies:
+    - goreleaser-fips-snapshot
+  except:
+    refs:
+      - tags
+    variables:
+      - $GBILITE_GITLAB_ACTION
+  script:
+    - SNAPSHOT_TAR_PATH=$(find ./dist -type f -mindepth 1 -maxdepth 1 -name '*linux_amd64.tar.gz')
+    - tar -xzf "$SNAPSHOT_TAR_PATH"
+    - go tool nm ./vault-plugin-auth-gcp | grep 'sig.BoringCrypto'
+    - go tool nm ./vault-plugin-auth-gcp | grep 'sig.FIPSOnly'
+
+goreleaser-fips:
+  extends: .compute-ci.goreleaser
+  tags: ["runner:docker"]
+  image: 486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/compute-delivery:latest
+  variables:
+    GORELEASER_CURRENT_TAG: "${CI_COMMIT_TAG}-fips"
+    ADDITIONAL_GENERATE_PARAMS: "--cgo --fips"
+  before_script:
+    - !reference [.compute-ci.github-sts-token]
+    # Create a dummy FIPS tag on the same commit to publish a FIPS specific release
+    - git tag "${GORELEASER_CURRENT_TAG}"
