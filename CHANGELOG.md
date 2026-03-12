@@ -1,11 +1,3 @@
-## v0.23.0
-
-### March 26, 2026
-
-BUG FIXES:
-
-* Fix intermittent `context canceled` errors in GCP WIF auth caused by a per-request context being baked into a cached `TokenSource` [[GH-251](https://github.com/hashicorp/vault-plugin-auth-gcp/pull/251)]
-
 ## v0.22.0
 ### October 2, 2025
 
