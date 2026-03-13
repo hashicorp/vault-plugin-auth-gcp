@@ -356,10 +356,10 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 	}
 	serviceAccount, err := gcputil.ServiceAccount(iamClient, accountId)
 	if err != nil {
-		return logical.ErrorResponse("unable to retrieve service account for given JWT subject: %s", err), err
+		return logical.ErrorResponse("unable to retrieve service account for given JWT subject: %s", err), nil
 	}
 	if serviceAccount == nil {
-		return logical.ErrorResponse("service account is empty"), errors.New("service account is empty")
+		return logical.ErrorResponse("service account is empty"), nil
 	}
 
 	conf, err := b.config(ctx, req.Storage)
