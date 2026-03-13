@@ -30,11 +30,13 @@ const (
 	jwtExpToleranceSec            = 60
 )
 
-var allowedSignatureAlgorithms = []jose.SignatureAlgorithm{
-	jose.RS256,
-	jose.ES256,
-	jose.HS256,
-}
+var (
+	allowedSignatureAlgorithms = []jose.SignatureAlgorithm{
+		jose.RS256,
+		jose.ES256,
+		jose.HS256,
+	}
+)
 
 func pathLogin(b *GcpAuthBackend) *framework.Path {
 	return &framework.Path{
@@ -74,7 +76,6 @@ GCE identity metadata token ('iam', 'gce' roles).`,
 		HelpDescription: pathLoginHelpDesc,
 	}
 }
-
 func (b *GcpAuthBackend) pathResolveRole(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	if err := validateFields(req, data); err != nil {
 		return nil, logical.CodedError(http.StatusUnprocessableEntity, err.Error())
@@ -333,7 +334,7 @@ func validateBaseJWTClaims(c *jwt.Claims, roleName string) error {
 func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request, loginInfo *gcpLoginInfo) (*logical.Response, error) {
 	iamClient, err := b.IAMClient(ctx, req.Storage)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create IAM client: %w", err)
+		return nil, err
 	}
 
 	role := loginInfo.Role
@@ -356,10 +357,10 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 	}
 	serviceAccount, err := gcputil.ServiceAccount(iamClient, accountId)
 	if err != nil {
-		return logical.ErrorResponse("unable to retrieve service account for given JWT subject: %s", err), nil
+		return nil, err
 	}
 	if serviceAccount == nil {
-		return logical.ErrorResponse("service account is empty"), nil
+		return nil, errors.New("service account is empty")
 	}
 
 	conf, err := b.config(ctx, req.Storage)
@@ -385,7 +386,7 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 
 	// Validate service account can login against role.
 	if err := b.authorizeIAMServiceAccount(serviceAccount, role); err != nil {
-		return logical.ErrorResponse("service account is not authorized to login against role: %s", err), nil
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	auth := &logical.Auth{
@@ -406,12 +407,12 @@ func (b *GcpAuthBackend) pathIamLogin(ctx context.Context, req *logical.Request,
 	if role.AddGroupAliases {
 		crmClient, err := b.CRMClient(ctx, req.Storage)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create CRM client: %w", err)
+			return nil, err
 		}
 
 		aliases, err := b.groupAliases(crmClient, ctx, serviceAccount.ProjectId)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch group aliases: %w", err)
+			return nil, err
 		}
 		resp.Auth.GroupAliases = aliases
 	}
@@ -560,12 +561,12 @@ func (b *GcpAuthBackend) pathGceLogin(ctx context.Context, req *logical.Request,
 	if role.AddGroupAliases {
 		crmClient, err := b.CRMClient(ctx, req.Storage)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create CRM client: %w", err)
+			return nil, err
 		}
 
 		aliases, err := b.groupAliases(crmClient, ctx, metadata.ProjectId)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch group aliases: %w", err)
+			return nil, err
 		}
 		resp.Auth.GroupAliases = aliases
 	}
