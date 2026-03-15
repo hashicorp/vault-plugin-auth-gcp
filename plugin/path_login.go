@@ -30,13 +30,11 @@ const (
 	jwtExpToleranceSec            = 60
 )
 
-var (
-	allowedSignatureAlgorithms = []jose.SignatureAlgorithm{
-		jose.RS256,
-		jose.ES256,
-		jose.HS256,
-	}
-)
+var allowedSignatureAlgorithms = []jose.SignatureAlgorithm{
+	jose.RS256,
+	jose.ES256,
+	jose.HS256,
+}
 
 func pathLogin(b *GcpAuthBackend) *framework.Path {
 	return &framework.Path{
@@ -76,6 +74,7 @@ GCE identity metadata token ('iam', 'gce' roles).`,
 		HelpDescription: pathLoginHelpDesc,
 	}
 }
+
 func (b *GcpAuthBackend) pathResolveRole(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	if err := validateFields(req, data); err != nil {
 		return nil, logical.CodedError(http.StatusUnprocessableEntity, err.Error())
