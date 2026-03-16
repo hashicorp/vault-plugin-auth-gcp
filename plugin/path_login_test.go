@@ -367,6 +367,98 @@ func TestLogin_IAM(t *testing.T) {
 			t.Errorf("expected %q to contain %q", str, exp)
 		}
 	})
+
+	// token_refresh_after_ctx_cancel verifies that IAM login succeeds even when
+	// the context used to initialise the cached credentials has since been cancelled.
+	// Credentials are cached for 30 minutes and shared across requests; their
+	// TokenSource must remain usable for the full cache lifetime regardless of the
+	// lifecycle of any individual calling context.
+	t.Run("token_refresh_after_ctx_cancel", func(t *testing.T) {
+		t.Parallel()
+
+		reqCtx, cancel := context.WithCancel(context.Background())
+		_, err := b.credentials(reqCtx, storage)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Cancel the context to simulate the originating request completing.
+		cancel()
+
+		role := "test-ctx-cancel"
+		entry, err := logical.StorageEntryJSON("role/"+role, defaultRole(&gcpRole{
+			BoundServiceAccounts: []string{creds.ClientEmail},
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := storage.Put(ctx, entry); err != nil {
+			t.Fatal(err)
+		}
+
+		exp := time.Now().Add(10 * time.Minute)
+		iamClient := testIAMCredentialsClient(t, creds)
+		jwt := testServiceAccountSignJwt(t, iamClient, exp, "vault/"+role, creds.ClientEmail)
+
+		resp, err := b.HandleRequest(ctx, &logical.Request{
+			Storage:   storage,
+			Operation: logical.UpdateOperation,
+			Path:      "login",
+			Data: map[string]interface{}{
+				"role": role,
+				"jwt":  jwt.SignedJwt,
+			},
+		})
+		if err != nil {
+			t.Fatalf("login failed: %v", err)
+		}
+		if resp.IsError() {
+			t.Fatalf("login returned error: %v", resp.Error())
+		}
+	})
+
+	// cache_clear_and_relogin verifies that IAM login succeeds after the credential
+	// cache has been cleared, exercising the full credential re-creation and WIF
+	// token exchange path on subsequent logins.
+	t.Run("cache_clear_and_relogin", func(t *testing.T) {
+		t.Parallel()
+
+		role := "test-cache-clear"
+		entry, err := logical.StorageEntryJSON("role/"+role, defaultRole(&gcpRole{
+			BoundServiceAccounts: []string{creds.ClientEmail},
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := storage.Put(ctx, entry); err != nil {
+			t.Fatal(err)
+		}
+
+		doLogin := func(label string) {
+			exp := time.Now().Add(10 * time.Minute)
+			iamClient := testIAMCredentialsClient(t, creds)
+			jwt := testServiceAccountSignJwt(t, iamClient, exp, "vault/"+role, creds.ClientEmail)
+
+			resp, err := b.HandleRequest(ctx, &logical.Request{
+				Storage:   storage,
+				Operation: logical.UpdateOperation,
+				Path:      "login",
+				Data: map[string]interface{}{
+					"role": role,
+					"jwt":  jwt.SignedJwt,
+				},
+			})
+			if err != nil {
+				t.Fatalf("%s: login error: %v", label, err)
+			}
+			if resp.IsError() {
+				t.Fatalf("%s: login returned error: %v", label, resp.Error())
+			}
+		}
+
+		doLogin("first login")
+		b.ClearCaches()
+		doLogin("second login after ClearCaches")
+	})
 }
 
 func TestLogin_IAM_Custom_Endpoint(t *testing.T) {
