@@ -239,9 +239,17 @@ func (b *GcpAuthBackend) credentials(ctx context.Context, s logical.Storage) (*g
 
 		// If credentials were provided, use those. Otherwise fall back to the
 		// default application credentials.
+		//
+		// NOTE: context.Background() is intentionally used here instead of the
+		// request ctx. Credentials (and their token sources) are cached and
+		// reused across many requests. If the request ctx were used, the token
+		// source would hold a reference to a short-lived, cancel-able context.
+		// Once that request completes (and its ctx is canceled), any subsequent
+		// token refresh — including the WIF chain (STS → iamcredentials → IAM)
+		// — would fail with "context canceled".
 		var creds *google.Credentials
 		if len(credBytes) > 0 {
-			creds, err = google.CredentialsFromJSON(ctx, credBytes, iam.CloudPlatformScope)
+			creds, err = google.CredentialsFromJSON(context.Background(), credBytes, iam.CloudPlatformScope)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse credentials: %w", err)
 			}
@@ -253,9 +261,9 @@ func (b *GcpAuthBackend) credentials(ctx context.Context, s logical.Storage) (*g
 				ttl:      config.IdentityTokenTTL,
 			}
 
-			creds, err = b.GetExternalAccountConfig(config, ts).GetExternalAccountCredentials(ctx)
+			creds, err = b.GetExternalAccountConfig(config, ts).GetExternalAccountCredentials(context.Background())
 		} else {
-			creds, err = google.FindDefaultCredentials(ctx, iam.CloudPlatformScope)
+			creds, err = google.FindDefaultCredentials(context.Background(), iam.CloudPlatformScope)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get default credentials: %w", err)
 			}
