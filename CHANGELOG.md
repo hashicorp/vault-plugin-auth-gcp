@@ -17,7 +17,8 @@ IMPROVEMENTS:
   * go.opentelemetry.io/otel/metric v1.37.0 => v1.39.0
   * go.opentelemetry.io/otel/trace v1.37.0 => v1.39.0
   * github.com/go-jose/go-jose/v4 v4.1.2 => v4.1.3
-  
+* Patched test expectations and regenerated mocks
+
 ## v0.22.0
 ### October 2, 2025
 

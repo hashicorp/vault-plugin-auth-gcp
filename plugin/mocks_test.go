@@ -157,6 +157,20 @@ func (mr *MockSystemViewMockRecorder) GeneratePasswordFromPolicy(arg0, arg1 inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GeneratePasswordFromPolicy", reflect.TypeOf((*MockSystemView)(nil).GeneratePasswordFromPolicy), arg0, arg1)
 }
 
+// GetConsumptionBillingManager mocks base method.
+func (m *MockSystemView) GetConsumptionBillingManager() logical.ConsumptionBillingManager {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetConsumptionBillingManager")
+	ret0, _ := ret[0].(logical.ConsumptionBillingManager)
+	return ret0
+}
+
+// GetConsumptionBillingManager indicates an expected call of GetConsumptionBillingManager.
+func (mr *MockSystemViewMockRecorder) GetConsumptionBillingManager() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumptionBillingManager", reflect.TypeOf((*MockSystemView)(nil).GetConsumptionBillingManager))
+}
+
 // GetRotationInformation mocks base method.
 func (m *MockSystemView) GetRotationInformation(arg0 context.Context, arg1 *rotation.RotationInfoRequest) (*rotation.RotationInfoResponse, error) {
 	m.ctrl.T.Helper()

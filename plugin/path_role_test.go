@@ -36,6 +36,7 @@ var expectedDefaults = map[string]interface{}{
 	"token_bound_cidrs":       []string{},
 	"token_num_uses":          int(0),
 	"token_type":              logical.TokenTypeDefault.String(),
+	"alias_metadata":          map[string]string{},
 	"bound_projects":          []string{},
 	"bound_service_accounts":  []string{},
 	"add_group_aliases":       false,
@@ -778,6 +779,7 @@ func TestRetrieveRole(t *testing.T) {
 			storage.EXPECT().Put(ctx, putReq).Return(nil).Times(test.putTimes)
 
 			systemView := NewMockSystemView(ctrl)
+			systemView.EXPECT().GetConsumptionBillingManager().Return(nil).AnyTimes()
 			systemView.EXPECT().LocalMount().Return(test.localMount).Times(test.localMountTimes)
 			systemView.EXPECT().ReplicationState().Return(test.replicationState).Times(test.replicationStateTimes)
 
@@ -833,6 +835,7 @@ func TestRetrieveRole(t *testing.T) {
 		storage.EXPECT().Put(ctx, putReq).Return(fmt.Errorf("test error"))
 
 		systemView := NewMockSystemView(ctrl)
+		systemView.EXPECT().GetConsumptionBillingManager().Return(nil).AnyTimes()
 		systemView.EXPECT().LocalMount().Return(true)
 
 		be, err := Factory(ctx, &logical.BackendConfig{System: systemView})
@@ -875,6 +878,7 @@ func TestRetrieveRole(t *testing.T) {
 		})
 
 		systemView := NewMockSystemView(ctrl)
+		systemView.EXPECT().GetConsumptionBillingManager().Return(nil).AnyTimes()
 		systemView.EXPECT().LocalMount().Return(true)
 
 		be, err := Factory(ctx, &logical.BackendConfig{System: systemView})
