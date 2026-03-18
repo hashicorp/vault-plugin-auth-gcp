@@ -42,9 +42,9 @@ func TestBackend_PathConfigRead(t *testing.T) {
 		// These fields are always returned on read
 		// 2 Metadata response fields
 		// 2 Identity Token fields
-		// 4 Automated root rotation fields
-		if len(resp.Data) != 8 {
-			t.Fatal("expected 8 fields")
+		// 5 Automated root rotation fields
+		if len(resp.Data) != 9 {
+			t.Fatal("expected 9 fields")
 		}
 		expectedResp := &logical.Response{
 			Data: map[string]interface{}{
@@ -70,6 +70,7 @@ func TestBackend_PathConfigRead(t *testing.T) {
 				"rotation_window":            float64(0),
 				"rotation_period":            float64(0),
 				"rotation_schedule":          "",
+				"rotation_policy":            "",
 				"disable_automated_rotation": false,
 			},
 		}
@@ -153,6 +154,7 @@ func TestBackend_PathConfigRead(t *testing.T) {
 			"rotation_period":            float64(0),
 			"rotation_window":            float64(0),
 			"rotation_schedule":          "",
+			"rotation_policy":            "",
 		}
 
 		if !reflect.DeepEqual(resp.Data, expectedData) {
