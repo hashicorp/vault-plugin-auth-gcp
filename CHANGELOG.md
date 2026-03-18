@@ -1,6 +1,11 @@
 ## v0.23.0
 ### March 18, 2026
 
+* prepare v0.23.0 release (#255)
+
+## v0.23.0
+### March 18, 2026
+
 IMPROVEMENTS:
 * Updated dependencies (#255):
   * go 1.25.0 => 1.26.1
