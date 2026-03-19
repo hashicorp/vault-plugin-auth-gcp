@@ -347,6 +347,21 @@ func (mr *MockSystemViewMockRecorder) RegisterRotationJob(arg0, arg1 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterRotationJob", reflect.TypeOf((*MockSystemView)(nil).RegisterRotationJob), arg0, arg1)
 }
 
+// RegisterRotationJobWithResponse mocks base method.
+func (m *MockSystemView) RegisterRotationJobWithResponse(arg0 context.Context, arg1 *rotation.RotationJobConfigureRequest) (*rotation.RotationInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RegisterRotationJobWithResponse", arg0, arg1)
+	ret0, _ := ret[0].(*rotation.RotationInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RegisterRotationJobWithResponse indicates an expected call of RegisterRotationJobWithResponse.
+func (mr *MockSystemViewMockRecorder) RegisterRotationJobWithResponse(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterRotationJobWithResponse", reflect.TypeOf((*MockSystemView)(nil).RegisterRotationJobWithResponse), arg0, arg1)
+}
+
 // ReplicationState mocks base method.
 func (m *MockSystemView) ReplicationState() consts.ReplicationState {
 	m.ctrl.T.Helper()
