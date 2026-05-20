@@ -90,7 +90,12 @@ If not specified, will use application default credentials`,
 			gceAuthMetadataFields.FieldName: authmetadata.FieldSchema(gceAuthMetadataFields),
 			"custom_endpoint": {
 				Type:        framework.TypeKVPairs,
-				Description: `Specifies overrides for various Google API Service Endpoints used in requests.`,
+				Description: `Specifies overrides for various Google API Service Endpoints used in requests. Supported keys: 'api', 'iam', 'crm', 'compute', 'sts', 'iamcredentials', 'discovery_endpoint'.`,
+			},
+			"sovereign_mode": {
+				Type:        framework.TypeBool,
+				Default:     false,
+				Description: `Indicates whether the plugin is operating in sovereign cloud mode. When enabled, custom endpoints must be configured.`,
 			},
 			// Deprecated
 			"google_certs_endpoint": {
@@ -146,13 +151,37 @@ func (b *GcpAuthBackend) pathConfigWrite(ctx context.Context, req *logical.Reque
 		return nil, logical.CodedError(http.StatusUnprocessableEntity, err.Error())
 	}
 
+	// Get existing configuration
 	cfg, err := b.config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
 
+	// Check if this is an update operation
+	if req.Operation == logical.UpdateOperation {
+		// Get the new sovereign_mode value from the request if provided
+		if sovereignModeRaw, ok := d.GetOk("sovereign_mode"); ok {
+			newSovereignMode := sovereignModeRaw.(bool)
+
+			// Prevent switching sovereign_mode on the same mount
+			if cfg.SovereignMode != newSovereignMode {
+				return logical.ErrorResponse("cannot flip between sovereign mode and standard GCP in same mount path"), nil
+			}
+		}
+	}
+
+	// Update configuration with new values
 	if err := cfg.Update(d); err != nil {
 		return nil, logical.CodedError(http.StatusBadRequest, err.Error())
+	}
+
+	// Validate sovereign mode configuration
+	if cfg.SovereignMode {
+		// In sovereign mode, STS, IAM, IAM Credentials, and Discovery endpoints are required
+		if cfg.STSCustomEndpoint == "" || cfg.IAMCredsEndpoint == "" ||
+			cfg.IAMCustomEndpoint == "" || cfg.DiscoveryEndpoint == "" {
+			return logical.ErrorResponse("sovereign_mode requires 'sts', 'iam', 'iamcredentials', and 'discovery_endpoint' custom endpoints to be configured"), nil
+		}
 	}
 
 	// generate token to check if WIF is enabled on this edition of Vault
@@ -274,6 +303,15 @@ func (b *GcpAuthBackend) pathConfigRead(ctx context.Context, req *logical.Reques
 	if v := config.ComputeCustomEndpoint; v != "" {
 		endpoints["compute"] = v
 	}
+	if v := config.STSCustomEndpoint; v != "" {
+		endpoints["sts"] = v
+	}
+	if v := config.IAMCredsEndpoint; v != "" {
+		endpoints["iamcredentials"] = v
+	}
+	if v := config.DiscoveryEndpoint; v != "" {
+		endpoints["discovery_endpoint"] = v
+	}
 	if len(endpoints) > 0 {
 		resp["custom_endpoint"] = endpoints
 	}
@@ -281,6 +319,9 @@ func (b *GcpAuthBackend) pathConfigRead(ctx context.Context, req *logical.Reques
 	if v := config.ServiceAccountEmail; v != "" {
 		resp["service_account_email"] = v
 	}
+
+	// Add sovereign_mode to response
+	resp["sovereign_mode"] = config.SovereignMode
 
 	config.PopulatePluginIdentityTokenData(resp)
 	config.PopulateAutomatedRotationData(resp)

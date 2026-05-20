@@ -34,6 +34,15 @@ type gcpConfig struct {
 	CRMCustomEndpoint string `json:"crm_custom_endpoint"`
 	// ComputeCustomEndpoint overrides the service endpoint for compute.googleapis.com
 	ComputeCustomEndpoint string `json:"compute_custom_endpoint"`
+	// STSCustomEndpoint overrides the service endpoint for sts.googleapis.com
+	STSCustomEndpoint string `json:"sts_custom_endpoint"`
+	// IAMCredsEndpoint overrides the service endpoint for iamcredentials.googleapis.com
+	IAMCredsEndpoint string `json:"iam_credentials_custom_endpoint"`
+	// DiscoveryEndpoint overrides the discovery endpoint for sovereign clouds
+	DiscoveryEndpoint string `json:"discovery_endpoint"`
+
+	// SovereignMode indicates whether the plugin is operating in sovereign cloud mode
+	SovereignMode bool `json:"sovereign_mode"`
 
 	ServiceAccountEmail string `json:"service_account_email"`
 	pluginidentityutil.PluginIdentityTokenParams
@@ -120,10 +129,21 @@ func (c *gcpConfig) Update(d *framework.FieldData) error {
 				c.CRMCustomEndpoint = v
 			case "compute":
 				c.ComputeCustomEndpoint = v
+			case "sts":
+				c.STSCustomEndpoint = v
+			case "iamcredentials":
+				c.IAMCredsEndpoint = v
+			case "discovery_endpoint":
+				c.DiscoveryEndpoint = v
 			default:
-				return fmt.Errorf("invalid custom endpoint type %q. Available types are: 'api', 'iam', 'crm', 'compute'", k)
+				return fmt.Errorf("invalid custom endpoint type %q. Available types are: 'api', 'iam', 'crm', 'compute', 'sts', 'iamcredentials', 'discovery_endpoint'", k)
 			}
 		}
+	}
+
+	// Handle sovereign_mode
+	if sovereignMode, ok := d.GetOk("sovereign_mode"); ok {
+		c.SovereignMode = sovereignMode.(bool)
 	}
 
 	// set plugin identity token fields

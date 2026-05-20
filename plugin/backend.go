@@ -284,6 +284,8 @@ func (b *GcpAuthBackend) GetExternalAccountConfig(c *gcpConfig, ts *PluginIdenti
 		Audience:            c.IdentityTokenAudience,
 		TTL:                 c.IdentityTokenTTL,
 		TokenSupplier:       ts,
+		STSEndpoint:         c.STSCustomEndpoint,
+		IAMCredsEndpoint:    c.IAMCredsEndpoint,
 	}
 
 	return cfg
