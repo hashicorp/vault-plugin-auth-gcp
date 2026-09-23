@@ -1,3 +1,11 @@
+## v0.24.0
+### September 16, 2026
+
+* update deps (#263)
+* crypto dep bump to address secvuln (#262)
+* bump vault sdk to v0.25.1 and api to v1.23.0 (#260)
+* Update changelog for v0.23.1 release (#257)
+
 ## v0.23.1
 ### March 20, 2026
 
