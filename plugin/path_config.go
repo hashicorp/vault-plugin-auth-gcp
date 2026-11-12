@@ -73,19 +73,26 @@ func pathConfig(b *GcpAuthBackend) *framework.Path {
 Google credentials JSON that Vault will use to verify users against GCP APIs.
 If not specified, will use application default credentials`,
 				DisplayAttrs: &framework.DisplayAttributes{
-					Name: "Credentials",
+					Name:     "Credentials",
+					EditType: "file",
 				},
 			},
 			"iam_alias": {
 				Type:        framework.TypeString,
 				Default:     defaultIAMAlias,
 				Description: "Indicates what value to use when generating an alias for IAM authentications.",
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name: "IAM alias",
+				},
 			},
 			iamAuthMetadataFields.FieldName: authmetadata.FieldSchema(iamAuthMetadataFields),
 			"gce_alias": {
 				Type:        framework.TypeString,
 				Default:     defaultGCEAlias,
 				Description: "Indicates what value to use when generating an alias for GCE authentications.",
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name: "GCE alias",
+				},
 			},
 			gceAuthMetadataFields.FieldName: authmetadata.FieldSchema(gceAuthMetadataFields),
 			"custom_endpoint": {
