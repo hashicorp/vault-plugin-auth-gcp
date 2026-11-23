@@ -22,7 +22,10 @@ import (
 	"google.golang.org/api/option"
 )
 
-type CLIHandler struct{}
+type CLIHandler struct {
+	// BinaryName is the executable shown in help. It defaults to "vault".
+	BinaryName string
+}
 
 func getSignedJwt(role string, m map[string]string) (string, error) {
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, cleanhttp.DefaultClient())
@@ -133,8 +136,13 @@ func (h *CLIHandler) Auth(c *api.Client, m map[string]string) (*api.Secret, erro
 }
 
 func (h *CLIHandler) Help() string {
+	binaryName := h.BinaryName
+	if binaryName == "" {
+		binaryName = "vault"
+	}
+
 	help := `
-Usage: vault login -method=gcp [CONFIG K=V...]
+Usage: ` + binaryName + ` login -method=gcp [CONFIG K=V...]
 
 The GCP credential provider allows you to authenticate with
 a GCP IAM service account key. To use it, you provide a valid GCP IAM
@@ -143,12 +151,12 @@ or through any GCP Application Default Credentials.
 
 Authenticate using Application Default Credentials:
 
-  Example: vault login -method=gcp role=my-iam-role
+  Example: ` + binaryName + ` login -method=gcp role=my-iam-role
 
 Authenticate using explicitly passed-in credentials:
   
 	Example:
-	vault login -method=gcp role=my-iam-role -credentials=@path/to/creds role=my-iam-role
+	` + binaryName + ` login -method=gcp role=my-iam-role -credentials=@path/to/creds role=my-iam-role
 
 This tool generates a signed JWT signed using the given credentials.
 
@@ -158,7 +166,7 @@ Configuration:
 	Required. The name of the role you're requesting a token for.
   
   mount=gcp                           				
-	This is usually provided via the -path flag in the "vault login" command,
+	This is usually provided via the -path flag in the "` + binaryName + ` login" command,
 	but it can be specified here as well. If specified here, it takes 
 	precedence over the value for -path.
 	
